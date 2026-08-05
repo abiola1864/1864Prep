@@ -35,7 +35,7 @@ default and, when on, connects to a local/on-prem or approved cloud model. See
 pip install -e .            # Python 3.11+
 python cli.py transforms    # list the cleaning transforms
 python samples/make_sample.py
-python cli.py clean samples/socu_sample_raw.xlsx --plan plans/social_register.json --out out
+python cli.py clean samples/social_register_sample_raw.xlsx --plan plans/social_register.json --out out
 python -m pytest -q         # run the tests
 ```
 
@@ -46,19 +46,46 @@ sector → choose columns (by meaning) → upload → match column names → cle
 (built-in, or AI-assisted via a toggle) → sequential review (✓ looks right /
 ✗ keep original) → export with per-column network permissions.
 
-## Layout
+## What's in each folder
+
+- **`engine/`** — the cleaning engine itself (the code that does the work). Inside it:
+  `profile.py` works out what each column is; `resolve.py` matches messy values to a
+  correct list using spelling + sound; `induce.py` discovers a category set from the
+  data; `knowledge.py` remembers corrections it has been given; `review.py` builds the
+  before/after summaries; `pipeline.py` runs a cleaning plan end to end; and
+  `transforms/` holds one small, tested rule per file (IDs, phones, dates, emails,
+  numbers, names, states, etc.).
+- **`plans/`** — example cleaning plans. A plan is a short list saying "clean this
+  column with this rule" — what the tool proposes after reading a file.
+- **`reference/`** — the lookup data the engine matches against: the official states,
+  a places→state gazetteer, example LGA lists. Swap these to adapt to another country.
+- **`knowledge/`** — the corrections the tool has learned (starts from
+  `seed_corrections.json` and grows as people confirm fixes).
+- **`samples/`** — generators that create synthetic, deliberately messy data.
+  **`samples/data/`** holds ready-made example files, one per sector, so you can see
+  the kind of input the tool cleans. None of it is real data.
+- **`tests/`** — automated checks that the cleaning behaves correctly.
+- **`docs/`** — design notes (architecture, cleaning approach, handling unseen data,
+  learning + review).
+- **`prototype/ui/`** — clickable HTML mockups of the wizard and review screen. These
+  show the intended experience; they are **not** the final app (see Roadmap).
+- **Top level** — `cli.py` (run the engine from a terminal), `pyproject.toml`
+  (dependencies), `README.md`, `LICENSE`, `CONTRIBUTING.md`.
+
+### Sample data
+
+`samples/data/` has one synthetic file per sector so you can open example inputs:
 
 ```
-engine/        the cleaning engine (transforms, profiler, resolver, inducer,
-               knowledge base, outlier/review, pipeline)
-plans/         example cleaning plans (what the mapping layer emits)
-reference/     canonical lists & gazetteer (swap to adapt to another country)
-knowledge/     seed corrections the engine learns from
-samples/       synthetic-data + review-report generators
-tests/         transform, resolver, induction, alignment, learning tests
-docs/          architecture and design notes
-prototype/ui/  HTML prototypes of the wizard + review (UX spec, disposable)
+samples/data/health_sample.csv
+samples/data/agriculture_sample.csv
+samples/data/education_sample.csv
+samples/data/social_protection_sample.csv
+samples/data/finance_sample.csv
 ```
+
+Regenerate any time with `python samples/make_sector_samples.py`. Everything in
+`samples/` is synthetic — no real or private data is in this repository.
 
 ## Roadmap — toward a downloadable desktop app
 

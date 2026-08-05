@@ -2,7 +2,7 @@
 
 The tool's job is to turn any agency's messy records into the shared standard
 **without a human enumerating every possible misspelling first**. Hard-coded
-alias lists (the pattern in the original R scripts) don't scale: a new agency, a
+hand-written alias lists don't scale: a new agency, a
 new state, or a spelling nobody listed all break them silently. This document
 sets out the method the engine uses instead.
 

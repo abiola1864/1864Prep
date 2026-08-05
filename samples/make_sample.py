@@ -73,8 +73,8 @@ def build(n: int = 500) -> pd.DataFrame:
 if __name__ == "__main__":
     out_dir = Path(__file__).resolve().parent
     df = build(500)
-    csv_path = out_dir / "socu_sample_raw.csv"
-    xlsx_path = out_dir / "socu_sample_raw.xlsx"
+    csv_path = out_dir / "social_register_sample_raw.csv"
+    xlsx_path = out_dir / "social_register_sample_raw.xlsx"
     df.to_csv(csv_path, index=False)
     df.to_excel(xlsx_path, index=False)
     print(f"Wrote {len(df)} rows to:")

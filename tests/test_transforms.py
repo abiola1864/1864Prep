@@ -47,7 +47,7 @@ def test_state_alias_and_ambiguous():
     assert _one("state_ng", "Kastina", reference=REF_STATES) == ("KATSINA", False)
     assert _one("state_ng", "kaduna ", reference=REF_STATES) == ("KADUNA", False)
     assert _one("state_ng", "abuja", reference=REF_STATES) == ("FCT", False)
-    # Faithful to R: parentheticals are stripped BEFORE lookup, so this resolves.
+    # Parentheticals are stripped before lookup, so this resolves.
     assert _one("state_ng", "Kaduna(Kastina)", reference=REF_STATES) == ("KADUNA", False)
     val, flagged = _one("state_ng", "Atlantis", reference=REF_STATES)
     assert flagged  # genuinely unknown -> flagged
@@ -60,7 +60,7 @@ def test_lga_deconcatenation():
 
 
 def test_dates_various():
-    # Register sources are day-first; set dayfirst=True (default is month-first for NCC).
+    # Some sources are day-first; set dayfirst=True (the default is month-first).
     assert _one("date_iso", "3/9/1990", dayfirst=True) == ("1990-09-03", False)
     assert _one("date_iso", "1998-04-12") == ("1998-04-12", False)   # ISO, unambiguous
     val, flagged = _one("date_iso", "not a date")

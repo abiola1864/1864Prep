@@ -1,9 +1,8 @@
-"""Date parsing to ISO (YYYY-MM-DD), ported from the NCC script's cascade.
+"""Date parsing to ISO (YYYY-MM-DD), using a cascade of parsers.
 
-The R script tries a series of parsers in order (ymd_hms, mdy_hm, mdy_hms,
+A robust parser tries a series of parsers in order (ymd_hms, mdy_hm, mdy_hms,
 m/d/y H:M, ..., mdy, ymd) and keeps the first that succeeds, then nullifies any
-date outside a valid window (the R script uses 2025-01-01..2026-12-31 for the
-main pass). Both behaviours are reproduced here. Excel serial numbers are also
+date outside a valid window (configurable via min_year/max_year). Both behaviours are reproduced here. Excel serial numbers are also
 handled, matching parse_any_date().
 """
 from __future__ import annotations
@@ -25,7 +24,7 @@ class DateISOTransform:
         min_year (int, default 1900), max_year (int, default 2100)
             -- dates outside [min_year, max_year] are nulled + flagged.
         dayfirst (bool, default False)
-            -- the NCC files are month-first (US style: 1/1/2026, 3/9/26 8:29),
+            -- the  files are month-first (US style: 1/1/2026, 3/9/26 8:29),
                so the default is False to match the R mdy parsers. Set True for
                day-first sources.
     """

@@ -72,12 +72,9 @@ Two mechanisms carry the trust story and both belong in CI:
   step only when handing a partner an installer; internal pilots can ship
   unsigned.
 
-## Note on the R lineage
+## Note on provenance
 
-The transforms encode the same cleaning logic developed in R for the NCC and
-KADRIMA work (state mapping, LGA de-concatenation, multi-format date parsing,
-phone/provider normalisation). They are re-implemented here as named,
-parameterised, individually tested Python transforms. When the original R
-functions are to hand, align the edge cases (e.g. exact provider-prefix tables)
-against them so the Python output reproduces the existing cleaned outputs
-exactly — that equivalence check is the best first milestone.
+The cleaning rules are general and derived from common data-quality patterns
+(mixed date formats, inconsistent spellings, concatenated place names, varied
+phone formats). No agency's private data or scripts are included in this
+repository; sample data under `samples/` is synthetic.
