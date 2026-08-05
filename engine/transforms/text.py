@@ -96,12 +96,14 @@ class NumericTransform(Transform):
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         s = _clean_str(value)
-        # strip common currency symbols, thousands separators, spaces, and % 
-        s = re.sub(r"[,$£€₦%\s]", "", s)
+        neg = s.strip().startswith("(") and s.strip().endswith(")")   # (1,234) = -1234
+        s = re.sub(r"[,$£€₦%()\s]", "", s)
         if s == "":
             return "", True, "empty numeric"
         try:
-            f = float(s)
+            f = float(s)                       # also parses scientific e.g. 1.2e3
+            if neg:
+                f = -abs(f)
             return (str(int(f)) if f.is_integer() else str(f)), False, ""
         except ValueError:
             return value, True, "not numeric"
@@ -112,3 +114,17 @@ class TextNormaliseTransform(Transform):
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         return _clean_str(value), False, ""
+
+
+class TextCleanTransform(Transform):
+    """Natural-language cleanup: repair encoding, strip invisible characters,
+    normalise quotes/dashes/whitespace, and treat NA-tokens as blank."""
+    name = "text_clean"
+
+    def apply_value(self, value: Any) -> tuple[Any, bool, str]:
+        from ..textclean import normalize_missing, normalize_text
+        cleaned = normalize_missing(value)
+        raw = "" if value is None else str(value)
+        if cleaned == "" and normalize_text(value) != "":
+            return "", False, ""      # was a missing-token like N/A -> blanked
+        return cleaned, False, ""

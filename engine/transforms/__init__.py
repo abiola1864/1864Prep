@@ -13,8 +13,8 @@ from .identity import FixedLengthIdTransform, NINTransform
 from .phone import PhoneNGTransform
 from .resolve_tf import ResolveTransform
 from .text import (BooleanTransform, EmailTransform, GenderTransform,
-                   NameTransform, NumericTransform, TextNormaliseTransform,
-                   UpperTransform)
+                   NameTransform, NumericTransform, TextCleanTransform,
+                   TextNormaliseTransform, UpperTransform)
 
 REGISTRY = {
     # identity / contact
@@ -36,6 +36,7 @@ REGISTRY = {
     "boolean": BooleanTransform,
     "numeric": NumericTransform,
     "text_normalise": TextNormaliseTransform,
+    "text_clean": TextCleanTransform,   # natural-language / free-text cleanup
 }
 
 

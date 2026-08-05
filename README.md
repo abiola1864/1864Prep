@@ -49,12 +49,15 @@ sector → choose columns (by meaning) → upload → match column names → cle
 ## What's in each folder
 
 - **`engine/`** — the cleaning engine itself (the code that does the work). Inside it:
-  `profile.py` works out what each column is; `resolve.py` matches messy values to a
-  correct list using spelling + sound; `induce.py` discovers a category set from the
-  data; `knowledge.py` remembers corrections it has been given; `review.py` builds the
-  before/after summaries; `pipeline.py` runs a cleaning plan end to end; and
-  `transforms/` holds one small, tested rule per file (IDs, phones, dates, emails,
-  numbers, names, states, etc.).
+  `ingest.py` reads messy files of many kinds (CSV/Excel/JSON/**PDF**), sniffing
+  encoding, delimiter and header row; `profile.py` works out what each column is;
+  `resolve.py` matches messy values to a correct list using spelling + sound;
+  `induce.py` discovers a category set from the data; `textclean.py` cleans
+  natural-language / free text (encoding repair, missing-value tokens, language
+  detection, extraction); `knowledge.py` remembers corrections it has been given;
+  `review.py` builds the before/after summaries; `pipeline.py` runs a cleaning plan
+  end to end; and `transforms/` holds one small, tested rule per file (IDs, phones,
+  dates, emails, numbers, names, states, free-text, etc.).
 - **`plans/`** — example cleaning plans. A plan is a short list saying "clean this
   column with this rule" — what the tool proposes after reading a file.
 - **`reference/`** — the lookup data the engine matches against: the official states,
