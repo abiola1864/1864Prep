@@ -1,0 +1,18 @@
+{
+  "name": "ncc_complaints",
+  "sector": "telecoms_complaints",
+  "description": "Faithful reproduction of the NCC MASTER cleaning for a complaints export: state -> 37 official states, LGA via the 5-step pipeline, dates to ISO with the 2025-2026 window, provider normalisation, category/source/SLA canonicalisation. Column names follow the post-rename NCC schema.",
+  "mappings": [
+    {"source_column": "State", "target_field": "State", "transform": "state_ng",
+     "params": {"reference": "reference/ng_states.json", "on_unrecognized": "flag"}},
+    {"source_column": "LGA", "target_field": "LGA_Clean", "transform": "lga_ncc"},
+    {"source_column": "created_date_time", "target_field": "created_date", "transform": "date_iso",
+     "params": {"min_year": 2025, "max_year": 2026, "dayfirst": false}},
+    {"source_column": "closed_date", "target_field": "closed_date", "transform": "date_iso",
+     "params": {"min_year": 2025, "max_year": 2026, "dayfirst": false}},
+    {"source_column": "Service Provider", "target_field": "Provider_Clean", "transform": "provider"},
+    {"source_column": "Category", "target_field": "Category_Clean", "transform": "category"},
+    {"source_column": "Ticket_source", "target_field": "Source_Clean", "transform": "ticket_source"},
+    {"source_column": "Closed- within SLA", "target_field": "SLA_Clean", "transform": "sla"}
+  ]
+}

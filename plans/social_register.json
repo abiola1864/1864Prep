@@ -1,0 +1,55 @@
+{
+  "name": "social_register",
+  "sector": "social",
+  "description": "Standardises a state social register toward the sector fields. This is the kind of plan the AI mapping layer produces after reading column headers + a few sample rows. Edit any mapping by hand; the pipeline runs it exactly as written.",
+  "mappings": [
+    {
+      "source_column": "NIN Number",
+      "target_field": "NIN",
+      "transform": "nin",
+      "params": {}
+    },
+    {
+      "source_column": "Ph No",
+      "target_field": "MSISDN",
+      "transform": "phone_ng",
+      "params": {}
+    },
+    {
+      "source_column": "Other Names",
+      "target_field": "First Name",
+      "transform": "name",
+      "params": {}
+    },
+    {
+      "source_column": "Surname",
+      "target_field": "Last Name",
+      "transform": "name",
+      "params": {}
+    },
+    {
+      "source_column": "D.O.B",
+      "target_field": "Date of Birth",
+      "transform": "date_iso",
+      "params": {"dayfirst": true, "pivot": 30}
+    },
+    {
+      "source_column": "Sex",
+      "target_field": "Gender",
+      "transform": "gender",
+      "params": {}
+    },
+    {
+      "source_column": "State of Origin",
+      "target_field": "State",
+      "transform": "state_ng",
+      "params": {"reference": "reference/ng_states.json"}
+    },
+    {
+      "source_column": "LGA",
+      "target_field": "LGA",
+      "transform": "lga_ng",
+      "params": {"reference": "reference/ng_lga_kaduna.json"}
+    }
+  ]
+}

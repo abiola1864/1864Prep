@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1864 Prep — wizard (prototype)</title>
+<style>
+  :root{
+    --ink:#1b2431;--ink-soft:#586475;--faint:#98a2b1;--paper:#f7f6f2;--card:#fff;--line:#e7e3da;--line-soft:#f1eee7;
+    --navy:#1d3a53;--navy-d:#142a3d;--ok:#2f6f57;--ok-bg:#e7f1ec;--warn:#b5761c;--warn-bg:#f8efdc;--stop:#a83a3a;--stop-bg:#f7e7e5;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;font-size:14px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  button{font-family:inherit;cursor:pointer}
+  .app{display:flex;height:100vh;min-height:0}
+  .rail{width:206px;flex:0 0 206px;background:var(--navy-d);color:#c7d6e4;display:flex;flex-direction:column;padding:18px 0}
+  .brand{display:flex;align-items:center;gap:10px;padding:2px 18px 18px}
+  .brand svg{width:24px;height:24px}.brand b{color:#fff;font-size:13px;letter-spacing:.06em}
+  .brand span{display:block;font-size:9.5px;color:#7fa0bd;letter-spacing:.16em;text-transform:uppercase;margin-top:2px}
+  .steps{list-style:none;margin:8px 0 0;padding:0;flex:1}
+  .steps li{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:12.5px;color:#9fb6cb;cursor:pointer;border-left:3px solid transparent}
+  .steps li .n{width:20px;height:20px;flex:0 0 20px;border-radius:50%;border:1.5px solid #3d5c78;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--mono);color:#9fb6cb}
+  .steps li.done .n{background:var(--ok);border-color:var(--ok);color:#fff}.steps li.done .n::after{content:"✓"}.steps li.done .n span{display:none}
+  .steps li.active{color:#fff;background:rgba(255,255,255,.06);border-left-color:#5b91c0}.steps li.active .n{border-color:#fff;color:#fff}
+  .steps li.locked{opacity:.5;cursor:not-allowed}
+  .railfoot{padding:14px 18px 2px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#7c99b6;line-height:1.5}
+  .railfoot b{color:#c7d6e4;display:block;font-family:var(--mono);margin-top:6px}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+  .screen{flex:1;overflow:auto;padding:26px 30px;display:none}.screen.on{display:block}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:-.01em}
+  .lead{color:var(--ink-soft);margin:0 0 18px;max-width:72ch}
+  .eyebrow{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#5b91c0;font-weight:700;margin:0 0 7px}
+  .btn{border:1px solid var(--navy);background:var(--navy);color:#fff;font-size:13.5px;font-weight:600;padding:9px 18px;border-radius:8px}
+  .btn:hover{background:var(--navy-d)}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--navy);border-color:var(--line)}.btn.ghost:hover{border-color:var(--navy)}
+  .btn.sm{padding:6px 12px;font-size:12px;border-radius:6px}
+  .center{max-width:400px;margin:40px auto 0;text-align:center}
+  .field{text-align:left;margin:12px 0}.field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:5px;font-weight:600}
+  .field input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  .actbar{display:flex;gap:10px;align-items:center;margin-top:18px}
+
+  .sectors{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px;margin-top:6px}
+  .sector{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:15px;cursor:pointer;transition:.12s}
+  .sector:hover{border-color:#5b91c0;transform:translateY(-1px)}
+  .sector .ic{font-size:22px}.sector h3{margin:7px 0 3px;font-size:14.5px}.sector p{margin:0;font-size:11.5px;color:var(--ink-soft)}
+  .sector .cc{margin-top:9px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  /* column select */
+  .selbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .selbar .cnt{font-size:13px;color:var(--ink-soft)}.selbar .cnt b{color:var(--navy);font-family:var(--mono)}
+  .colgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+  .colchk{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+  .colchk.on{background:#eef4fb;border-color:#5b91c0}
+  .colchk input{width:15px;height:15px;accent-color:var(--navy);margin-top:2px;flex:0 0 15px}
+  .colchk .ci{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .colchk .nm{font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .colchk .def{font-size:11.5px;color:var(--ink-soft);line-height:1.4}
+  .colchk .alt{font-size:10.5px;color:var(--faint);font-style:italic}
+
+  /* upload */
+  .drop{border:2px dashed var(--line);border-radius:14px;background:#fff;padding:44px;text-align:center;cursor:pointer;margin-top:6px}
+  .drop:hover{border-color:#5b91c0;background:#fbfcfe}
+
+  /* match / unify */
+  .matchtable{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;max-width:860px}
+  .mh,.mrow{display:grid;grid-template-columns:1fr 30px 1fr 120px;gap:12px;align-items:center;padding:10px 16px}
+  .mh{background:#f5f8fb;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700}
+  .mrow{border-top:1px solid var(--line-soft)}
+  .mrow .raw{font-family:var(--mono);font-size:13px;font-weight:600}
+  .mrow .arr{color:#5b91c0;text-align:center}
+  .mrow select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:#fff}
+  .mrow.ignore{opacity:.55}
+  .mrow.needpick select{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}
+  .cf{font-size:11px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:20px;justify-self:start}
+  .cf.hi{background:var(--ok-bg);color:var(--ok)}.cf.md{background:var(--warn-bg);color:var(--warn)}.cf.lo{background:var(--stop-bg);color:var(--stop)}
+  .missing{margin-top:14px;background:var(--warn-bg);border:1px solid #ecd9b0;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#6b5322;max-width:860px}
+  .missing b{font-family:var(--mono)}
+
+  /* cleaning overlay */
+  .overlay{position:absolute;inset:0;background:rgba(247,246,242,.94);display:none;align-items:center;justify-content:center;z-index:20}
+  .overlay.on{display:flex}
+  .cleanbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:30px 34px;max-width:520px;text-align:center;box-shadow:0 10px 40px rgba(20,25,35,.1)}
+  .spin{width:42px;height:42px;border:3px solid var(--line);border-top-color:var(--navy);border-radius:50%;margin:0 auto 16px;animation:sp 0.8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .cleanbox h3{margin:0 0 6px;font-size:17px}.cleanbox p{margin:0 0 16px;color:var(--ink-soft);font-size:13px}
+  .cbar{height:8px;background:var(--line-soft);border-radius:6px;overflow:hidden;margin:8px 0 14px}
+  .cbar i{display:block;height:100%;width:0;background:var(--ok)}
+  .cladder{display:flex;flex-direction:column;gap:6px;text-align:left;font-size:12px}
+  .cladder .r{display:flex;justify-content:space-between;color:var(--ink-soft)}
+  .cladder .r b{font-family:var(--mono);color:var(--navy)}
+  .cladder .r.pending{opacity:.4}
+
+  /* sequential review (unchanged core) */
+  .rv-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .rv-sector{font-size:12px;color:var(--ink-soft)}.rv-sector b{color:var(--ink)}
+  .rv-pos{font-family:var(--mono);font-size:12.5px;color:var(--navy);font-weight:700}
+  .rv-progress{height:6px;background:var(--line-soft);border-radius:20px;overflow:hidden;flex:1;min-width:120px;max-width:300px}
+  .rv-progress i{display:block;height:100%;background:var(--ok);transition:width .2s}
+  .index{display:none;flex-wrap:wrap;gap:6px;margin:10px 0 4px}.index.on{display:flex}
+  .idxchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-family:var(--mono);cursor:pointer}
+  .idxchip.cur{border-color:var(--navy);box-shadow:0 0 0 2px rgba(29,58,83,.12)}
+  .fdot{width:7px;height:7px;border-radius:50%}
+  .fdot.auto{background:var(--ok)}.fdot.review{background:var(--warn)}.fdot.flagged{background:var(--stop)}.fdot.done{background:#c3ccd6}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;max-width:920px;margin-top:12px}
+  .d-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.d-name{font-family:var(--mono);font-size:18px;font-weight:700}
+  .chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;font-family:var(--mono)}
+  .chip.type{background:#eef2f6;color:var(--navy)}.chip.memory{background:#e8eef5;color:var(--navy)}.chip.fuzzy{background:#e8f0f8;color:#3a6ea8}
+  .chip.induced{background:var(--warn-bg);color:var(--warn)}.chip.model{background:#f0e9f6;color:#7a4fa0}.chip.format{background:var(--ok-bg);color:var(--ok)}
+  .statusdot{margin-left:auto;font-size:11.5px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:7px}
+  .perfect{background:var(--ok-bg);border:1px solid #cfe3d8;border-radius:9px;padding:10px 13px;font-size:12.5px;color:#1f4d3c;margin:12px 0}.perfect b{color:var(--ok)}
+  .howmini{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--ink-soft);margin:8px 0 4px;flex-wrap:wrap}
+  .howmini .m{padding:2px 8px;border:1px solid var(--line);border-radius:20px;background:#fff}.howmini .m.hit{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+  .rowbar{display:flex;align-items:center;gap:10px;margin:14px 0 8px;flex-wrap:wrap}.rowbar .prog{font-size:12.5px;color:var(--ink-soft)}.rowbar .prog b{color:var(--ok)}
+  .rowtable{border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .rowh,.row{display:grid;grid-template-columns:60px 1fr 1fr 200px;gap:12px;align-items:center;padding:9px 14px}
+  .rowh{background:#f5f8fb;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700}
+  .row{border-top:1px solid var(--line-soft);font-family:var(--mono);font-size:12.5px}
+  .row .rid{color:var(--faint);font-size:11px}.row .before{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:#cbb488}.row .after{color:var(--ink);font-weight:600}
+  .row.acc{background:#fcfefd}.row.acc .after{color:var(--ok)}
+  .row.rej{background:#fdf7f6}.row.rej .after{color:var(--stop);font-weight:400;text-decoration:line-through;text-decoration-color:#d7a3a3}.row.rej .before{text-decoration:none;color:var(--ink);font-weight:600}
+  .row.rev{background:#fdfaf2}
+  .acts{display:flex;gap:5px;justify-content:flex-end}
+  .acts button{border:1px solid var(--line);background:#fff;font-size:11px;font-weight:600;padding:5px 9px;border-radius:6px;color:var(--ink-soft)}
+  .acts button.a.on{background:var(--ok);border-color:var(--ok);color:#fff}.acts button.r.on{background:var(--stop);border-color:var(--stop);color:#fff}.acts button.v.on{background:var(--warn);border-color:var(--warn);color:#fff}
+  .acts button:hover{border-color:var(--ink-soft)}
+  .navrow{display:flex;align-items:center;gap:10px;margin-top:16px;max-width:920px}.navrow .sp{flex:1}
+  .gate{flex:0 0 58px;border-top:1px solid var(--line);background:#fff;display:flex;align-items:center;gap:14px;padding:0 30px}
+  .gate .msg{font-size:13px;color:var(--ink-soft)}.gate .msg b{color:var(--warn)}.gate .sp{flex:1}
+  .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1}
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 8px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 15px;min-width:120px}.kpi .n{font-size:20px;font-weight:700;font-family:var(--mono)}.kpi .l{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em}
+  .rv-count{font-size:12.5px;color:var(--ink-soft);margin-left:auto}
+  .rcard{max-width:640px;margin:18px auto 0;padding:26px 30px}
+  .rc-name{font-size:23px;font-weight:700;letter-spacing:-.01em}
+  .rc-sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px}
+  .rc-sub .link{color:var(--navy);text-decoration:underline;cursor:pointer}
+  .typepick{margin-top:10px}.typepick select{padding:8px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  .rc-summary{font-size:16px;line-height:1.55;margin:18px 0 2px}
+  .rc-ex-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-top:16px}
+  .rc-examples{margin:8px 0 2px;display:flex;flex-direction:column;gap:6px}
+  .rc-ex{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:13px;background:#fbfaf7;border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px}
+  .rc-ex .b{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:#cbb488}
+  .rc-ex .ar{color:#5b91c0}.rc-ex .a{color:var(--ok);font-weight:600}
+  .rc-outlier{margin-top:16px;background:var(--warn-bg);border:1px solid #ecd9b0;border-radius:9px;padding:11px 14px;font-size:12.5px;color:#6b5322}
+  .rc-decide{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+  .big{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:15px 16px;text-align:left;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:3px}
+  .big b{font-size:15px}.big span{font-size:12px;color:var(--ink-soft)}
+  .big.ok:hover,.big.ok.chosen{border-color:var(--ok);background:var(--ok-bg)}
+  .big.no:hover,.big.no.chosen{border-color:var(--stop);background:var(--stop-bg)}
+  .big.ok.chosen b{color:var(--ok)}.big.no.chosen b{color:var(--stop)}
+  .rc-done{margin-top:16px;font-size:12.5px;color:var(--ink-soft);text-align:center}
+  .aitoggle{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:16px 0 4px;max-width:860px}
+  .aitoggle .txt b{font-size:13.5px}.aitoggle .txt span{display:block;font-size:12px;color:var(--ink-soft);margin-top:3px;max-width:64ch}
+  .aitoggle .sp{flex:1}
+  .switch{position:relative;width:46px;height:26px;flex:0 0 46px;cursor:pointer}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .track{position:absolute;inset:0;background:#c3cedb;border-radius:20px;transition:.18s}
+  .switch .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch input:checked + .track{background:#7a4fa0}
+  .switch input:checked + .track + .knob{transform:translateX(20px)}
+  .connectbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 32px;max-width:460px;text-align:center;box-shadow:0 10px 40px rgba(20,25,35,.1)}
+  .connectbox .ai{font-size:30px;margin-bottom:8px}.connectbox h3{margin:0 0 6px;font-size:17px}.connectbox p{margin:0 0 16px;color:var(--ink-soft);font-size:12.5px;line-height:1.5}
+  .connectbox .prov{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+  .connectbox .prov button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600}
+  .connectbox .prov button:hover{border-color:#7a4fa0}
+  .switch.net input:checked + .track{background:var(--navy)}
+  .netperm{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 18px;max-width:860px;margin-top:12px}
+  .np-bar{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+  .permrow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line-soft)}
+  .permrow:first-of-type{border-top:none}
+  .permrow .pl{font-size:13px;font-weight:600}.permrow .pl .pt{font-size:10.5px;color:var(--faint);font-family:var(--mono);font-weight:400;margin-left:8px}
+  .permrow.sensitive .pl::after{content:'⚠ sensitive';color:var(--warn);font-size:10px;font-weight:700;margin-left:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
+  .seg button{border:none;background:#fff;padding:6px 11px;font-size:11.5px;color:var(--ink-soft);cursor:pointer;border-left:1px solid var(--line)}
+  .seg button:first-child{border-left:none}
+  .seg button.on{background:var(--navy);color:#fff}
+  .np-foot{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .np-foot #permsummary{font-size:12.5px;color:var(--ink-soft)}.np-foot .sp{flex:1}
+  .np-note{font-size:11.5px;color:var(--ink-soft);margin:12px 0 0;line-height:1.5;max-width:860px}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none"><path d="M12 6h16M12 34h16M14 6c0 7 12 10 12 14s-12 7-12 14M26 6c0 7-12 10-12 14s12 7 12 14" stroke="#8fb4dc" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <div><b>1864 PREP</b><span>wizard</span></div>
+    </div>
+    <ol class="steps" id="steps">
+      <li data-s="0"><span class="n"><span>1</span></span> Sign in</li>
+      <li data-s="1"><span class="n"><span>2</span></span> Sector</li>
+      <li data-s="2"><span class="n"><span>3</span></span> Choose columns</li>
+      <li data-s="3"><span class="n"><span>4</span></span> Upload</li>
+      <li data-s="4"><span class="n"><span>5</span></span> Match names</li>
+      <li data-s="5"><span class="n"><span>6</span></span> Review</li>
+      <li data-s="6"><span class="n"><span>7</span></span> Export</li>
+    </ol>
+    <div class="railfoot">Runs on this computer.<b id="rf-sector"></b></div>
+  </nav>
+
+  <div class="main">
+    <!-- 0 sign in -->
+    <section class="screen on" data-screen="0">
+      <div class="center"><h1>Sign in to 1864 Prep</h1>
+        <p class="lead" style="text-align:center;margin:6px auto 16px">Prepare any agency's records for the Open Network.</p>
+        <div class="field"><label>Work email</label><input value="data.officer@agency.gov.ng"></div>
+        <div class="field"><label>Password</label><input type="password" value="••••••••••"></div>
+        <button class="btn" style="width:100%;margin-top:6px" onclick="go(1)">Sign in</button></div>
+    </section>
+
+    <!-- 1 sector -->
+    <section class="screen" data-screen="1">
+      <p class="eyebrow">Step 2</p><h1>Which sector is this dataset from?</h1>
+      <p class="lead">Each sector has its own columns. Pick one and we'll show the fields it usually has, so you can tell us which apply to your data.</p>
+      <div class="sectors" id="sectors"></div>
+    </section>
+
+    <!-- 2 choose columns -->
+    <section class="screen" data-screen="2">
+      <p class="eyebrow">Step 3</p><h1>Which of these columns are in your data?</h1>
+      <p class="lead">Choose by <em>meaning</em>, not by name. Your file almost certainly uses different headers — that's fine, we line them up in the next step. Each field below says what it means; tick the ones your data contains, untick the rest. We don't ask for the data type — the wizard detects that from your file.</p>
+      <div class="selbar">
+        <span class="cnt"><b id="selcount">0</b> of <span id="seltotal">0</span> selected</span>
+        <span class="sp" style="flex:1"></span>
+        <button class="btn ghost sm" onclick="selectAll(true)">Select all</button>
+        <button class="btn ghost sm" onclick="selectAll(false)">Select none</button>
+      </div>
+      <div class="colgrid" id="colgrid"></div>
+      <div class="actbar"><button class="btn" onclick="go(3)">Continue to upload →</button></div>
+    </section>
+
+    <!-- 3 upload -->
+    <section class="screen" data-screen="3">
+      <p class="eyebrow">Step 4</p><h1>Upload your file</h1>
+      <p class="lead">However it's structured — one messy spreadsheet is fine. It's read on this computer; nothing is uploaded anywhere. Next we'll line your column names up with the standard ones.</p>
+      <div class="drop" onclick="doUpload()">
+        <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
+        <p style="color:var(--ink-soft);margin:0;font-size:13px">.xlsx · .csv · .pdf — read locally</p>
+      </div>
+    </section>
+
+    <!-- 4 match names -->
+    <section class="screen" data-screen="4">
+      <p class="eyebrow">Step 5 · unify column names</p><h1>Match your columns to the standard names</h1>
+      <p class="lead">We found these headers in your file and suggested where each belongs. Confirm or change any — this is just aligning <em>names</em>, so a question means the same thing across agencies. Cleaning the values comes next.</p>
+      <div class="matchtable" id="matchtable">
+        <div class="mh"><span>Your column (as uploaded)</span><span></span><span>Standard field</span><span>Suggestion</span></div>
+        <div id="matchrows"></div>
+      </div>
+      <div class="missing" id="missing" style="display:none"></div>
+      <div class="aitoggle">
+        <div class="txt"><b>Clean with AI assistance?</b><span id="ainote">Off — the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.</span></div>
+        <span class="sp"></span>
+        <label class="switch"><input type="checkbox" id="aiswitch" onchange="toggleAI(this.checked)"><span class="track"></span><span class="knob"></span></label>
+      </div>
+      <div class="actbar"><button class="btn" onclick="startCleaning()">Looks right — clean my data →</button>
+        <span class="cnt" style="font-size:12.5px;color:var(--ink-soft)"><b id="matchn" style="font-family:var(--mono);color:var(--navy)">0</b> columns matched</span></div>
+    </section>
+
+    <!-- 5 review -->
+    <section class="screen" data-screen="5">
+      <div class="rv-top">
+        <button class="btn ghost sm" id="backbtn" onclick="rvBack()">← Back</button>
+        <span class="rv-pos" id="rvpos">Column 1 of 1</span>
+        <div class="rv-progress"><i id="rvbar"></i></div>
+        <span class="rv-count" id="rvcount"></span>
+      </div>
+      <div id="reviewcard"></div>
+    </section>
+
+    <!-- 6 export -->
+    <section class="screen" data-screen="6">
+      <p class="eyebrow">Step 7</p><h1>Approved and standardised</h1>
+      <p class="lead">Only the changes you accepted are applied. Rejected values stay exactly as recorded; flagged rows are set aside. The cleaned file stays on your computer.</p>
+      <div class="kpis" id="expkpis"></div>
+      <div style="display:flex;gap:12px;margin-top:12px">
+        <button class="btn" onclick="toast('(mockup) cleaned file saved locally')">Save cleaned file</button>
+        <button class="btn ghost" onclick="toast('(mockup) audit log downloaded')">Download audit log</button>
+      </div>
+
+      <div class="aitoggle" style="max-width:860px;margin-top:24px">
+        <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off — the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned — never the raw record.</span></div>
+        <span class="sp"></span>
+        <label class="switch net"><input type="checkbox" id="netswitch" onchange="toggleNet(this.checked)"><span class="track"></span><span class="knob"></span></label>
+      </div>
+
+      <div id="netpanel" style="display:none">
+        <div class="netperm">
+          <div class="np-bar"><b>Choose which columns can be asked about</b><span class="sp" style="flex:1"></span>
+            <button class="btn ghost sm" onclick="permAll('off')">None</button>
+            <button class="btn ghost sm" onclick="permAll('confirm')">Confirm all</button></div>
+          <div id="permlist"></div>
+          <div class="np-foot"><span id="permsummary"></span><span class="sp"></span>
+            <button class="btn" id="publishbtn" onclick="publishNet()">Publish to network</button></div>
+        </div>
+        <p class="np-note">🔒 Your data never moves. The network carries a <b>question</b> and a <b>verified answer</b>; the record is read in place on this computer and only the answer is sent. Nothing is shared until you publish, and you can revoke any column at any time.</p>
+      </div>
+    </section>
+
+    <div class="gate" id="gate" style="display:none">
+      <span class="msg" id="gatemsg"></span><span class="sp"></span>
+      <button class="btn ghost sm" onclick="acceptRemaining()">Accept all remaining</button>
+      <button class="btn" id="finish" disabled onclick="go(6)">Approve &amp; export</button>
+    </div>
+
+    <!-- cleaning / connect overlay -->
+    <div class="overlay" id="overlay"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700);}
+
+const DEFS={
+ nin:'National Identification Number — the 11-digit national ID.',bvn:'Bank Verification Number — the 11-digit banking ID.',tin:'Tax Identification Number.',rc_number:'Company (RC) registration number from CAC.',bn_number:'Business-name registration number.',
+ enrollee_id:'Unique member/enrollee number in your scheme.',farmer_id:'Unique number identifying each farmer.',household_id:'Unique number identifying each household.',student_id:'Unique number identifying each student.',account_number:'Bank or wallet account number.',hmo_code:'Code identifying the HMO/provider.',certificate_no:'Certificate number (e.g. birth certificate).',parcel_id:'Unique land parcel/plot identifier.',c_of_o_number:'Certificate of Occupancy number.',plate_number:'Vehicle number plate.',vin_chassis:'Vehicle chassis / VIN number.',license_number:"Driver's licence number.",
+ phone:'A contact mobile number.',nok_phone:"Next of kin's phone number.",email:'An email address.',first_name:'Given / first name.',last_name:'Family name / surname.',surname:'Family name / surname.',full_name:'Full name of the person.',sex:'Sex / gender.',date_of_birth:'Date of birth.',head_dob:'Date of birth of the household head.',
+ state:'State (of the 36 + FCT).',state_of_residence:'State where the person currently lives.',state_of_origin:'State the person is originally from.',place_of_birth:'Place / state of birth.',lga:'Local Government Area.',ward:'Ward within the LGA.',address:'Street / residential address.',
+ marital_status:'Marital status (single, married…).',blood_group:'Blood group (A+, O−…).',genotype:'Genotype (AA, AS…).',plan_type:'Health plan / package.',primary_diagnosis:'Recorded primary diagnosis.',crop_type:'Main crop grown.',farm_size_ha:'Farm size in hectares.',gps_lat:'GPS latitude.',gps_long:'GPS longitude.',redemption_status:'Whether inputs were redeemed (yes/no).',poverty_score:'Poverty / vulnerability score.',transfer_amount:'Amount transferred per payment.',payment_status:'Whether payment was made (yes/no).',bank_name:'Name of the bank.',balance:'Account balance.',annual_turnover:'Reported annual turnover.',amount_paid:'Amount paid.',area_sqm:'Area in square metres.',valuation:'Assessed monetary value.',exam_score:'Examination score.',attendance_pct:'Attendance percentage.',scholarship_status:'Whether on scholarship (yes/no).',registration_date:'Date of registration.',enrolment_date:'Date of enrolment.',business_name:'Registered business name.',disability_status:'Whether the person has a disability (yes/no).',weight_at_birth_kg:'Weight at birth, in kg.',year_of_make:'Year the vehicle was made.'
+};
+const ALSO={nin:'National ID, NIN No',phone:'GSM, Mobile, Ph No',date_of_birth:'DOB, Birth Date',lga:'Local Govt, L.G.A',first_name:'Given Name, FName',last_name:'Surname, LName',sex:'Gender',email:'E-mail, Mail',account_number:'Acct No, A/C',state:'State Name',full_name:'Name'};
+const humanize=n=>n.replace(/_/g,' ');
+const defOf=n=>DEFS[n]||('The '+humanize(n)+' for each record.');
+
+const LABELS={
+ nin:'NIN (National ID)',bvn:'BVN (Bank ID)',tin:'TIN (Tax ID)',rc_number:'RC number (CAC)',bn_number:'BN number',hmo_code:'HMO code',
+ enrollee_id:'Enrollee / member ID',farmer_id:'Farmer ID',household_id:'Household ID',student_id:'Student ID',head_nin:'Household head — NIN',
+ title:'Title (Mr / Mrs / …)',first_name:'First name',middle_name:'Middle name',last_name:'Surname',surname:'Surname',full_name:'Full name',
+ head_name:'Household head — name',owner_name:'Owner name',account_name:'Account name',taxpayer_name:'Taxpayer name',child_name:'Child name',
+ mother_name:"Mother's name",father_name:"Father's name",director_name:'Director name',guardian_name:'Guardian name',next_of_kin:'Next of kin',
+ caseworker:'Caseworker',extension_officer:'Extension officer',registrar:'Registrar',informant_name:'Informant name',enrolled_by:'Enrolled by (officer)',
+ sex:'Sex / gender',sex_of_head:'Household head — sex',date_of_birth:'Date of birth',head_dob:'Household head — date of birth',age:'Age',
+ marital_status:'Marital status',nationality:'Nationality',religion:'Religion',ethnicity:'Ethnicity / tribe',
+ disability_status:'Has a disability?',disability:'Has a disability?',disability_in_hh:'Disability in household?',
+ phone:'Phone number',alternate_phone:'Alternate phone',whatsapp_number:'WhatsApp number',nok_phone:'Next of kin — phone',
+ guardian_phone:'Guardian phone',informant_phone:'Informant phone',director_phone:'Director phone',
+ email:'Email address',address:'Home address',residential_address:'Residential address',town:'Town / city',ward:'Ward',
+ lga:'LGA (Local Govt)',state:'State',state_of_residence:'State of residence',state_of_origin:'State of origin',
+ place_of_birth:'Place of birth',facility_state:'Facility state',
+ nok_relationship:'Next of kin — relationship',bank_name:'Bank name',account_number:'Account number',
+ registration_date:'Registration date',registration_channel:'How they registered',record_status:'Record status',remarks:'Remarks / notes',
+ enrolment_date:'Enrolment date',expiry_date:'Expiry date',opening_date:'Account opening date',filing_date:'Filing date',
+ last_visit_date:'Last visit date',last_payment_date:'Last payment date',
+ blood_group:'Blood group',genotype:'Genotype',plan_type:'Health plan / package',scheme:'Scheme',primary_diagnosis:'Primary diagnosis',
+ provider_facility:'Provider / facility',premium_amount:'Premium amount',payment_status:'Payment made?',dependants_count:'Number of dependants',
+ occupation:'Occupation',employer:'Employer',
+ cooperative:'Cooperative',crop_type:'Main crop',secondary_crop:'Secondary crop',farm_size_ha:'Farm size (hectares)',
+ gps_lat:'GPS latitude',gps_long:'GPS longitude',input_package:'Input package',redemption_status:'Inputs redeemed?',season:'Season',
+ expected_yield_kg:'Expected yield (kg)',soil_type:'Soil type',irrigation:'Irrigated?',land_tenure:'Land tenure',
+ household_size:'Household size',children_count:'Number of children',elderly_count:'Number of elderly',poverty_score:'Poverty score',
+ vulnerability_tier:'Vulnerability tier',programme:'Programme',transfer_amount:'Transfer amount',payment_frequency:'Payment frequency',
+ housing_type:'Housing type',water_source:'Water source',toilet_type:'Toilet type',income_source:'Main income source',verification_status:'Verification status',
+ account_type:'Account type',kyc_tier:'KYC tier',branch:'Branch',balance:'Account balance',account_status:'Account status',
+ taxpayer_type:'Taxpayer type',business_sector:'Business sector',business_name:'Business name',annual_turnover:'Annual turnover',
+ assessed_tax:'Assessed tax',amount_paid:'Amount paid',balance_due:'Balance due',tax_office:'Tax office',
+ plate_number:'Number plate',vin_chassis:'Chassis / VIN',engine_number:'Engine number',owner_nin:"Owner's NIN",vehicle_make:'Vehicle make',
+ vehicle_model:'Vehicle model',vehicle_type:'Vehicle type',year_of_make:'Year of make',color:'Colour',license_number:'Licence number',
+ insurance_status:'Insured?',road_worthiness:'Road-worthy?',
+ parcel_id:'Parcel / plot ID',title_type:'Title type',land_use:'Land use',area_sqm:'Area (sqm)',valuation:'Valuation',
+ c_of_o_number:'C-of-O number',title_status:'Title status',
+ certificate_no:'Certificate number',mother_nin:"Mother's NIN",father_nin:"Father's NIN",weight_at_birth_kg:'Weight at birth (kg)',
+ entity_type:'Entity type',entity_status:'Entity status',share_capital:'Share capital',director_nin:"Director's NIN",
+ school_name:'School name',class_level:'Class / level',exam_score:'Exam score',average_grade:'Average grade',subject_stream:'Subject stream',
+ scholarship_status:'On scholarship?',sponsor:'Sponsor',attendance_pct:'Attendance (%)'
+};
+const ACR={nin:'NIN',bvn:'BVN',tin:'TIN',lga:'LGA',gps:'GPS',hmo:'HMO',nok:'NOK',vin:'VIN',rc:'RC',id:'ID',dob:'DOB',bn:'BN',sqm:'sqm',kg:'kg',ha:'ha'};
+function labelOf(key){ if(LABELS[key])return LABELS[key];
+  return key.split('_').map((w,i)=>ACR[w]?ACR[w]:(i===0?w.charAt(0).toUpperCase()+w.slice(1):w)).join(' '); }
+
+const B={
+ idnin:['nin:identifier'], idbvn:['bvn:identifier'],
+ person:['title:categorical','first_name:name','middle_name:name','last_name:name','sex:gender','date_of_birth:date','marital_status:categorical','nationality:categorical','religion:categorical','ethnicity:categorical','disability_status:boolean'],
+ contact:['phone:phone','alternate_phone:phone','whatsapp_number:phone','email:email','address:free_text','town:categorical','lga:geo','ward:categorical'],
+ nok:['next_of_kin:name','nok_relationship:categorical','nok_phone:phone'],
+ bank:['bank_name:categorical','account_number:identifier','account_name:name'],
+ meta:['registration_date:date','registration_channel:categorical','enrolled_by:name','record_status:categorical','remarks:free_text']
+};
+function S(){ const seen=new Map(); [].concat.apply([],[].slice.call(arguments)).forEach(c=>{const k=c.split(':')[0]; if(!seen.has(k))seen.set(k,c);}); return [...seen.values()]; }
+
+const SECTORS=[
+ {key:'health',name:'Health / NHIA',ic:'\u2795',desc:'Enrollees, providers, claims',cols:S(['enrollee_id:identifier','hmo_code:identifier','scheme:categorical','plan_type:categorical'],B.idnin,B.person,B.contact,['state_of_residence:geo','facility_state:geo'],B.nok,['blood_group:categorical','genotype:categorical','primary_diagnosis:categorical','provider_facility:categorical','enrolment_date:date','expiry_date:date','premium_amount:numeric','payment_status:boolean','last_visit_date:date','dependants_count:numeric','occupation:categorical','employer:free_text'],B.bank,B.meta)},
+ {key:'agric',name:'Agriculture',ic:'\ud83c\udf3e',desc:'Farmers, inputs, subsidies',cols:S(['farmer_id:identifier'],B.idnin,B.idbvn,B.person,B.contact,['state:geo','cooperative:categorical','crop_type:categorical','secondary_crop:categorical','farm_size_ha:numeric','gps_lat:numeric','gps_long:numeric','input_package:categorical','redemption_status:boolean','season:categorical','expected_yield_kg:numeric','extension_officer:name','soil_type:categorical','irrigation:boolean','land_tenure:categorical'],B.bank,B.meta)},
+ {key:'social',name:'Social protection',ic:'\ud83c\udfe0',desc:'Cash transfer, safety nets',cols:S(['household_id:identifier','head_nin:identifier','head_name:name','sex_of_head:gender','head_dob:date'],B.contact,['state:geo','household_size:numeric','children_count:numeric','elderly_count:numeric','poverty_score:numeric','vulnerability_tier:categorical','programme:categorical','transfer_amount:numeric','payment_frequency:categorical','payment_status:boolean','last_payment_date:date','caseworker:name','disability_in_hh:boolean','housing_type:categorical','water_source:categorical','toilet_type:categorical','income_source:categorical','verification_status:categorical','gps_lat:numeric','enrolment_date:date'],B.bank,B.meta)},
+ {key:'finance',name:'Financial inclusion',ic:'\ud83c\udfe6',desc:'Accounts, wallets, KYC',cols:S(B.idnin,B.idbvn,B.person,B.contact,['state:geo','account_type:categorical','kyc_tier:categorical','branch:categorical','opening_date:date','balance:numeric','account_status:boolean','occupation:categorical'],B.bank,B.meta)},
+ {key:'tax',name:'Tax / revenue',ic:'\ud83e\uddfe',desc:'Taxpayers, assessments',cols:S(['tin:identifier','rc_number:identifier','taxpayer_name:name','business_name:free_text','taxpayer_type:categorical','business_sector:categorical'],B.contact,['state:geo','annual_turnover:numeric','assessed_tax:numeric','amount_paid:numeric','balance_due:numeric','payment_status:boolean','filing_date:date','tax_office:categorical'],B.meta)},
+ {key:'transport',name:'Transport / vehicles',ic:'\ud83d\ude97',desc:'Registration, licensing',cols:S(['plate_number:identifier','vin_chassis:identifier','engine_number:identifier','owner_name:name','owner_nin:identifier'],['phone:phone','email:email','address:free_text','lga:geo','state:geo'],['vehicle_make:categorical','vehicle_model:categorical','vehicle_type:categorical','year_of_make:numeric','color:categorical','registration_date:date','expiry_date:date','license_number:identifier','insurance_status:boolean','road_worthiness:boolean'],B.meta)},
+ {key:'land',name:'Land / housing',ic:'\ud83d\uddfa\ufe0f',desc:'Parcels, titles, valuation',cols:S(['parcel_id:identifier','owner_name:name','owner_nin:identifier','title_type:categorical','land_use:categorical','area_sqm:numeric'],['address:free_text','lga:geo','state:geo','phone:phone','email:email'],['gps_lat:numeric','gps_long:numeric','valuation:numeric','registration_date:date','c_of_o_number:identifier','title_status:categorical'],B.meta)},
+ {key:'civil',name:'Civil registration',ic:'\ud83d\udcdc',desc:'Births, deaths',cols:S(['certificate_no:identifier','child_name:name','sex:gender','date_of_birth:date','place_of_birth:geo','weight_at_birth_kg:numeric','mother_name:name','mother_nin:identifier','father_name:name','father_nin:identifier'],['state:geo','lga:geo','registration_date:date','registrar:name','informant_name:name','informant_phone:phone'],B.meta)},
+ {key:'business',name:'Business registration',ic:'\ud83c\udfe2',desc:'CAC entities, directors',cols:S(['rc_number:identifier','bn_number:identifier','business_name:free_text','entity_type:categorical','business_sector:categorical','entity_status:categorical','share_capital:numeric','tin:identifier'],['state:geo','lga:geo','address:free_text','phone:phone','email:email'],['director_name:name','director_nin:identifier','director_phone:phone','registration_date:date'],B.meta)},
+ {key:'education',name:'Education',ic:'\ud83c\udf93',desc:'Students, scholarships',cols:S(['student_id:identifier'],B.idnin,['title:categorical','first_name:name','middle_name:name','last_name:name','sex:gender','date_of_birth:date','disability:boolean'],['phone:phone','email:email','address:free_text','lga:geo','state_of_origin:geo'],['school_name:categorical','class_level:categorical','exam_score:numeric','average_grade:categorical','subject_stream:categorical','scholarship_status:boolean','sponsor:categorical','guardian_name:name','guardian_phone:phone','enrolment_date:date','attendance_pct:numeric'],B.meta)}
+];
+const TYPEMETA={identifier:['format',0.97],name:['format',0.86],gender:['format',0.98],date:['format',0.9],phone:['format',0.97],email:['format',0.96],numeric:['format',0.97],boolean:['format',0.98],geo:['model',0.8],categorical:['induced',0.82],free_text:['format',0.72]};
+const PERFECT={identifier:'Kept exactly as recorded (format only — no digits invented).',phone:'+234XXXXXXXXXX (E.164).',email:'lower-case, valid address.',date:'ISO date YYYY-MM-DD.',numeric:'clean number (no symbols/separators).',boolean:'Yes / No.',gender:'Male / Female.',name:'Title Case name (spelling untouched).',geo:'one of the 37 official states.',categorical:'a confirmed category set discovered from the data.',free_text:'trimmed, single-spaced text.'};
+const R={identifier:[['REC-00481','00481'],['REC-77120','77120'],['id:9931','9931'],['  40222 ','40222']],phone:[['08031234567','+2348031234567'],['0806 111 2222','+2348061112222'],['234701 555 9000','+2347015559000']],email:[['ADA@X.IO','ada@x.io'],['  Tunde@Mail.COM','tunde@mail.com']],date:[['6/1/2025','2025-06-01'],['01/06/2025','2025-06-01'],['2025/6/1','2025-06-01']],numeric:[['$1,200.50','1200.5'],['N45,000','45000'],['2 300','2300']],boolean:[['yes','Yes'],['NO','No'],['Y','Yes']],gender:[['M','Male'],['f','Female'],['FEMALE','Female']],name:[['ADA LOVELACE','Ada Lovelace'],['alan turing','Alan Turing'],['  grace hopper ','Grace Hopper']],geo:[['Port Harcourt','RIVERS'],['Kastina','KATSINA'],['ibadan','OYO'],['Gwarzo','?']],categorical:[['basic','Basic'],['BASIC','Basic'],['premuim','Premium'],['ENT','Enterprise']],free_text:[['  needs  followup ','needs followup'],['N/A','']]};
+
+/* messy header variants for the unify step */
+const ALIAS={phone:['Ph No','PHONE NUMBER','gsm','Mobile No'],nok_phone:['NOK Phone','kin phone'],informant_phone:['Informant Tel'],guardian_phone:['Guardian GSM'],director_phone:['Dir. Phone'],nin:['NIN No','National ID','nin_number'],head_nin:['Head NIN'],owner_nin:['Owner National ID'],mother_nin:['Mother NIN'],director_nin:['Dir NIN'],date_of_birth:['DOB','D.O.B','Birth Date'],head_dob:['Head DOB'],first_name:['FirstName','Given Name'],last_name:['Surname','LastName'],surname:['Surname'],full_name:['Full Name','NAME'],email:['E-mail','Email Address'],state:['STATE','State '],state_of_residence:['State of Residence'],state_of_origin:['State of Origin'],lga:['L.G.A','Local Govt'],sex:['Gender','SEX'],sex_of_head:['Head Sex']};
+function messy(std,i){
+  if(ALIAS[std]) return ALIAS[std][i%ALIAS[std].length];
+  const t=std.replace(/_/g,' ');
+  const mode=i%3;
+  if(mode===0) return t.replace(/\b\w/g,c=>c.toUpperCase());   // Title Case
+  if(mode===1) return t.toUpperCase();                          // UPPER
+  return std;                                                   // as-is
+}
+
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={};
+
+function go(n){
+  cur=n;
+  $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
+  $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n);li.classList.toggle('done',s<n&&s<=reached);});
+  $('#gate').style.display=n===5?'flex':'none';
+  if(n===2)renderColumns();
+  if(n===4)renderMatch();
+  if(n===5){renderReview();updateGate();}
+  if(n===6)renderExport();
+}
+$$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
+
+/* sectors */
+$('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('');
+function pickSector(i){
+  SECTOR=SECTORS[i];
+  SELECTED=new Set(SECTOR.cols.map((c,j)=>j).filter(j=>j%7!==5)); // pre-tick ~85%
+  $('#rf-sector').textContent=SECTOR.name;
+  reached=Math.max(reached,2); go(2);
+}
+
+/* choose columns */
+function renderColumns(){
+  $('#seltotal').textContent=SECTOR.cols.length;
+  $('#colgrid').innerHTML=SECTOR.cols.map((spec,j)=>{const n=spec.split(':')[0];
+    const also=ALSO[n]?`<span class="alt">your file might call it: ${esc(ALSO[n])}</span>`:'';
+    return `<label class="colchk ${SELECTED.has(j)?'on':''}" onclick="toggleCol(${j},event)"><input type="checkbox" ${SELECTED.has(j)?'checked':''}>
+      <span class="ci"><span class="nm">${esc(n)}</span><span class="def">${esc(defOf(n))}</span>${also}</span></label>`;}).join('');
+  $('#selcount').textContent=SELECTED.size;
+}
+function toggleCol(j,e){e.preventDefault();if(SELECTED.has(j))SELECTED.delete(j);else SELECTED.add(j);renderColumns();}
+function selectAll(v){SELECTED=v?new Set(SECTOR.cols.map((c,j)=>j)):new Set();renderColumns();}
+
+/* upload -> build messy raw headers from selected columns */
+function doUpload(){
+  const chosen=[...SELECTED].sort((a,b)=>a-b);
+  RAWS=[];
+  const dropIdx=chosen[Math.min(3,chosen.length-1)];      // one selected col missing from file
+  const needPick=chosen.length>6?chosen[5]:-1;            // one ambiguous suggestion
+  const mediumIdx=chosen.length>1?chosen[1]:-1;
+  chosen.forEach((j,k)=>{
+    if(j===dropIdx) return;
+    const std=SECTOR.cols[j].split(':')[0];
+    const raw=messy(std,k);
+    let conf=0.95, suggested=std;
+    if(j===needPick){conf=0.5;suggested='';}
+    else if(j===mediumIdx){conf=0.78;}
+    else if(raw===std){conf=0.99;}
+    RAWS.push({raw,suggested,conf,chosen:suggested});
+  });
+  // a couple of extra unrecognised headers the file happens to contain
+  RAWS.push({raw:'col_47',suggested:'',conf:0.2,chosen:'__ignore'});
+  RAWS.push({raw:'remarks_old',suggested:'',conf:0.3,chosen:'__ignore'});
+  window.__missingStd = dropIdx!=null ? SECTOR.cols[dropIdx].split(':')[0] : null;
+  reached=Math.max(reached,4); go(4);
+}
+
+/* match names */
+function stdOptions(sel){
+  const opts=[...SELECTED].sort((a,b)=>a-b).map(j=>{const n=SECTOR.cols[j].split(':')[0];return `<option value="${n}" ${n===sel?'selected':''}>${labelOf(n)}</option>`;}).join('');
+  return `<option value="__ignore" ${sel==='__ignore'?'selected':''}>(ignore this column)</option>`+opts;
+}
+function renderMatch(){
+  $('#matchrows').innerHTML=RAWS.map((r,i)=>{
+    const band=r.conf>=0.9?'hi':(r.conf>=0.6?'md':'lo');
+    const lab=r.chosen==='__ignore'?'ignored':(r.chosen===''?'pick one':(r.conf>=0.9?'confident':'check'));
+    const need=(r.chosen===''||r.chosen==null);
+    return `<div class="mrow ${r.chosen==='__ignore'?'ignore':''} ${need?'needpick':''}">
+      <span class="raw">${esc(r.raw)}</span><span class="arr">→</span>
+      <select onchange="setMatch(${i},this.value)">${stdOptions(r.chosen)}</select>
+      <span class="cf ${band}">${lab}</span></div>`;}).join('');
+  const matched=RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').length;
+  $('#matchn').textContent=matched;
+  if(window.__missingStd){$('#missing').style.display='block';
+    $('#missing').innerHTML=`Heads up: the standard field <b>${esc(labelOf(window.__missingStd))}</b> wasn't found in your file. That's fine — it'll simply be left empty. Add it later if you have it.`;}
+  else $('#missing').style.display='none';
+}
+function setMatch(i,v){RAWS[i].chosen=v;renderMatch();}
+
+/* cleaning overlay -> review */
+function toggleAI(on){USE_AI=on;
+  $('#ainote').textContent = on
+    ? 'On — adds an AI model for the hard cases (unusual headers, place names, free text). You\u2019ll connect a model first; only column names and sample values are shared, never full records.'
+    : 'Off — the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.';
+}
+function startCleaning(){
+  const matched=[...new Set(RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').map(r=>r.chosen))];
+  FIELDS=matched.map((name,i)=>{
+    const spec=SECTOR.cols.find(c=>c.split(':')[0]===name)||`${name}:free_text`;
+    const type=spec.split(':')[1];const [method,base]=TYPEMETA[type];
+    const jit=(((i*53+name.length*7)%17)-8)/100;const conf=Math.max(0.55,Math.min(0.99,+(base+jit).toFixed(2)));
+    const status=conf>=0.9?'auto':(conf>=0.72?'review':'flagged');
+    const nChanged=type==='identifier'?((i*31)%40):20+((i*37)%140);
+    return {id:i,name,type,method,conf,nChanged,status,rows:null,outliers:null,decision:null};
+  });
+  idx=0; reached=Math.max(reached,5);
+  if(USE_AI && !AI_CONNECTED){ showConnect(); return; }
+  runClean();
+}
+function showConnect(){
+  const ov=$('#overlay');ov.classList.add('on');
+  ov.innerHTML=`<div class="connectbox">
+    <div class="ai">🔌</div><h3>Connect an AI model</h3>
+    <p>AI runs outside the built-in engine. Choose where it runs. Only column names and a few sample values are shared — never full records. The built-in engine still does everything it can locally first.</p>
+    <div class="prov">
+      <button onclick="confirmConnect('local')">Local / on-prem model</button>
+      <button onclick="confirmConnect('cloud')">Connect cloud account</button>
+    </div>
+    <button class="btn ghost sm" onclick="cancelConnect()">Cancel — use built-in only</button>
+  </div>`;
+}
+function cancelConnect(){ USE_AI=false; $('#aiswitch').checked=false; toggleAI(false); AI_CONNECTED=false; runClean(); }
+function confirmConnect(kind){ AI_CONNECTED=true; toast(kind==='local'?'Local model connected':'Cloud model connected'); runClean(); }
+function runClean(){
+  const ov=$('#overlay');ov.classList.add('on');
+  const title=USE_AI?'Cleaning your data — AI assisted':'Cleaning your data — built-in engine';
+  const sub=USE_AI?'The engine cleans locally; the AI model helps only with the tricky columns.':'Standardising values with built-in rules. Your file stays on this computer.';
+  let stages=['Reading & aligning columns','Applying format rules (IDs, dates, phones)','Matching names & places (fuzzy + phonetic)'];
+  if(USE_AI) stages.push('AI: understanding unusual columns & places');
+  stages=stages.concat(['Discovering category sets','Detecting outliers & flagging what needs you']);
+  ov.innerHTML=`<div class="cleanbox"><div class="spin"></div><h3>${title}</h3><p>${sub}</p>
+    <div class="cbar"><i id="cfill"></i></div>
+    <div class="cladder">${stages.map((s,i)=>`<div class="r pending" id="cs${i}"><span>${s}</span><b>…</b></div>`).join('')}</div></div>`;
+  let p=0;const fill=$('#cfill');const n=stages.length;
+  const t=setInterval(()=>{p+=Math.random()*9+5;
+    const st=Math.min(n-1,Math.floor(p/(100/n)));
+    for(let k=0;k<=st;k++){const el=$('#cs'+k);if(el){el.classList.remove('pending');el.querySelector('b').textContent='done';}}
+    fill.style.width=Math.min(100,p)+'%';
+    if(p>=100){clearInterval(t);setTimeout(()=>{ov.classList.remove('on');go(5);},350);}
+  },80);
+}
+
+/* ------- sequential review (same interaction as before) ------- */
+const TYPES=Object.keys(TYPEMETA);
+const OUT={
+ numeric:[['9,999,999','far above the typical range for this column'],['-1','negative value where one is not expected']],
+ date:[['1899-12-31','implausibly old date'],['2090-01-01','date is in the future']],
+ categorical:[['Ozterz','appears only once — likely a typo or a stray new category']],
+ identifier:[['12','much shorter than the other IDs in this column']],
+ phone:[['000','too short to be a valid number']],
+ geo:[['Republic of Benin','reads like a country, not one of the 37 states']]
+};
+function makeOutliers(f){
+ if(f.outliers)return f.outliers; f.outliers=[];
+ const tmpl=OUT[f.type];
+ if(tmpl && (f.type==='numeric'||f.type==='date'||f.type==='geo'||f.id%2===0)){
+   const k=(f.type==='numeric'||f.type==='date')?tmpl.length:1;
+   for(let i=0;i<k;i++){const [v,why]=tmpl[i];f.outliers.push({oid:f.id*97+i,value:v,why,decision:null});}
+ }
+ return f.outliers;
+}
+function makeRows(f){if(f.rows)return f.rows;const tmpl=R[f.type]||R.free_text;const k=Math.max(3,Math.min(9,Math.round(f.nChanged/22)+3));f.rows=[];for(let i=0;i<k;i++){const [b,a]=tmpl[i%tmpl.length];f.rows.push({rid:1000+f.id*17+i,before:b,after:a,uncertain:a==='?',decision:null});}return f.rows;}
+const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',categorical:'categories',free_text:'free text'};
+function summarise(f){
+  const n=f.nChanged;
+  if(n===0) return 'Nothing to change — this column already looks clean.';
+  switch(f.type){
+    case 'phone': return 'Reformatted '+n+' phone numbers to the +234 standard.';
+    case 'email': return 'Lower-cased and tidied '+n+' email addresses.';
+    case 'date': return 'Converted '+n+' dates to the YYYY-MM-DD format.';
+    case 'gender': return 'Standardised '+n+' entries to Male / Female.';
+    case 'boolean': return 'Standardised '+n+' entries to Yes / No.';
+    case 'numeric': return 'Cleaned '+n+' numbers (removed symbols like the naira sign and commas).';
+    case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left exactly as written.';
+    case 'geo': return 'Matched '+n+' entries to the correct state.';
+    case 'categorical': { const c=Math.max(2,Math.round(n/8)); return 'Grouped different spellings into '+c+' standard categories ('+n+' entries tidied).'; }
+    case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
+    default: return 'Tidied '+n+' entries.';
+  }
+}
+function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(r=>[r.before,r.after]); }
+
+function renderReview(){
+  if(!FIELDS.length) return;
+  const N=FIELDS.length, f=FIELDS[idx];
+  $('#rvpos').textContent='Column '+(idx+1)+' of '+N;
+  const reviewed=FIELDS.filter(x=>x.decision).length;
+  $('#rvbar').style.width=(100*reviewed/N)+'%';
+  $('#rvcount').textContent=reviewed+' of '+N+' reviewed';
+  $('#backbtn').disabled=idx===0;
+  const ex=examples(f), outN=makeOutliers(f).length;
+  $('#reviewcard').innerHTML=
+   '<div class="card rcard">'+
+     '<div class="rc-name">'+esc(labelOf(f.name))+'</div>'+
+     '<div class="rc-sub">the wizard read this as <b>'+TYPEWORD[f.type]+'</b> · <a class="link" onclick="toggleType()">not right?</a></div>'+
+     '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+TYPEWORD[t]+'</option>').join('')+'</select></div>'+
+     '<div class="rc-summary">'+summarise(f)+'</div>'+
+     (ex.length?'<div class="rc-ex-h">a few examples of the change</div><div class="rc-examples">'+ex.map(e=>'<div class="rc-ex"><span class="b">'+(esc(e[0])||'∅')+'</span><span class="ar">→</span><span class="a">'+(esc(e[1])||'∅')+'</span></div>').join('')+'</div>':'')+
+     (outN?'<div class="rc-outlier">⚠ '+outN+' value'+(outN>1?'s':'')+' look unusual — we\'ll set '+(outN>1?'them':'it')+' aside for you to check later. You don\'t need to decide now.</div>':'')+
+     '<div class="rc-decide">'+
+       '<button class="big ok '+(f.decision==='accept'?'chosen':'')+'" onclick="setDecision(\'accept\')"><b>✓ Looks right</b><span>apply this cleaning</span></button>'+
+       '<button class="big no '+(f.decision==='reject'?'chosen':'')+'" onclick="setDecision(\'reject\')"><b>✗ Keep original</b><span>leave this column unchanged</span></button>'+
+     '</div>'+
+     (f.decision?'<div class="rc-done">You chose <b>'+(f.decision==='accept'?'apply cleaning':'keep original')+'</b>.'+(idx<N-1?' Moving to the next column…':' That was the last column.')+'</div>':'')+
+   '</div>';
+  updateGate();
+}
+function setDecision(d){ const f=FIELDS[idx], N=FIELDS.length; f.decision=d;
+  if(idx<N-1){ idx++; setTimeout(renderReview,140); } else { renderReview(); } updateGate(); }
+function rvBack(){ if(idx>0){ idx--; renderReview(); } }
+function toggleType(){ const el=$('#typepick'); el.style.display=el.style.display==='none'?'block':'none'; }
+function setType(v){ const f=FIELDS[idx]; f.type=v; f.method=(TYPEMETA[v]||['format',0.9])[0]; f.rows=null; f.outliers=null; renderReview(); }
+function acceptRemaining(){ FIELDS.forEach(f=>{ if(!f.decision) f.decision='accept'; }); renderReview(); toast('Accepted all remaining columns'); }
+function updateGate(){ const N=FIELDS.length, reviewed=FIELDS.filter(f=>f.decision).length, left=N-reviewed;
+  $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' column'+(left>1?'s':'')+' still to review' : 'All '+N+' columns reviewed.';
+  $('#finish').disabled = left>0; }
+
+function renderExport(){
+  let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
+  $('#expkpis').innerHTML=[['#2f6f57',acc,'columns cleaned & applied'],['#a83a3a',rej,'columns kept as-is'],['#b5761c',outl,'values flagged for follow-up'],['#1d3a53',FIELDS.length,'columns reviewed']]
+    .map(x=>'<div class="kpi"><div class="n" style="color:'+x[0]+'">'+x[1]+'</div><div class="l">'+x[2]+'</div></div>').join('');
+  FIELDS.forEach(f=>{ if(!(f.name in PERM)) PERM[f.name]='off'; });   // consent-first: default off
+  renderPerm();
+}
+const SENSITIVE=new Set(['identifier']);
+function toggleNet(on){ $('#netpanel').style.display=on?'block':'none';
+  $('#netnote').textContent = on
+    ? 'On — pick the columns other agencies may ask about. Only a verified answer is returned; the record never leaves this computer.'
+    : 'Off — the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned — never the raw record.';
+}
+function renderPerm(){
+  const box=$('#permlist'); if(!box) return;
+  box.innerHTML=FIELDS.map(f=>{
+    const lvl=PERM[f.name]||'off'; const sens=SENSITIVE.has(f.type);
+    return '<div class="permrow '+(sens?'sensitive':'')+'"><span class="pl">'+esc(labelOf(f.name))+'<span class="pt">'+f.type+'</span></span>'+
+      '<span class="seg">'+
+        '<button class="'+(lvl==='off'?'on':'')+'" onclick="setPerm(\''+f.name+'\',\'off\')">Not shared</button>'+
+        '<button class="'+(lvl==='confirm'?'on':'')+'" onclick="setPerm(\''+f.name+'\',\'confirm\')">Confirm (yes/no)</button>'+
+        '<button class="'+(lvl==='value'?'on':'')+'" onclick="setPerm(\''+f.name+'\',\'value\')">Share value</button>'+
+      '</span></div>';}).join('');
+  const conf=FIELDS.filter(f=>PERM[f.name]==='confirm').length, val=FIELDS.filter(f=>PERM[f.name]==='value').length;
+  $('#permsummary').innerHTML='<b>'+(conf+val)+'</b> of '+FIELDS.length+' columns answerable'+(val?' · '+val+' return a value':'');
+  $('#publishbtn').disabled=(conf+val)===0;
+}
+function setPerm(name,lvl){ PERM[name]=lvl; renderPerm(); }
+function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSITIVE.has(f.type))?'off':lvl; }); renderPerm();
+  if(lvl==='confirm') toast('Sensitive ID columns left off — switch them on individually if needed'); }
+function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
+
+go(0);
+</script>
+</body>
+</html>

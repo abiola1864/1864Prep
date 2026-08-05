@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "state": "KADUNA",
+    "description": "The 23 LGAs of Kaduna State. Included as a worked example; add other states' LGA lists on the same pattern. 'aliases' capture concatenations and misspellings seen in registers (e.g. a name run together with its ward).",
+    "note": "LGA names are frequently concatenated with ward or district in raw exports (e.g. 'ZariaTudunWada'). The geo transform attempts a longest-prefix match against this list and flags leftovers."
+  },
+  "lgas": [
+    {"canonical": "Birnin Gwari", "aliases": ["birningwari", "b/gwari"]},
+    {"canonical": "Chikun", "aliases": ["chukun"]},
+    {"canonical": "Giwa", "aliases": []},
+    {"canonical": "Igabi", "aliases": ["igbi"]},
+    {"canonical": "Ikara", "aliases": []},
+    {"canonical": "Jaba", "aliases": []},
+    {"canonical": "Jema'a", "aliases": ["jemaa", "jema a", "jemasa"]},
+    {"canonical": "Kachia", "aliases": ["kachea"]},
+    {"canonical": "Kaduna North", "aliases": ["kadunanorth", "kaduna-north", "k/north"]},
+    {"canonical": "Kaduna South", "aliases": ["kadunasouth", "kaduna-south", "k/south"]},
+    {"canonical": "Kagarko", "aliases": []},
+    {"canonical": "Kajuru", "aliases": ["kajaru"]},
+    {"canonical": "Kaura", "aliases": []},
+    {"canonical": "Kauru", "aliases": []},
+    {"canonical": "Kubau", "aliases": []},
+    {"canonical": "Kudan", "aliases": []},
+    {"canonical": "Lere", "aliases": []},
+    {"canonical": "Makarfi", "aliases": ["makarfe"]},
+    {"canonical": "Sabon Gari", "aliases": ["sabongari", "sabon-gari", "s/gari"]},
+    {"canonical": "Sanga", "aliases": []},
+    {"canonical": "Soba", "aliases": []},
+    {"canonical": "Zangon Kataf", "aliases": ["zangonkataf", "zango kataf", "z/kataf"]},
+    {"canonical": "Zaria", "aliases": ["zarea"]}
+  ]
+}

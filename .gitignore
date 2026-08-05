@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Engine outputs (never commit cleaned data or audit logs from real files)
+out/
+*_STANDARDIZED.csv
+*_audit.json
+*_flagged.csv
+
+# Generated samples (synthetic, regenerate with samples/make_sample.py)
+samples/*.xlsx
+samples/*.csv
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# desktop app build artifacts (future)
+node_modules/
+dist/
+build/
+src-tauri/target/
+*.spec
+*.app
+*.dmg
+*.msi
+*.exe
+
+# local engine artifacts
+knowledge/corrections.json
+out/

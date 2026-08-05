@@ -1,0 +1,28 @@
+[project]
+name = "prep-1864"
+version = "0.1.0"
+description = "Local, deterministic, auditable data-standardisation engine for the Open Network on Digital ID."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "The 1864 Research & Innovation Institute" }]
+dependencies = [
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "python-dateutil>=2.8",
+    "rapidfuzz>=3.0",
+    "jellyfish>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+prep = "cli:main"
+
+[tool.setuptools]
+packages = ["engine", "engine.transforms"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

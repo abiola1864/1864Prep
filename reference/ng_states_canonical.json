@@ -1,0 +1,8 @@
+{
+  "_meta": {
+    "country": "NG",
+    "description": "Ground truth ONLY: the 36 states + FCT, official spellings. No aliases, no misspellings. The resolver matches messy inputs to these using fuzzy + phonetic similarity, so no dictionary of variants is needed or maintained.",
+    "source": "Nigeria's official 36 states and the Federal Capital Territory."
+  },
+  "canonical": ["ABIA","ADAMAWA","AKWA IBOM","ANAMBRA","BAUCHI","BAYELSA","BENUE","BORNO","CROSS RIVER","DELTA","EBONYI","EDO","EKITI","ENUGU","FCT","GOMBE","IMO","JIGAWA","KADUNA","KANO","KATSINA","KEBBI","KOGI","KWARA","LAGOS","NASARAWA","NIGER","OGUN","ONDO","OSUN","OYO","PLATEAU","RIVERS","SOKOTO","TARABA","YOBE","ZAMFARA"]
+}
