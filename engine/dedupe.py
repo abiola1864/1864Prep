@@ -110,3 +110,63 @@ def near_duplicate_rows(df: pd.DataFrame, subset: list[str] | None = None,
                     groups.append({"rows": [ia, ib], "kind": "near", "similarity": round(s, 3)})
     groups.sort(key=lambda g: (g["kind"] != "exact", -len(g["rows"]), -g["similarity"]))
     return groups
+
+
+# ── graded clustering: propose groups + confidence, never a hard merge ──────────
+from itertools import combinations
+
+try:
+    from .induce import _numbers            # protect numbers: different numbers never group
+except Exception:
+    import re as _re
+    _numbers = lambda s: tuple(int(n) for n in _re.findall(r"\d+", str(s)))
+
+
+def _sim_guarded(a: str, b: str) -> float:
+    if _numbers(a) != _numbers(b):
+        return 0.0
+    return _sim(a, b)
+
+
+def cluster_similar(values, link_threshold: float = 0.72) -> list[dict]:
+    """Group values that MIGHT be the same, graded by confidence — no merging.
+
+    Instead of one yes/no cutoff, values are linked when similar, then each
+    cluster is scored by how tightly its members hang together:
+      * confidence 'high'   — very likely the same (tight variants)
+      * 'medium' / 'low'    — possibly the same (looser; for a human to judge)
+    Each cluster carries a suggested single name (most frequent, most complete).
+    Different numbers never link. Returns clusters of 2+, most confident first.
+    """
+    counts = Counter(str(v).strip() for v in values if str(v).strip())
+    distinct = list(counts)
+    if len(distinct) > _MAX:
+        distinct = [v for v, _ in counts.most_common(_MAX)]
+
+    uf = _UF(distinct)
+    for i in range(len(distinct)):
+        for j in range(i + 1, len(distinct)):
+            if _sim_guarded(distinct[i], distinct[j]) >= link_threshold:
+                uf.union(distinct[i], distinct[j])
+
+    clusters: dict[str, list[str]] = defaultdict(list)
+    for v in distinct:
+        clusters[uf.find(v)].append(v)
+
+    out = []
+    for members in clusters.values():
+        if len(members) < 2:
+            continue
+        sims = [_sim_guarded(a, b) for a, b in combinations(members, 2)]
+        cohesion = min(sims) if sims else 1.0        # weakest link
+        avg = sum(sims) / len(sims) if sims else 1.0
+        conf = "high" if cohesion >= 0.88 else ("medium" if avg >= 0.80 else "low")
+        rep = sorted(members, key=lambda m: (counts[m], len(m)), reverse=True)[0]
+        out.append({"representative": rep,
+                    "members": sorted(members, key=lambda m: counts[m], reverse=True),
+                    "size": len(members),
+                    "confidence": conf,
+                    "score": round(avg, 3)})
+    rank = {"high": 0, "medium": 1, "low": 2}
+    out.sort(key=lambda g: (rank[g["confidence"]], -g["size"]))
+    return out

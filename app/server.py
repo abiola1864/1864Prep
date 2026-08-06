@@ -68,10 +68,41 @@ async def api_clean(file: UploadFile = File(...)):
         types = {p.column: p.semantic_type for p in profs}
         cleaned, report, _ = run_plan(df, plan, "web")
         flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}
+
+        # --- data for the "needs your attention" worklist ---
+        from engine.dedupe import cluster_similar, near_duplicate_rows
+        flagged = []
+        for c in report.columns:
+            fl = c.get("flags") or []
+            if fl:
+                flagged.append({"column": c["source_column"],
+                                "values": [{"row": x["row"], "value": x["value"],
+                                            "reason": x["reason"]} for x in fl[:50]]})
+        dups = []
+        for g in near_duplicate_rows(df)[:50]:
+            r0 = g["rows"][0]
+            preview = " · ".join(str(v) for v in df.iloc[r0].tolist()[:4] if str(v).strip())
+            dups.append({"rows": g["rows"], "kind": g["kind"],
+                         "similarity": g["similarity"], "preview": preview})
+        similar = []
+        for p in profs[:12]:
+            if p.semantic_type in ("categorical", "name", "free_text"):
+                nun = df[p.column].nunique()
+                if 2 <= nun <= 400:
+                    gs = cluster_similar(df[p.column].tolist())[:20]
+                    if gs:
+                        similar.append({"column": p.column,
+                                        "groups": [{"representative": g["representative"],
+                                                    "members": g["members"][:20],
+                                                    "size": g["size"],
+                                                    "confidence": g["confidence"],
+                                                    "score": g["score"]} for g in gs]})
         return {
             "ingest": rep.summary(),
+            "region": _regions.get_active_region().name,
             "overview": column_overview(df, cleaned, types, flags),
             "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
+            "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar},
         }
     except Exception as e:  # never 500 silently in a demo
         return JSONResponse(status_code=422, content={"error": str(e)})

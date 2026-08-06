@@ -188,6 +188,29 @@
   .chg-line{font-family:var(--mono);font-size:12px;color:var(--ink-soft);padding:2px 0 2px 14px}
   .chg-line .b{text-decoration:line-through;text-decoration-color:#cbb488}
   .chg-empty{color:var(--faint);font-size:12.5px;padding:8px}
+  .wl-sec{margin:14px 0;border:1px solid var(--line);border-radius:12px;padding:12px 15px;background:var(--paper)}
+  .wl-h{font-weight:650;margin-bottom:8px}
+  .wl-empty{color:var(--faint);font-size:13px}
+  .wl-item{border-top:1px solid var(--line-soft);padding:10px 0}
+  .wl-item:first-of-type{border-top:none}
+  .wl-t{font-size:14px;margin-bottom:5px}
+  .wl-type{color:var(--faint);font-size:11px;font-family:var(--mono);margin-left:6px}
+  .wl-done{color:var(--ok);font-size:12px;margin-left:8px}
+  .wl-vals{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+  .wl-val{font-family:var(--mono);font-size:11.5px;background:rgba(0,0,0,.035);border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px}
+  .wl-more{color:var(--faint);font-size:11px}
+  .wl-acts{display:flex;flex-wrap:wrap;gap:8px}
+  .wl-acts button{font:inherit;font-size:12.5px;padding:6px 11px;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:8px;cursor:pointer}
+  .wl-acts button.leave{background:transparent;color:var(--ink-soft);border-color:var(--line)}
+  .wl-foot{margin-top:12px;font-size:12.5px;color:var(--ink-soft)}
+  .wl-badge{font-size:11px;padding:1px 8px;border-radius:20px;margin-left:6px;font-family:var(--sans)}
+  .wl-badge.high{background:#e3f0e8;color:#2f6f57}
+  .wl-badge.medium{background:#f5ecd6;color:#8a6a1c}
+  .wl-badge.low{background:#efe7e2;color:#8a6a5c}
+  .sim-members{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0 8px}
+  .sim-mem{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;color:var(--ink)}
+  .sim-name{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;color:var(--ink-soft)}
+  .sim-name input{flex:1;max-width:420px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
 </style>
 </head>
 <body>
@@ -204,7 +227,8 @@
       <li data-s="3"><span class="n"><span>4</span></span> Upload</li>
       <li data-s="4"><span class="n"><span>5</span></span> Match names</li>
       <li data-s="5"><span class="n"><span>6</span></span> Review</li>
-      <li data-s="6"><span class="n"><span>7</span></span> Export</li>
+      <li data-s="6"><span class="n"><span>7</span></span> Needs attention</li>
+      <li data-s="7"><span class="n"><span>8</span></span> Export</li>
     </ol>
     <div class="railfoot">Runs on this computer.<b id="rf-sector"></b></div>
   </nav>
@@ -281,9 +305,20 @@
       <div id="reviewcard"></div>
     </section>
 
-    <!-- 6 export -->
+    <!-- 6 needs your attention (worklist) -->
     <section class="screen" data-screen="6">
-      <p class="eyebrow">Step 7</p><h1>Approved and standardised</h1>
+      <p class="eyebrow">Step 7</p><h1>Needs your attention</h1>
+      <p class="lead">Nothing here was changed automatically. These are the things the engine left for you: columns you kept as-is, values it flagged, and duplicates or similar entries it noticed. Decide each one — or leave it on purpose.</p>
+      <div id="worklist"></div>
+      <div style="display:flex;gap:12px;margin-top:18px">
+        <button class="btn" onclick="go(7)">Continue to export →</button>
+        <button class="btn ghost" onclick="go(5)">← Back to review</button>
+      </div>
+    </section>
+
+    <!-- 7 export -->
+    <section class="screen" data-screen="7">
+      <p class="eyebrow">Step 8</p><h1>Approved and standardised</h1>
       <p class="lead">Only the changes you accepted are applied. Rejected values stay exactly as recorded; flagged rows are set aside. The cleaned file stays on your computer.</p>
       <div class="kpis" id="expkpis"></div>
       <div style="display:flex;gap:12px;margin-top:12px">
@@ -420,7 +455,7 @@ function messy(std,i){
   return std;                                                   // as-is
 }
 
-let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={};
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={};
 
 function go(n){
   cur=n;
@@ -430,7 +465,8 @@ function go(n){
   if(n===2)renderColumns();
   if(n===4)renderMatch();
   if(n===5){renderReview();updateGate();}
-  if(n===6)renderExport();
+  if(n===6)renderWorklist();
+  if(n===7)renderExport();
 }
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
 
@@ -650,6 +686,71 @@ function updateGate(){ const N=FIELDS.length, reviewed=FIELDS.filter(f=>f.decisi
   $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' column'+(left>1?'s':'')+' still to review' : 'All '+N+' columns reviewed.';
   $('#finish').disabled = left>0; }
 
+function wlSet(key,choice){ WLDECISIONS[key]=choice; renderWorklist(); toast('Choice recorded'); }
+function wlRecleanCol(name){ const i=FIELDS.findIndex(f=>f.name===name); if(i>=0){ idx=i; FIELDS[i].decision=null; go(5); toast('Pick a different type, or accept the cleaning'); } }
+function wlSetAll(name){ const v=prompt('Set every value in "'+name+'" to:'); if(v){ wlSet('col:'+name,'set all to "'+v+'"'); } }
+function wlFixFlagged(col){ const v=prompt('Set the flagged values in "'+col+'" to:'); if(v){ wlSet('flag:'+col,'set to "'+v+'"'); } }
+function renderWorklist(){
+  const box=$('#worklist'); if(!box) return;
+  const wl=WORKLIST||{flagged:[],duplicates:[],similar:[]};
+  const rejected=FIELDS.filter(f=>f.decision==='reject');
+  let h='';
+
+  h+='<div class="wl-sec"><div class="wl-h">Columns you kept as original ('+rejected.length+')</div>';
+  if(!rejected.length) h+='<div class="wl-empty">None — you applied cleaning to every column.</div>';
+  rejected.forEach(f=>{ const k='col:'+f.name,d=WLDECISIONS[k];
+    h+='<div class="wl-item"><div class="wl-t"><b>'+esc(f.name)+'</b><span class="wl-type">'+f.type+'</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+      '<div class="wl-acts"><button onclick="wlRecleanCol(\''+f.name+'\')">Try a different clean</button>'+
+      '<button onclick="wlSetAll(\''+f.name+'\')">Set all to…</button>'+
+      '<button class="leave" onclick="wlSet(\'col:'+f.name+'\',\'left as-is\')">Leave as-is</button></div></div>'; });
+  h+='</div>';
+
+  const fl=wl.flagged||[];
+  h+='<div class="wl-sec"><div class="wl-h">Values flagged for review ('+fl.reduce((a,c)=>a+c.values.length,0)+')</div>';
+  if(!fl.length) h+='<div class="wl-empty">None flagged.</div>';
+  fl.forEach(col=>{ const k='flag:'+col.column,d=WLDECISIONS[k];
+    h+='<div class="wl-item"><div class="wl-t"><b>'+esc(col.column)+'</b><span class="wl-type">'+col.values.length+' flagged</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+      '<div class="wl-vals">'+col.values.slice(0,12).map(v=>'<span class="wl-val" title="'+esc(v.reason||'')+'">'+(esc(v.value)||'∅')+'</span>').join('')+(col.values.length>12?' <span class="wl-more">+'+(col.values.length-12)+' more</span>':'')+'</div>'+
+      '<div class="wl-acts"><button onclick="wlFixFlagged(\''+col.column+'\')">Set these to a correct value…</button>'+
+      '<button class="leave" onclick="wlSet(\'flag:'+col.column+'\',\'left for later\')">Leave for later</button></div></div>'; });
+  h+='</div>';
+
+  const dp=wl.duplicates||[];
+  h+='<div class="wl-sec"><div class="wl-h">Possible duplicate rows ('+dp.length+')</div>';
+  if(!dp.length) h+='<div class="wl-empty">No duplicate rows found.</div>';
+  dp.forEach((g,i)=>{ const k='dup:'+i,d=WLDECISIONS[k];
+    h+='<div class="wl-item"><div class="wl-t">'+(g.kind==='exact'?'Exact match':'Near match ('+Math.round(g.similarity*100)+'%)')+' — rows '+g.rows.join(', ')+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+      '<div class="wl-vals"><span class="wl-val">'+esc(g.preview)+'</span></div>'+
+      '<div class="wl-acts"><button onclick="wlSet(\'dup:'+i+'\',\'remove duplicates (keep first)\')">Remove duplicates</button>'+
+      '<button class="leave" onclick="wlSet(\'dup:'+i+'\',\'kept both\')">Keep both</button></div></div>'; });
+  h+='</div>';
+
+  const sm=wl.similar||[];
+  h+='<div class="wl-sec"><div class="wl-h">Similar entries that might be the same ('+sm.reduce((a,c)=>a+c.groups.length,0)+')</div>';
+  if(!sm.length) h+='<div class="wl-empty">No similar groups suggested.</div>';
+  else h+='<div class="wl-empty" style="margin-bottom:6px">Tick the ones that are the same, edit the single name, then combine. Untick any that don\'t belong.</div>';
+  sm.forEach((col,ci)=>{ col.groups.forEach((g,gi)=>{ const k='sim:'+col.column+':'+gi,d=WLDECISIONS[k];
+    const conf=g.confidence==='high'?'very likely the same':(g.confidence==='medium'?'possibly the same':'maybe related');
+    h+='<div class="wl-item"><div class="wl-t"><b>'+esc(col.column)+'</b> <span class="wl-badge '+g.confidence+'">'+conf+'</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>';
+    h+='<div class="sim-members">'+g.members.map((m,mi)=>'<label class="sim-mem"><input type="checkbox" id="simchk_'+ci+'_'+gi+'_'+mi+'" checked> <span>'+(esc(m)||'∅')+'</span></label>').join('')+'</div>';
+    h+='<div class="sim-name"><span>Combine into</span><input id="simname_'+ci+'_'+gi+'" value="'+esc(g.representative)+'"></div>';
+    h+='<div class="wl-acts"><button onclick="wlCombine(\''+col.column+'\','+ci+','+gi+')">Combine selected</button>'+
+      '<button class="leave" onclick="wlSet(\''+k+'\',\'kept separate\')">Keep separate</button></div></div>'; }); });
+  h+='</div>';
+
+  const decided=Object.keys(WLDECISIONS).length;
+  h+='<div class="wl-foot">'+decided+' item'+(decided===1?'':'s')+' decided. Choices are recorded and applied on export; anything you leave stays exactly as recorded.</div>';
+  box.innerHTML=h;
+}
+function wlCombine(col,ci,gi){
+  const nameEl=document.getElementById('simname_'+ci+'_'+gi);
+  const name=(nameEl&&nameEl.value||'').trim();
+  if(!name){ toast('Type the single name to combine into'); return; }
+  const g=WORKLIST.similar[ci].groups[gi];
+  let n=0; g.members.forEach((m,mi)=>{ const el=document.getElementById('simchk_'+ci+'_'+gi+'_'+mi); if(el&&el.checked) n++; });
+  if(n<2){ toast('Tick at least two entries to combine'); return; }
+  wlSet('sim:'+col+':'+gi, 'combined '+n+' into "'+name+'"');
+}
 function renderExport(){
   let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
   $('#expkpis').innerHTML=[['#2f6f57',acc,'columns cleaned & applied'],['#a83a3a',rej,'columns kept as-is'],['#b5761c',outl,'values flagged for follow-up'],['#1d3a53',FIELDS.length,'columns reviewed']]
@@ -711,6 +812,7 @@ function buildFieldsFromAPI(data, filename){
             rows:rows,outliers:[],decision:null,_real:true};
   });
   idx=0;
+  WORKLIST=data.worklist||null; WLDECISIONS={};
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   if(data.ingest) toast(data.ingest);
 }
