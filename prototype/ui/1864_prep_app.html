@@ -228,6 +228,30 @@
   .set-row{display:flex;align-items:center;gap:10px;margin:8px 0}
   .set-row span{font-size:12.5px;color:var(--ink-soft);min-width:110px}
   .modal-foot{display:flex;gap:10px;padding-top:14px;border-top:1px solid var(--line-soft);margin-top:6px}
+  .tk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px}
+  .tk-card{border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;background:var(--paper);transition:border-color .15s}
+  .tk-card:hover{border-color:var(--navy)}
+  .tk-name{font-weight:650;margin-bottom:4px}
+  .tk-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.45}
+  .tk-kind{margin-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
+  .tk-panel{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .tk-file{flex:1;min-width:240px;border:1px dashed var(--line);border-radius:10px;padding:12px;cursor:pointer;font-size:13px;color:var(--ink-soft)}
+  .tk-file input{display:block;margin-bottom:4px}
+  .tk-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+  .tk-row select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+  .tk-summary{background:rgba(0,0,0,.03);border:1px solid var(--line-soft);border-radius:10px;padding:10px 12px;font-size:13px;margin:6px 0 10px}
+  .tk-tablewrap{max-height:360px;overflow:auto;border:1px solid var(--line-soft);border-radius:10px}
+  .tk-table{border-collapse:collapse;font-size:12px;width:100%}
+  .tk-table th,.tk-table td{border-bottom:1px solid var(--line-soft);padding:6px 9px;text-align:left;white-space:nowrap}
+  .tk-table th{position:sticky;top:0;background:var(--paper);font-family:var(--mono);font-size:11px}
+  .tk-more{font-size:11.5px;color:var(--faint);margin-top:6px}
+  .tk-dl{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--ink-soft)}
+  .tk-run-msg{color:var(--ink-soft);font-size:13px;padding:8px 0}
+  .btn.sm{font-size:12.5px;padding:6px 12px}
+  .progress{width:100%;height:9px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin:16px 0 8px}
+  .progress > i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--navy),#4a6fa5);transition:width .3s ease}
+  .prog-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .prog-stage{font-size:13px;color:var(--ink);margin-top:8px;min-height:1.2em}
 </style>
 </head>
 <body>
@@ -248,6 +272,7 @@
       <li data-s="7"><span class="n"><span>8</span></span> Export</li>
     </ol>
     <div class="railfoot">Runs on this computer.<b id="rf-sector"></b>
+      <button class="setgear" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" onclick="openSettings()">⚙ Settings</button>
     </div>
   </nav>
@@ -369,6 +394,13 @@
       <button class="btn ghost sm" onclick="acceptRemaining()">Accept all remaining</button>
       <button class="btn" id="finish" disabled onclick="go(6)">Approve &amp; export</button>
     </div>
+
+    <!-- 8 data toolkit (standalone) -->
+    <section class="screen" data-screen="8">
+      <p class="eyebrow">Data Toolkit</p><h1>Data Toolkit</h1>
+      <p class="lead">Self-serve tools for the common jobs: find duplicates and outliers, match records across files (it auto-detects the shared ID), validate, remove duplicates, and summarise. Pick a tool, upload your file(s), preview, then download as Excel, CSV or Word.</p>
+      <div id="toolkit"></div>
+    </section>
 
     <!-- cleaning / connect overlay -->
     <div class="overlay" id="overlay"></div>
@@ -533,6 +565,7 @@ function go(n){
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
   if(n===7)renderExport();
+  if(n===8)renderToolkit();
 }
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
 
@@ -892,11 +925,105 @@ function saveSettings(){
   closeSettings();
   toast('Settings saved · region: '+SETTINGS.region+(SETTINGS.ai?' · AI on':''));
 }
+let TK_TOOLS=null, TK_CUR=null, TK_RESULT=null;
+async function renderToolkit(){
+  const box=$('#toolkit'); if(!box) return;
+  TK_CUR=null; TK_RESULT=null;
+  if(!TK_TOOLS){
+    try{ TK_TOOLS=(await (await fetch('/api/tools')).json()).tools; }
+    catch(e){ box.innerHTML='<div class="wl-empty">Toolkit needs the live engine (run on the server or desktop app).</div>'; return; }
+  }
+  box.innerHTML='<div class="tk-grid">'+TK_TOOLS.map(t=>
+    '<div class="tk-card" onclick="openTool(\''+t.id+'\')"><div class="tk-name">'+esc(t.name)+'</div>'+
+    '<div class="tk-desc">'+esc(t.desc)+'</div><div class="tk-kind">'+(t.kind==='report'?'report':'dataset')+'</div></div>').join('')+'</div>';
+}
+function openTool(id){
+  TK_CUR=TK_TOOLS.find(t=>t.id===id); TK_RESULT=null;
+  const multi=(id==='match');
+  const box=$('#toolkit');
+  box.innerHTML='<button class="btn ghost sm" onclick="renderToolkit()">← All tools</button>'+
+    '<h2 style="margin:12px 0 4px">'+esc(TK_CUR.name)+'</h2><p class="lead">'+esc(TK_CUR.desc)+'</p>'+
+    '<div class="tk-panel"><label class="tk-file">'+
+      '<input type="file" id="tk-input" '+(multi?'multiple ':'')+'accept=".csv,.tsv,.txt,.xlsx,.xls,.json,.pdf" onchange="tkPick()">'+
+      '<span id="tk-filelabel">'+(multi?'Choose two or more files to match…':'Choose a file…')+'</span></label>'+
+      (multi?'<div class="tk-row"><span>Join</span><select id="tk-how"><option value="outer">Keep everyone (outer)</option><option value="inner">Only matches (inner)</option></select></div>':'')+
+      '<button class="btn" id="tk-run" disabled onclick="runTool()">Run &amp; preview</button>'+
+    '</div><div id="tk-out"></div>';
+}
+function tkPick(){ const inp=$('#tk-input'); const n=inp.files.length;
+  $('#tk-filelabel').textContent=n?(n+' file'+(n>1?'s':'')+' selected'):'Choose a file…';
+  $('#tk-run').disabled=(n===0 || (TK_CUR.id==='match'&&n<2)); }
+async function runTool(){
+  const inp=$('#tk-input'); if(!inp.files.length) return;
+  const out=$('#tk-out');
+  let bytes=0; for(const f of inp.files) bytes+=f.size;
+  const stages=["Uploading…","Reading the file(s)…","Running "+TK_CUR.name.toLowerCase()+"…","Building your result…"];
+  const prog=makeProgress(out, estimateMs(bytes), stages, "Running "+esc(TK_CUR.name)+"…", "");
+  const fd=new FormData();
+  for(const f of inp.files) fd.append('files', f);
+  fd.append('region', (typeof SETTINGS!=='undefined'&&SETTINGS.region)||'ng');
+  const how=$('#tk-how'); if(how) fd.append('how', how.value);
+  try{
+    const res=await fetch('/api/tool/'+TK_CUR.id,{method:'POST',body:fd});
+    const d=await res.json();
+    if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
+    prog.finish(); await new Promise(r=>setTimeout(r,350));
+    TK_RESULT=d;
+    const sm=Object.entries(d.summary).map(([k,v])=>'<b>'+esc(v)+'</b> '+esc(k.replace(/_/g,' '))).join(' · ');
+    let html='<div class="tk-summary">'+sm+'</div>';
+    if(d.rows_total===0){ html+='<div class="wl-empty">Nothing found — your data looks clean for this check.</div>'; }
+    else{
+      html+='<div class="tk-tablewrap"><table class="tk-table"><thead><tr>'+d.columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
+        d.preview.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x==null?'':String(x))+'</td>').join('')+'</tr>').join('')+
+        '</tbody></table></div>'+(d.rows_total>d.preview.length?'<div class="tk-more">showing '+d.preview.length+' of '+d.rows_total+' rows</div>':'');
+    }
+    html+='<div class="tk-dl"><span>Download:</span>'+
+      '<button class="btn sm" onclick="tkDownload(\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="tkDownload(\'csv\')">CSV</button>'+
+      '<button class="btn sm ghost" onclick="tkDownload(\'docx\')">Word</button></div>';
+    out.innerHTML=html;
+  }catch(err){ prog.fail(); out.innerHTML='<div class="wl-empty">Could not run: '+esc(err.message)+'</div>'; }
+}
+function tkDownload(fmt){ if(!TK_RESULT) return; window.open('/api/tool/download/'+TK_RESULT.result_id+'?fmt='+fmt,'_blank'); }
+function makeProgress(el, estMs, stages, title, sub){
+  el.innerHTML=`<div class="cleanbox">
+    <h3>${title}</h3><p>${sub||''}</p>
+    <div class="progress"><i id="pgbar"></i></div>
+    <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta">estimating…</span></div>
+    <div class="prog-stage" id="pgstage">${stages[0]}</div></div>`;
+  const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
+        eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
+  const start=Date.now(); let done=false, raf;
+  function tick(){
+    if(done) return;
+    const elapsed=Date.now()-start;
+    const p=Math.min(0.92, elapsed/estMs);           // hold at 92% until the real finish
+    const shown=Math.round(p*100);
+    bar.style.width=shown+'%'; pct.textContent=shown+'%';
+    const remain=Math.max(0, estMs-elapsed);
+    eta.textContent = remain>1500 ? ('about '+Math.ceil(remain/1000)+' sec left')
+                     : (elapsed<estMs ? 'a few seconds left' : 'almost done…');
+    stg.textContent=stages[Math.min(stages.length-1, Math.floor(p*stages.length))];
+    raf=requestAnimationFrame(tick);
+  }
+  tick();
+  return {
+    finish(){ done=true; cancelAnimationFrame(raf); bar.style.width='100%';
+      pct.textContent='100%'; eta.textContent='done'; stg.textContent=stages[stages.length-1]; },
+    fail(){ done=true; cancelAnimationFrame(raf); }
+  };
+}
+function estimateMs(bytes){ return Math.round(1800 + Math.min(22000, (bytes/1048576)*1500)); }
+
 async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
   const ov=$('#overlay'); ov.classList.add('on');
-  ov.innerHTML='<div class="cleanbox"><div class="spin"></div><h3>Reading &amp; cleaning your file…</h3><p>Sent to the engine for standardisation. In the desktop app this runs offline on your computer.</p></div>';
+  const stages=["Reading your file…","Working out each column…","Cleaning the values…",
+                "Checking duplicates & outliers…","Preparing your review…"];
+  const prog=makeProgress(ov, estimateMs(file.size), stages,
+    "Reading &amp; cleaning your file…",
+    "In the desktop app this runs offline on your computer.");
   try{
     const fd=new FormData(); fd.append('file', file); fd.append('region', SETTINGS.region||'ng');
     const res=await fetch('/api/clean',{method:'POST',body:fd});
@@ -904,9 +1031,10 @@ async function onRealFile(e){
     if(!res.ok || data.error) throw new Error(data.error || ('server '+res.status));
     buildFieldsFromAPI(data, file.name);
     reached=Math.max(reached,5);
-    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 400);
+    prog.finish();
+    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 550);
   }catch(err){
-    ov.classList.remove('on');
+    prog.fail(); ov.classList.remove('on');
     toast('Could not clean that file: '+err.message);
   }
 }
