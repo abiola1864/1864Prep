@@ -110,8 +110,9 @@ class NumericTransform(Transform):
             return "", True, "empty numeric"
         if not any(ch.isdigit() for ch in s):
             return value, True, "not numeric (no digits)"
-        neg = s.strip().startswith("(") and s.strip().endswith(")")
-        pct = s.strip().endswith("%")
+        st = s.strip()
+        neg = (st.startswith("(") and st.endswith(")")) or st.startswith("-") or st.startswith("\u2212")
+        pct = st.endswith("%")
         try:
             from price_parser import Price
             amount = Price.fromstring(s).amount_float
@@ -122,8 +123,7 @@ class NumericTransform(Transform):
                 amount = float(re.sub(r"[^\d.\-eE]", "", s.replace(",", "")))
             except ValueError:
                 return value, True, "not numeric"
-        if neg:
-            amount = -abs(amount)
+        amount = -abs(amount) if neg else abs(amount)   # price_parser drops the sign; restore it
         if pct:
             note = "read as percent value"
             return (str(int(amount)) if float(amount).is_integer() else str(amount)), False, note

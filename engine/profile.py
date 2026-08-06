@@ -82,12 +82,53 @@ class ColumnProfile:
     evidence: dict = field(default_factory=dict)
 
 
+_HEADER_HINTS = [
+    (r"(?:^|[_\s])(lat|latitude|gpslat|lat_?dd)(?:$|[_\s0-9])", "latitude"),
+    (r"(?:^|[_\s])(lon|lng|long|longitude|gpslon|gpslng|lon_?dd)(?:$|[_\s0-9])", "longitude"),
+    (r"(gps|geopoint|geo_?point|geo_?location|coord|coordinate|coordinates|location|lat_?long|latlon)", "geopoint"),
+    (r"(e-?mail)", "email"),
+    (r"(?:^|[_\s])(phone|mobile|gsm|msisdn|tel)(?:$|[_\s0-9])", "phone"),
+    (r"(?:^|[_\s])(dob|birth|date)(?:$|[_\s0-9])", "date"),
+    (r"(amount|amt|price|fee|cost|salary|income|naira|ngn|balance)", "numeric"),
+    (r"(?:^|[_\s])(sex|gender)(?:$|[_\s])", "gender"),
+]
+
+
+def _header_hint(name: str):
+    import re as _re
+    h = str(name).lower()
+    for pat, typ in _HEADER_HINTS:
+        if _re.search(pat, h):
+            return typ
+    return None
+
+
+def _is_coordish(s: str) -> bool:
+    try:
+        from lat_lon_parser import parse
+        float(parse(s)); return True
+    except Exception:
+        try:
+            float(s.replace(",", "").strip()); return True
+        except ValueError:
+            return False
+
+
 def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None = None,
                    place_index: dict | None = None) -> ColumnProfile:
     vals = _clean_vals(series)
     n = len(vals)
     if n == 0:
         return ColumnProfile(name, "empty", 1.0, None, evidence={"nonnull": 0})
+
+    # header tells us what values alone can't: "lat"/"long" are just decimals
+    hint = _header_hint(name)
+    if hint in ("latitude", "longitude"):
+        if sum(1 for v in vals if _is_coordish(v)) / n >= 0.6:
+            return ColumnProfile(name, hint, 0.9, hint, evidence={"header_hint": hint})
+    if hint == "geopoint":
+        if sum(1 for v in vals if ("," in v or ";" in v) and any(c.isdigit() for c in v)) / n >= 0.6:
+            return ColumnProfile(name, "geopoint", 0.9, None, evidence={"header_hint": "geopoint"})
 
     # 0/1 indicator (select-multiple dummy): leave it alone, don't clutter review
     if set(vals) <= {"0", "1"}:
@@ -255,6 +296,8 @@ _TYPE_TO_TRANSFORM = {
     "date": ("date_iso", {}),
     "datetime": ("datetime_iso", {}),
     "numeric": ("numeric", {}),
+    "latitude": ("latitude", {}),
+    "longitude": ("longitude", {}),
     "name": ("name", {}),
     "categorical": ("auto_categorical", {}),
     "free_text": ("text_normalise", {}),
@@ -269,9 +312,7 @@ def profile_to_plan(profiles: list[ColumnProfile], plan_name: str = "auto",
     gazetteer_refs = gazetteer_refs or {}
     mappings = []
     for p in profiles:
-        if p.semantic_type in ("indicator", "empty"):
-            continue
-        if p.semantic_type in ("empty",):
+        if p.semantic_type in ("indicator", "empty", "geopoint"):
             continue
         if p.semantic_type == "identifier":
             transform = p.transform  # 'nin' or 'fixed_id'

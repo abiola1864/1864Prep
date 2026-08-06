@@ -90,3 +90,4 @@ class LGANGTransform(Transform):
                 leftover = k[len(cand):]
                 return self._lookup[cand], True, f"de-concatenated; leftover '{leftover}' dropped"
         return value, True, "LGA not recognised"
+

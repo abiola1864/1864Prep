@@ -89,3 +89,31 @@ def date_part(series: pd.Series, part: str = "year") -> pd.Series:
     out = series.map(one)
     out.name = f"{series.name}_{part}"
     return out
+
+
+def split_geopoint(series: pd.Series) -> pd.DataFrame:
+    """'6.45, 3.39' / '(6.45; 3.39)' / '6.45 3.39' -> latitude, longitude decimals."""
+    import re as _re
+    try:
+        from lat_lon_parser import parse
+    except Exception:
+        parse = None
+    lats, lons = [], []
+    for v in series.map(_s):
+        parts = [p for p in _re.split(r"[;,]|\s+", v.strip("()[] ")) if p]
+        # recombine tokens if DMS produced >2 pieces: take first half / second half
+        if len(parts) == 2:
+            a, b = parts
+        elif len(parts) > 2:
+            mid = len(parts) // 2
+            a, b = " ".join(parts[:mid]), " ".join(parts[mid:])
+        else:
+            lats.append(""); lons.append(""); continue
+        def dec(x):
+            if parse is None:
+                try: return str(float(x))
+                except ValueError: return ""
+            try: return str(round(float(parse(x)), 6))
+            except Exception: return ""
+        lats.append(dec(a)); lons.append(dec(b))
+    return pd.DataFrame({f"{series.name}_lat": lats, f"{series.name}_long": lons})

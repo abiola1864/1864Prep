@@ -12,6 +12,7 @@ from .geo import LGANGTransform, StateNGTransform
 from .identity import FixedLengthIdTransform, NINTransform
 from .phone import PhoneNGTransform, PhoneTransform
 from .resolve_tf import ResolveTransform
+from .coords import LatitudeTransform, LongitudeTransform
 from .validate import RangeCheckTransform, SentinelNATransform, UnitNumericTransform
 from .text import (BooleanTransform, EmailTransform, GenderTransform,
                    NameTransform, NumericTransform, TextCleanTransform,
@@ -43,6 +44,8 @@ REGISTRY = {
     "sentinel_na": SentinelNATransform, # refusal/DK codes -> missing
     "range_check": RangeCheckTransform, # flag out-of-range values
     "unit_numeric": UnitNumericTransform,  # "3200g" -> number (via pint)
+    "latitude": LatitudeTransform,      # -> decimal degrees, range -90..90
+    "longitude": LongitudeTransform,    # -> decimal degrees, range -180..180
 }
 
 
