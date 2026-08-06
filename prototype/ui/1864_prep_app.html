@@ -366,9 +366,9 @@
       <p class="lead">Only the changes you accepted are applied. Rejected values stay exactly as recorded; flagged rows are set aside. The cleaned file stays on your computer.</p>
       <div class="kpis" id="expkpis"></div>
       <div style="display:flex;gap:12px;margin-top:12px">
-        <button class="btn" onclick="toast('(mockup) cleaned file saved locally')">Save cleaned file</button>
-        <button class="btn ghost" onclick="toast('(mockup) audit log downloaded')">Download audit log</button>
+        <button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button>
       </div>
+      <div id="expout" style="margin-top:14px"></div>
 
       <div class="aitoggle" style="max-width:860px;margin-top:24px">
         <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off — the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned — never the raw record.</span></div>
@@ -553,7 +553,7 @@ function messy(std,i){
   return std;                                                   // as-is
 }
 
-let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={};
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false;
 
 function go(n){
   cur=n;
@@ -793,10 +793,10 @@ function updateGate(){ const N=FIELDS.length, reviewed=FIELDS.filter(f=>f.decisi
   $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' column'+(left>1?'s':'')+' still to review' : 'All '+N+' columns reviewed.';
   $('#finish').disabled = left>0; }
 
-function wlSet(key,choice){ WLDECISIONS[key]=choice; renderWorklist(); toast('Choice recorded'); }
+function wlSet(key,choice){ WLDECISIONS[key]=choice; if(key.indexOf('dup:')===0 && /remove/.test(choice)) WL_REMOVE_DUPES=true; renderWorklist(); toast('Choice recorded'); }
 function wlRecleanCol(name){ const i=FIELDS.findIndex(f=>f.name===name); if(i>=0){ idx=i; FIELDS[i].decision=null; go(5); toast('Pick a different type, or accept the cleaning'); } }
-function wlSetAll(name){ const v=prompt('Set every value in "'+name+'" to:'); if(v){ wlSet('col:'+name,'set all to "'+v+'"'); } }
-function wlFixFlagged(col){ const v=prompt('Set the flagged values in "'+col+'" to:'); if(v){ wlSet('flag:'+col,'set to "'+v+'"'); } }
+function wlSetAll(name){ const v=prompt('Set every value in "'+name+'" to:'); if(v){ WL_SETALL[name]=v; wlSet('col:'+name,'set all to "'+v+'"'); } }
+function wlFixFlagged(col){ const v=prompt('Set the flagged values in "'+col+'" to:'); if(v){ WL_SETALL[col]=v; wlSet('flag:'+col,'set to "'+v+'"'); } }
 function renderWorklist(){
   const box=$('#worklist'); if(!box) return;
   const wl=WORKLIST||{flagged:[],duplicates:[],similar:[]};
@@ -868,8 +868,41 @@ function wlCombine(col,ci,gi){
   const g=WORKLIST.similar[ci].groups[gi];
   let n=0; g.members.forEach((m,mi)=>{ const el=document.getElementById('simchk_'+ci+'_'+gi+'_'+mi); if(el&&el.checked) n++; });
   if(n<2){ toast('Tick at least two entries to combine'); return; }
+  const chosen=g.members.filter((m,mi)=>{ const el=document.getElementById('simchk_'+ci+'_'+gi+'_'+mi); return el&&el.checked; });
+  WL_MERGES.push({column:col, into:name, members:chosen});
   wlSet('sim:'+col+':'+gi, 'combined '+n+' into "'+name+'"');
 }
+async function doExport(){
+  const out=$('#expout');
+  if(!SESSION_ID){ out.innerHTML='<div class="wl-empty">Export applies to an uploaded file. Upload real data (not the sample walk-through) to produce a cleaned file.</div>'; return; }
+  const decisions={
+    reject: FIELDS.filter(f=>f.decision==='reject').map(f=>f.name),
+    setall: WL_SETALL,
+    merges: WL_MERGES,
+    remove_duplicates: WL_REMOVE_DUPES
+  };
+  makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
+  try{
+    const fd=new FormData(); fd.append('session_id',SESSION_ID); fd.append('decisions',JSON.stringify(decisions));
+    const res=await fetch('/api/export',{method:'POST',body:fd});
+    const d=await res.json();
+    if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
+    let html='<div class="tk-summary"><b>'+d.rows_out+'</b> rows · <b>'+d.cols_out+'</b> columns · <b>'+d.changes_total+'</b> changes applied</div>';
+    html+='<div class="tk-dl"><span>Download cleaned data:</span>'+
+      '<button class="btn sm" onclick="expDL(\''+d.result_id+'\',\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'csv\')">CSV</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></div>';
+    html+='<div class="tk-dl"><span>Change log:</span>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\')">Excel</button></div>';
+    if(d.audit&&d.audit.length){
+      html+='<div class="tk-tablewrap" style="margin-top:10px"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>rows</th></tr></thead><tbody>'+
+        d.audit.map(a=>'<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+esc(String(a.count))+'</td></tr>').join('')+'</tbody></table></div>';
+    }
+    out.innerHTML=html;
+  }catch(err){ out.innerHTML='<div class="wl-empty">Could not produce the file: '+esc(err.message)+'</div>'; }
+}
+function expDL(id,fmt){ window.open('/api/tool/download/'+id+'?fmt='+fmt,'_blank'); }
 function renderExport(){
   let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
   $('#expkpis').innerHTML=[['#2f6f57',acc,'columns cleaned & applied'],['#a83a3a',rej,'columns kept as-is'],['#b5761c',outl,'values flagged for follow-up'],['#1d3a53',FIELDS.length,'columns reviewed']]
@@ -1058,6 +1091,7 @@ function buildFieldsFromAPI(data, filename){
   });
   idx=0;
   WORKLIST=data.worklist||null; WLDECISIONS={};
+  SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   if(data.ingest) toast(data.ingest);
 }

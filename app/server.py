@@ -101,9 +101,14 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
                                                     "size": g["size"],
                                                     "confidence": g["confidence"],
                                                     "score": g["score"]} for g in gs]})
+        rid = None
+        import uuid as _uuid
+        sid = _uuid.uuid4().hex[:12]
+        _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
         return {
             "ingest": rep.summary(),
             "region": _regions.get_active_region().name,
+            "session_id": sid,
             "overview": column_overview(df, cleaned, types, flags),
             "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
             "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar,
@@ -128,6 +133,73 @@ async def api_tools():
 
 
 _RESULTS: dict = {}
+_SESSIONS: dict = {}
+
+
+@app.post("/api/export")
+async def api_export(session_id: str = Form(...), decisions: str = Form("{}")):
+    """Apply the person's decisions to the remembered upload and produce a
+    genuinely cleaned dataset + an audit log. Returns a result_id to download."""
+    import json
+    import uuid
+    from engine.dedupe import near_duplicate_rows
+    from engine.pipeline import run_plan
+
+    sess = _SESSIONS.get(session_id)
+    if not sess:
+        return JSONResponse(status_code=404, content={"error": "session expired; re-upload the file"})
+    df = sess["df"].copy()
+    plan = sess["plan"]
+    dec = json.loads(decisions or "{}")
+    rejected = set(dec.get("reject", []))
+    setall = dec.get("setall", {}) or {}
+    merges = dec.get("merges", []) or []
+    remove_dupes = bool(dec.get("remove_duplicates"))
+
+    audit = []
+    # 1) apply the plan, minus rejected columns (those pass through unchanged)
+    kept = {"name": plan.get("name", "auto"),
+            "mappings": [m for m in plan["mappings"] if m["source_column"] not in rejected]}
+    cleaned, report, _ = run_plan(df, kept, "export")
+    for c in report.columns:
+        if c.get("changed"):
+            audit.append({"column": c["source_column"], "action": f"cleaned ({c['transform']})",
+                          "count": c["changed"]})
+    for col in rejected:
+        audit.append({"column": col, "action": "kept original (your choice)", "count": ""})
+
+    # 2) set-all / flagged fixes
+    for col, val in setall.items():
+        if col in cleaned.columns:
+            n = int((cleaned[col].astype(str) != str(val)).sum())
+            cleaned[col] = val
+            audit.append({"column": col, "action": f"set all to '{val}'", "count": n})
+
+    # 3) confirmed similar-value merges
+    for mg in merges:
+        col, into, members = mg.get("column"), mg.get("into"), set(mg.get("members", []))
+        if col in cleaned.columns and into and members:
+            mask = cleaned[col].astype(str).isin(members)
+            n = int(mask.sum())
+            cleaned.loc[mask, col] = into
+            audit.append({"column": col, "action": f"merged {len(members)} spellings into '{into}'", "count": n})
+
+    # 4) remove duplicate rows
+    if remove_dupes:
+        groups = near_duplicate_rows(df)
+        drop = set()
+        for g in groups:
+            drop.update(sorted(g["rows"])[1:])
+        if drop:
+            cleaned = cleaned.drop(index=list(drop)).reset_index(drop=True)
+            audit.append({"column": "(rows)", "action": "removed duplicate rows", "count": len(drop)})
+
+    rid = uuid.uuid4().hex[:12]
+    _RESULTS[rid] = {"df": cleaned, "title": "Cleaned data"}
+    _RESULTS[rid + "_audit"] = {"df": __import__("pandas").DataFrame(audit), "title": "Change log"}
+    return {"result_id": rid, "audit_id": rid + "_audit", "rows_out": len(cleaned),
+            "cols_out": len(cleaned.columns), "audit": audit[:200],
+            "changes_total": sum(int(a["count"]) for a in audit if str(a["count"]).isdigit())}
 
 
 @app.post("/api/tool/{name}")
