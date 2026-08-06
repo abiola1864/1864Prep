@@ -1,114 +1,141 @@
 # 1864 Prep
 
-Local, consent-first data standardisation for the **Open Network on Digital ID**.
+**Local, consent-first data standardisation for the Open Network on Digital ID.**
 
 An agency points the tool at its records — however messy, whatever the columns —
-and it standardises them **on the agency's own machine**, proposes the changes,
+and it standardises them **on the agency's own machine**, proposes every change,
 and lets a person approve them before anything is saved. Nothing is uploaded.
 The agency then chooses, column by column, what (if anything) the network may ask.
 
-This repository holds two things:
+Two guarantees run through everything:
 
-- **`engine/`** — the real cleaning engine (Python). Deterministic, testable,
-  UI-agnostic. This is the durable core.
-- **`prototype/ui/`** — clickable HTML prototypes of the wizard and the review
-  screen. These are a **specification of the experience**, not the shipping UI
-  (see *Roadmap*).
+1. **Data never leaves the machine.** The desktop app cleans locally; the hosted
+   demo is for synthetic data only.
+2. **Nothing meaning-changing happens without consent.** Every change is a
+   proposal shown in review; the person accepts, edits, or keeps the original.
 
-## What the engine does (and what is / isn't AI)
+---
 
-Most of the work is **deterministic algorithms, no AI**: type detection,
-format cleaning (IDs, phones, dates, emails, numbers, yes/no, names), fuzzy +
-phonetic matching (`Kastina → Katsina`), vocabulary induction, a learning
-knowledge base of confirmed corrections, and outlier detection. All local, no
-account, no internet.
+## What's in this repository
 
-**AI is an optional layer** for the hard, meaning-based cases only — world-
-knowledge place resolution (`Port Harcourt → Rivers`, unless supplied as a
-gazetteer), synonym matching (`HTN ≈ Hypertension`), and free-text. It is off by
-default and, when on, connects to a local/on-prem or approved cloud model. See
-`docs/CLEANING_APPROACH.md`.
+- **`engine/`** — the cleaning engine (deterministic core + optional ML). Reads
+  messy files, works out what each column is, proposes fixes, and records every
+  change. UI-independent and fully tested.
+- **`app/`** — a small web service (`server.py`) around the engine and a desktop
+  shell (`desktop.py`). The same code powers the hosted demo and the offline app.
+- **`prototype/ui/`** — the clickable wizard (sign in → sector → columns → upload
+  → match → review → **needs attention** → export) plus a Settings screen.
+- **`regions/`** — swappable country packs. The engine is generic; Nigeria is one
+  pack. Add a country in a few lines.
+- **`reference/`, `knowledge/`, `plans/`, `samples/`, `tests/`, `docs/`** — lookup
+  data, learned corrections, example plans, synthetic sample data, tests, and
+  design notes.
 
-## Quickstart (engine)
+---
+
+## What the engine can do
+
+### Reads messy files (any of these)
+CSV / TSV / TXT (sniffs encoding, delimiter, and the real header row past banner
+rows), Excel (multi-sheet, picks the fullest), JSON (flattens nested keys), and
+**PDF** (extracts tables, merges across pages). See `engine/ingest.py`.
+
+### Works out each column's type
+Rule-based detection, **assisted by a trained machine-learning classifier**
+(`engine/ml/`) that rescues columns the rules mis-read — e.g. a mostly-numeric
+age column polluted with "Do not know" is still recognised as numeric. Types
+include: numeric, date, **datetime/timestamp**, phone, email, identifier, name,
+geographic, categorical, boolean, gender, **0/1 indicator (leave-alone)**,
+free-text, and empty.
+
+### Cleans, using established libraries (not bespoke rules)
+- **Phones** → any country via `phonenumbers` (region is a parameter)
+- **Dates & timestamps** → many formats + Excel serials via `dateparser`
+- **Numbers & currency** → `price-parser` (₦/$/€, thousands separators,
+  comma-vs-dot decimals, parentheses-negatives, %)
+- **Unit-aware numbers** → "3200g" → 3200, optional convert to kg/ha/… via `pint`
+- **Text / encoding** → `ftfy` (mojibake), zero-width/whitespace/quote normalising
+- **Email** → validated & normalised via `email-validator`
+- **Missing values** → the many spellings of "missing" treated consistently
+- **Sentinel/refusal codes** (998/999/-99/"don't know") → missing + flagged
+- **Range/outlier checks** (e.g. age 0–120) → flag out-of-range
+
+### Standardises categories safely
+Merges only same-meaning spellings (case, spacing, "&"/"and", word order);
+**never** merges across different words or different numbers. Genuine typos and
+look-alikes are offered as *suggestions*, never applied automatically.
+
+### Finds duplicates & similar entries
+Duplicate/near-duplicate rows, and **graded similarity clusters** (very likely /
+possibly the same) that you confirm with a tap — tick the matches, edit one name,
+combine. Optional local **semantic embeddings** (`sentence-transformers`) catch
+meaning-based matches ("Provisions" ≈ "Groceries") when installed.
+
+### Reshapes (explicit actions, never silent)
+Split a column (by delimiter, name → first/surname, "text + number"), merge
+columns, and extract date parts (year/month).
+
+### "Needs your attention" worklist
+Everything that needs judgement in one place: columns you kept as original,
+flagged values, duplicate rows, similar-value groups, and repeated columns — each
+with simple actions. Nothing changes automatically.
+
+### Learns
+A correction store remembers confirmed fixes and reuses them. Optional, opt-in
+contribution of *correction pairs only* (never records) can improve a shared
+dictionary in future updates. There is **no transfer learning / custom large
+model** — that's a future path, stated honestly, not a current feature.
+
+---
+
+## Quickstart
 
 ```bash
 pip install -e .            # Python 3.11+
 python cli.py transforms    # list the cleaning transforms
-python samples/make_sample.py
-python cli.py clean samples/social_register_sample_raw.xlsx --plan plans/social_register.json --out out
-python -m pytest -q         # run the tests
+python -m pytest -q         # run the tests (or: for t in tests/*.py; do python "$t"; done)
 ```
 
-## Prototype UI
+Run the app locally (wizard + live engine):
 
-Open `prototype/ui/1864_prep_app.html` in a browser — the full wizard:
-sector → choose columns (by meaning) → upload → match column names → clean
-(built-in, or AI-assisted via a toggle) → sequential review (✓ looks right /
-✗ keep original) → export with per-column network permissions.
-
-## What's in each folder
-
-- **`engine/`** — the cleaning engine itself (the code that does the work). Inside it:
-  `ingest.py` reads messy files of many kinds (CSV/Excel/JSON/**PDF**), sniffing
-  encoding, delimiter and header row; `profile.py` works out what each column is;
-  `resolve.py` matches messy values to a correct list using spelling + sound;
-  `induce.py` discovers a category set from the data; `textclean.py` cleans
-  natural-language / free text (encoding repair, missing-value tokens, language
-  detection, extraction); `knowledge.py` remembers corrections it has been given;
-  `review.py` builds the before/after summaries; `pipeline.py` runs a cleaning plan
-  end to end; and `transforms/` holds one small, tested rule per file (IDs, phones,
-  dates, emails, numbers, names, states, free-text, etc.).
-- **`plans/`** — example cleaning plans. A plan is a short list saying "clean this
-  column with this rule" — what the tool proposes after reading a file.
-- **`reference/`** — the lookup data the engine matches against: the official states,
-  a places→state gazetteer, example LGA lists. Swap these to adapt to another country.
-- **`knowledge/`** — the corrections the tool has learned (starts from
-  `seed_corrections.json` and grows as people confirm fixes).
-- **`samples/`** — generators that create synthetic, deliberately messy data.
-  **`samples/data/`** holds ready-made example files, one per sector, so you can see
-  the kind of input the tool cleans. None of it is real data.
-- **`tests/`** — automated checks that the cleaning behaves correctly.
-- **`docs/`** — design notes (architecture, cleaning approach, handling unseen data,
-  learning + review).
-- **`prototype/ui/`** — clickable HTML mockups of the wizard and review screen. These
-  show the intended experience; they are **not** the final app (see Roadmap).
-- **`app/`** — a small web service around the engine (`server.py`) and a desktop
-  entry point (`desktop.py`). The same code powers a cheap web demo and the
-  offline desktop app — see `docs/DEPLOY.md` for how to run, host, and package it.
-- **Top level** — `cli.py` (run the engine from a terminal), `pyproject.toml`
-  (dependencies), `render.yaml` (one-click web demo), `README.md`, `LICENSE`,
-  `CONTRIBUTING.md`.
-
-### Sample data
-
-`samples/data/` has one synthetic file per sector so you can open example inputs:
-
-```
-samples/data/health_sample.csv
-samples/data/agriculture_sample.csv
-samples/data/education_sample.csv
-samples/data/social_protection_sample.csv
-samples/data/finance_sample.csv
+```bash
+pip install -e ".[web]"
+uvicorn app.server:app --reload      # http://127.0.0.1:8000
 ```
 
-Regenerate any time with `python samples/make_sector_samples.py`. Everything in
-`samples/` is synthetic — no real or private data is in this repository.
+See `docs/DEPLOY.md` for hosting the demo (Render) and packaging the desktop app
+(pywebview + PyInstaller, Mac + Windows via GitHub Actions).
 
-## Roadmap — toward a downloadable desktop app
+---
 
-The end goal is an **installable desktop application** that runs fully offline,
-not a website. The plan:
+## Region packs (generic by design)
 
-1. Keep `engine/` as the stable, UI-independent core.
-2. Wrap it in a desktop shell. Leading option: **Tauri** (small, secure
-   installer; web UI + the Python engine as a local sidecar). Alternatives:
-   Electron (heavier) or a pure-Python packager (Briefcase / PyInstaller) if we
-   drop web tech entirely.
-3. Rebuild the prototype's screens as the real front end inside that shell. The
-   current HTML is the reference for behaviour; the shipping UI may not be plain
-   HTML.
-4. Ship reference data + the knowledge base inside the app so the local (no-AI)
-   path is strong out of the box.
+```python
+import regions
+regions.set_active_region("ng")        # Nigeria pack (phone NG, day-first dates, states/LGAs)
+# add another country in a few lines — see regions/README.md
+```
+
+Set `PREP_REGION=ng` for the server; the engine itself defaults to generic.
+
+---
+
+## Machine learning — what's real
+
+- **Active:** a trained scikit-learn classifier assists column-type detection
+  (`engine/ml/`, retrain with `python -m engine.ml.train_typeclf`).
+- **Optional:** local sentence-embeddings for semantic similarity.
+- **Not present:** transfer learning or a custom-trained large model.
+
+See `docs/MACHINE_LEARNING.md`.
+
+---
+
+## Documentation
+
+`docs/ARCHITECTURE.md` · `docs/CLEANING_APPROACH.md` · `docs/GENERALITY.md` ·
+`docs/INGESTION_AND_TEXT.md` · `docs/LEARNING_AND_REVIEW.md` ·
+`docs/MACHINE_LEARNING.md` · `docs/DEPLOY.md` · `regions/README.md`
 
 ## Licence
 
