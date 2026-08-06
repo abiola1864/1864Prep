@@ -128,7 +128,7 @@ def _sim_guarded(a: str, b: str) -> float:
     return _sim(a, b)
 
 
-def cluster_similar(values, link_threshold: float = 0.72) -> list[dict]:
+def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False) -> list[dict]:
     """Group values that MIGHT be the same, graded by confidence — no merging.
 
     Instead of one yes/no cutoff, values are linked when similar, then each
@@ -148,6 +148,16 @@ def cluster_similar(values, link_threshold: float = 0.72) -> list[dict]:
         for j in range(i + 1, len(distinct)):
             if _sim_guarded(distinct[i], distinct[j]) >= link_threshold:
                 uf.union(distinct[i], distinct[j])
+
+    if semantic:
+        try:
+            from .ml.embed import available, semantic_pairs
+            if available():
+                for a, b, _s in semantic_pairs(distinct, threshold=0.62):
+                    if _numbers(a) == _numbers(b):     # still never merge across different numbers
+                        uf.union(a, b)
+        except Exception:
+            pass
 
     clusters: dict[str, list[str]] = defaultdict(list)
     for v in distinct:
@@ -170,3 +180,20 @@ def cluster_similar(values, link_threshold: float = 0.72) -> list[dict]:
     rank = {"high": 0, "medium": 1, "low": 2}
     out.sort(key=lambda g: (rank[g["confidence"]], -g["size"]))
     return out
+
+
+def duplicate_columns(df) -> list[dict]:
+    """Group columns that are repeats: same header ignoring case/punctuation/the
+    pandas '.1' de-dup suffix, or identical cell values. Returns groups of 2+."""
+    import re as _re
+    def hkey(h):
+        h = _re.sub(r"\.\d+$", "", str(h))                 # drop pandas .1/.2 suffix
+        return _re.sub(r"[^a-z0-9]+", "", h.lower())
+    by_header: dict[str, list[str]] = defaultdict(list)
+    for c in df.columns:
+        by_header[hkey(c)].append(c)
+    groups = []
+    for k, cols in by_header.items():
+        if len(cols) > 1:
+            groups.append({"reason": "same name", "columns": cols})
+    return groups

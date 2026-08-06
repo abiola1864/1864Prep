@@ -62,3 +62,30 @@ class DateISOTransform(Transform):
         if not self._in_range(dd):
             return value, True, "date out of plausible range"
         return dd.isoformat(), False, ""
+
+
+class DateTimeISOTransform(Transform):
+    """Timestamps -> ISO 'YYYY-MM-DD HH:MM:SS' (keeps the time). Falls back to
+    dateparser; unparseable values are flagged, never guessed."""
+    name = "datetime_iso"
+
+    def __init__(self, **params):
+        super().__init__(**params)
+        try:
+            from regions import get_active_region
+            self._order = params.get("date_order") or get_active_region().date_order
+        except Exception:
+            self._order = params.get("date_order", "MDY")
+
+    def apply_value(self, value):
+        s = _clean_str(value)
+        if s == "":
+            return "", True, "empty datetime"
+        try:
+            import dateparser
+            dt = dateparser.parse(s, settings={"DATE_ORDER": self._order, "PREFER_DAY_OF_MONTH": "first"})
+        except Exception:
+            dt = None
+        if dt is None:
+            return value, True, "unparseable datetime"
+        return dt.strftime("%Y-%m-%d %H:%M:%S"), False, ""

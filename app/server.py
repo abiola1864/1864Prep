@@ -15,7 +15,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -40,12 +40,14 @@ def _save(upload: UploadFile) -> Path:
 
 
 @app.post("/api/profile")
-async def api_profile(file: UploadFile = File(...)):
+async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
+    if region:
+        _regions.set_active_region(region)
     path = _save(file)
     try:
         df, rep = read_any(path)
         _ref = _regions.load_reference()
-        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"])
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True)
         return {
             "ingest": rep.summary(),
             "region": _regions.get_active_region().name,
@@ -58,19 +60,21 @@ async def api_profile(file: UploadFile = File(...)):
 
 
 @app.post("/api/clean")
-async def api_clean(file: UploadFile = File(...)):
+async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
+    if region:
+        _regions.set_active_region(region)
     path = _save(file)
     try:
         df, rep = read_any(path)
         _ref = _regions.load_reference()
-        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"])
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True)
         plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
         types = {p.column: p.semantic_type for p in profs}
         cleaned, report, _ = run_plan(df, plan, "web")
         flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}
 
         # --- data for the "needs your attention" worklist ---
-        from engine.dedupe import cluster_similar, near_duplicate_rows
+        from engine.dedupe import cluster_similar, duplicate_columns, near_duplicate_rows
         flagged = []
         for c in report.columns:
             fl = c.get("flags") or []
@@ -89,7 +93,7 @@ async def api_clean(file: UploadFile = File(...)):
             if p.semantic_type in ("categorical", "name", "free_text"):
                 nun = df[p.column].nunique()
                 if 2 <= nun <= 400:
-                    gs = cluster_similar(df[p.column].tolist())[:20]
+                    gs = cluster_similar(df[p.column].tolist(), semantic=True)[:20]
                     if gs:
                         similar.append({"column": p.column,
                                         "groups": [{"representative": g["representative"],
@@ -102,12 +106,19 @@ async def api_clean(file: UploadFile = File(...)):
             "region": _regions.get_active_region().name,
             "overview": column_overview(df, cleaned, types, flags),
             "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
-            "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar},
+            "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar,
+                         "repeated_columns": duplicate_columns(df)},
         }
     except Exception as e:  # never 500 silently in a demo
         return JSONResponse(status_code=422, content={"error": str(e)})
     finally:
         path.unlink(missing_ok=True)
+
+
+@app.get("/api/regions")
+async def api_regions():
+    return {"active": _regions.get_active_region().key,
+            "regions": [{"key": k, "name": _regions.get_region(k).name} for k in _regions.list_regions()]}
 
 
 @app.get("/api/health")

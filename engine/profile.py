@@ -82,12 +82,35 @@ class ColumnProfile:
     evidence: dict = field(default_factory=dict)
 
 
-def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
+def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None = None,
                    place_index: dict | None = None) -> ColumnProfile:
     vals = _clean_vals(series)
     n = len(vals)
     if n == 0:
         return ColumnProfile(name, "empty", 1.0, None, evidence={"nonnull": 0})
+
+    # 0/1 indicator (select-multiple dummy): leave it alone, don't clutter review
+    if set(vals) <= {"0", "1"}:
+        return ColumnProfile(name, "indicator", 1.0, None, evidence={"values": "0/1"})
+
+    # timestamp (date + time component) -> datetime, distinct from a plain date
+    import re as _re
+    _time = _re.compile(r"\d{1,2}:\d{2}")
+    _dateish = _re.compile(r"\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}|\d{4}-\d{2}-\d{2}")
+    ts_rate = sum(1 for v in vals if _time.search(v) and _dateish.search(v)) / n
+    if ts_rate >= 0.7:
+        return ColumnProfile(name, "datetime", ts_rate, "datetime_iso", evidence={"timestamp_rate": round(ts_rate, 2)})
+
+    # number carrying a known unit (3200g, 12 kg, 5 ha) -> parse to a number
+    _known_units = {"g", "kg", "mg", "lb", "oz", "t", "ha", "m", "cm", "mm", "km",
+                    "l", "ml", "hr", "hrs", "hour", "hours", "min", "mins", "sec", "yr", "yrs"}
+    _unit_re = _re.compile(r"^[-+]?\d[\d,\.]*\s*([a-zA-Z]{1,5})$")
+    def _has_unit(v):
+        m = _unit_re.match(v)
+        return bool(m) and m.group(1).lower() in _known_units
+    unit_rate = sum(1 for v in vals if _has_unit(v)) / n
+    if unit_rate >= 0.7:
+        return ColumnProfile(name, "numeric", unit_rate, "unit_numeric", evidence={"unit_rate": round(unit_rate, 2)})
 
     distinct = list(dict.fromkeys(vals))
     d = len(distinct)
@@ -182,9 +205,45 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
     return ColumnProfile(name, "free_text", 0.6, "text_normalise", evidence=ev)
 
 
+def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
+                   place_index: dict | None = None, use_ml: bool = False) -> ColumnProfile:
+    """Rule-based profiling, optionally rescued by the trained type classifier.
+
+    The rules stay authoritative. When `use_ml` is on and the rules land on a
+    soft type (categorical / name / free_text) but the trained model is
+    confident the column is a structured type (numeric, date, phone, …), the
+    model's call wins — this is what rescues a mostly-numeric column polluted
+    with 'Do not know'. If no model is installed, behaviour is unchanged.
+    """
+    result = _profile_column_rules(series, name, gazetteers, place_index)
+    if not use_ml or result.semantic_type not in {"categorical", "name", "free_text", "identifier"}:
+        return result
+    try:
+        from .ml.predict import predict_detail
+    except Exception:
+        return result
+    vals = _clean_vals(series)
+    ml_type, ml_conf, ml_margin = predict_detail(vals)
+    rescuable = {"numeric", "date", "datetime", "phone", "email", "boolean", "gender"}
+    if result.semantic_type == "identifier":
+        rescuable = {"numeric", "date", "datetime", "email", "boolean", "gender"}  # ID vs phone too ambiguous
+    strong = ml_conf >= 0.35 and ml_margin >= 0.20
+    numeric_ok = ml_type == "numeric" and ml_conf >= 0.30 and ml_margin >= 0.10  # length-guarded below
+    if ml_type in rescuable and (strong or numeric_ok) and ml_type != result.semantic_type:
+        if ml_type == "numeric":
+            import re as _re
+            lens = sorted(len(_re.sub(r"\D", "", v)) for v in vals if any(c.isdigit() for c in v))
+            if lens and lens[len(lens) // 2] > 6:      # long digit strings are IDs, not measures
+                return result
+        transform = _TYPE_TO_TRANSFORM.get(ml_type, ("text_normalise", {}))[0]
+        ev = dict(result.evidence or {}); ev["ml_assist"] = {ml_type: round(ml_conf, 2)}
+        return ColumnProfile(name, ml_type, ml_conf, transform, evidence=ev)
+    return result
+
+
 def profile_dataframe(df: pd.DataFrame, gazetteers: dict | None = None,
-                      place_index: dict | None = None) -> list[ColumnProfile]:
-    return [profile_column(df[c], c, gazetteers, place_index) for c in df.columns]
+                      place_index: dict | None = None, use_ml: bool = False) -> list[ColumnProfile]:
+    return [profile_column(df[c], c, gazetteers, place_index, use_ml) for c in df.columns]
 
 
 # --- turn profiles into an executable, review-ready plan -------------------
@@ -194,6 +253,7 @@ _TYPE_TO_TRANSFORM = {
     "boolean": ("boolean", {}),
     "phone": ("phone_ng", {}),
     "date": ("date_iso", {}),
+    "datetime": ("datetime_iso", {}),
     "numeric": ("numeric", {}),
     "name": ("name", {}),
     "categorical": ("auto_categorical", {}),
@@ -209,6 +269,8 @@ def profile_to_plan(profiles: list[ColumnProfile], plan_name: str = "auto",
     gazetteer_refs = gazetteer_refs or {}
     mappings = []
     for p in profiles:
+        if p.semantic_type in ("indicator", "empty"):
+            continue
         if p.semantic_type in ("empty",):
             continue
         if p.semantic_type == "identifier":

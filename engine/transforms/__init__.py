@@ -7,11 +7,12 @@ cleaning rule means adding a Transform subclass and registering it here.
 from __future__ import annotations
 
 from .auto_categorical import AutoCategoricalTransform
-from .dates import DateISOTransform
+from .dates import DateISOTransform, DateTimeISOTransform
 from .geo import LGANGTransform, StateNGTransform
 from .identity import FixedLengthIdTransform, NINTransform
 from .phone import PhoneNGTransform, PhoneTransform
 from .resolve_tf import ResolveTransform
+from .validate import RangeCheckTransform, SentinelNATransform, UnitNumericTransform
 from .text import (BooleanTransform, EmailTransform, GenderTransform,
                    NameTransform, NumericTransform, TextCleanTransform,
                    TextNormaliseTransform, UpperTransform)
@@ -29,6 +30,7 @@ REGISTRY = {
     "lga_ng": LGANGTransform,               # reference / prefix matcher for LGAs
     # dates
     "date_iso": DateISOTransform,
+    "datetime_iso": DateTimeISOTransform,
     # text / values
     "name": NameTransform,
     "upper": UpperTransform,
@@ -38,6 +40,9 @@ REGISTRY = {
     "numeric": NumericTransform,
     "text_normalise": TextNormaliseTransform,
     "text_clean": TextCleanTransform,   # natural-language / free-text cleanup
+    "sentinel_na": SentinelNATransform, # refusal/DK codes -> missing
+    "range_check": RangeCheckTransform, # flag out-of-range values
+    "unit_numeric": UnitNumericTransform,  # "3200g" -> number (via pint)
 }
 
 

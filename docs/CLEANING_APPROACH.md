@@ -81,3 +81,21 @@ is the durable asset.
 - **Next:** the gazetteer loader (rung 3) from the official admin hierarchy, and
   the local-model proposer interface (rung 4) behind the same distinct-values
   boundary.
+
+## Cleaning tasks covered (common data-quality operations)
+
+Deterministic transforms and reshape helpers, each tested:
+- whitespace/case, encoding/mojibake repair, missing-value tokens
+- dates (many formats + Excel serials), timestamps (datetime), date-part extraction
+- phones (any country via region), emails (validated), numbers/currency (comma-decimals, parens-negatives, %)
+- **unit-aware numbers** ("3200g" -> 3200, optional convert to kg/ha/… via pint)
+- **sentinel/refusal codes** (998/999/-99/"don't know") -> missing + flagged
+- **range/outlier checks** (e.g. age 0..120) -> flag out-of-range
+- category standardisation (same-meaning merge; numbers/words protected)
+- fuzzy + phonetic + graded-cluster matching; duplicate rows; near-duplicate/similar values
+- indicator (0/1) and empty column handling; duplicate-column detection
+- **split a column** (by delimiter, name -> first/surname, "text + number") and **merge columns**
+
+Reshape operations change table shape, so they are offered as explicit actions
+rather than applied silently. Sentinel/range are opt-in (flag-first) to avoid
+false positives; unit parsing auto-proposes only for known units.
