@@ -10,3 +10,5 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.4"
+      - key: PREP_REGION
+        value: "ng"   # the demo runs as Nigeria; the engine itself defaults to generic

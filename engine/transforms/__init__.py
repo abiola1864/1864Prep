@@ -10,7 +10,7 @@ from .auto_categorical import AutoCategoricalTransform
 from .dates import DateISOTransform
 from .geo import LGANGTransform, StateNGTransform
 from .identity import FixedLengthIdTransform, NINTransform
-from .phone import PhoneNGTransform
+from .phone import PhoneNGTransform, PhoneTransform
 from .resolve_tf import ResolveTransform
 from .text import (BooleanTransform, EmailTransform, GenderTransform,
                    NameTransform, NumericTransform, TextCleanTransform,
@@ -20,7 +20,8 @@ REGISTRY = {
     # identity / contact
     "nin": NINTransform,
     "fixed_id": FixedLengthIdTransform,
-    "phone_ng": PhoneNGTransform,
+    "phone": PhoneTransform,        # generic; region is a parameter
+    "phone_ng": PhoneNGTransform,   # Nigeria default region
     # standardisation
     "resolve": ResolveTransform,            # robust fuzzy+phonetic resolver (default)
     "auto_categorical": AutoCategoricalTransform,  # induce a vocabulary, then standardise

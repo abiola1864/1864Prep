@@ -11,10 +11,7 @@ from .base import Transform
 _WS = re.compile(r"\s+")
 
 
-def _clean_str(value: Any) -> str:
-    if value is None or (isinstance(value, float) and pd.isna(value)):
-        return ""
-    return _WS.sub(" ", str(value).strip())
+from .base import _clean_str  # shared helper (defined in base)
 
 
 class NameTransform(Transform):
@@ -69,14 +66,24 @@ class GenderTransform(Transform):
 
 
 class EmailTransform(Transform):
+    """Validate + normalise emails via `email_validator` (syntax + normalised
+    form), falling back to a regex if the library is unavailable. No network /
+    deliverability checks — fully offline."""
     name = "email"
     _re = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
-        s = _clean_str(value).lower()
+        s = _clean_str(value).strip()
         if s == "":
             return "", True, "empty email"
-        return (s, False, "") if self._re.match(s) else (s, True, "not a valid email")
+        try:
+            from email_validator import EmailNotValidError, validate_email
+            info = validate_email(s, check_deliverability=False)
+            return info.normalized.lower(), False, ""
+        except ImportError:
+            return (s.lower(), False, "") if self._re.match(s) else (s, True, "not a valid email")
+        except Exception:
+            return s, True, "not a valid email"
 
 
 class BooleanTransform(Transform):
@@ -92,21 +99,35 @@ class BooleanTransform(Transform):
 
 
 class NumericTransform(Transform):
+    """Locale/currency-robust number parsing via `price_parser` (handles ₦, $, €,
+    thousands separators, comma-vs-dot decimals), plus parentheses-negatives and
+    trailing %. A digit must be present, so 'free'/'N/A' are flagged, not zeroed."""
     name = "numeric"
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         s = _clean_str(value)
-        neg = s.strip().startswith("(") and s.strip().endswith(")")   # (1,234) = -1234
-        s = re.sub(r"[,$£€₦%()\s]", "", s)
         if s == "":
             return "", True, "empty numeric"
+        if not any(ch.isdigit() for ch in s):
+            return value, True, "not numeric (no digits)"
+        neg = s.strip().startswith("(") and s.strip().endswith(")")
+        pct = s.strip().endswith("%")
         try:
-            f = float(s)                       # also parses scientific e.g. 1.2e3
-            if neg:
-                f = -abs(f)
-            return (str(int(f)) if f.is_integer() else str(f)), False, ""
-        except ValueError:
-            return value, True, "not numeric"
+            from price_parser import Price
+            amount = Price.fromstring(s).amount_float
+        except Exception:
+            amount = None
+        if amount is None:
+            try:
+                amount = float(re.sub(r"[^\d.\-eE]", "", s.replace(",", "")))
+            except ValueError:
+                return value, True, "not numeric"
+        if neg:
+            amount = -abs(amount)
+        if pct:
+            note = "read as percent value"
+            return (str(int(amount)) if float(amount).is_integer() else str(amount)), False, note
+        return (str(int(amount)) if float(amount).is_integer() else str(amount)), False, ""
 
 
 class TextNormaliseTransform(Transform):

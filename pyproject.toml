@@ -16,6 +16,11 @@ dependencies = [
     "charset-normalizer>=3.0",
     "ftfy>=6.0",
     "langdetect>=1.0",
+    "phonenumbers>=8.13",
+    "dateparser>=1.2",
+    "babel>=2.12",
+    "price-parser>=0.3",
+    "email-validator>=2.0",
 ]
 
 [project.optional-dependencies]

@@ -1,57 +1,49 @@
-"""Phone-number normalisation for Nigerian MSISDNs.
-
-Turns the many forms agencies store (08031234567, 8031234567, 234803...,
-+234 803 123 4567, with spaces or dashes) into one canonical +234XXXXXXXXXX.
-Numbers that cannot be made into a valid 10-digit national number are kept and
-flagged.
-"""
+"""Phone standardisation for ANY country, via Google's libphonenumber
+(`phonenumbers`). The country is a parameter, not hard-coded: it defaults to the
+active region's `phone_region`, so the same transform serves Nigeria, Kenya,
+India or anywhere else."""
 from __future__ import annotations
 
-import re
 from typing import Any
 
-import pandas as pd
+import phonenumbers
 
-from .base import Transform
-
-# Valid Nigerian mobile network codes (national leading digits after the 0),
-# e.g. 0703, 0803, 0906. We check the first three national digits.
-_VALID_PREFIXES = {
-    "700", "701", "702", "703", "704", "705", "706", "707", "708", "709",
-    "800", "801", "802", "803", "804", "805", "806", "807", "808", "809",
-    "810", "811", "812", "813", "814", "815", "816", "817", "818", "819",
-    "900", "901", "902", "903", "904", "905", "906", "907", "908", "909",
-    "911", "912", "913", "914", "915", "916", "917", "918",
-}
-
-_NON_DIGIT = re.compile(r"[^\d+]")
+from .base import Transform, _clean_str
 
 
-class PhoneNGTransform(Transform):
-    name = "phone_ng"
+class PhoneTransform(Transform):
+    """params: region (ISO-3166 alpha-2, e.g. 'NG'); defaults to the active
+    region. Output is E.164 (+<country><number>). Invalid numbers are flagged."""
+    name = "phone"
+
+    def __init__(self, **params):
+        super().__init__(**params)
+        region = params.get("region")
+        if region is None:
+            try:
+                from regions import get_active_region
+                region = get_active_region().phone_region
+            except Exception:
+                region = None
+        self._region = region
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
-        if value is None or (isinstance(value, float) and pd.isna(value)):
+        s = _clean_str(value)
+        if s == "":
             return "", True, "empty phone"
+        try:
+            num = phonenumbers.parse(s, self._region)
+        except phonenumbers.NumberParseException:
+            return value, True, "could not parse phone number"
+        if not phonenumbers.is_valid_number(num):
+            return value, True, "not a valid phone number"
+        return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164), False, ""
 
-        s = str(value).strip()
-        if s.endswith(".0"):
-            s = s[:-2]
-        s = _NON_DIGIT.sub("", s)
-        s = s.lstrip("+")
 
-        # Reduce to the 10-digit national number.
-        if s.startswith("234"):
-            national = s[3:]
-        elif s.startswith("0"):
-            national = s[1:]
-        else:
-            national = s
+class PhoneNGTransform(PhoneTransform):
+    """Nigeria-defaulted phone transform (kept for the plan key 'phone_ng')."""
+    name = "phone_ng"
 
-        if len(national) != 10:
-            return value, True, f"cannot resolve to 10-digit national number (got {len(national)})"
-
-        if national[:3] not in _VALID_PREFIXES:
-            return "+234" + national, True, f"unknown network prefix 0{national[:3]}"
-
-        return "+234" + national, False, ""
+    def __init__(self, **params):
+        params.setdefault("region", "NG")
+        super().__init__(**params)

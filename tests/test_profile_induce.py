@@ -41,21 +41,46 @@ def test_dates_and_geo():
     assert profile_column(col(geo), "State", GAZ).semantic_type == "geo"
 
 
-def test_induction_collapses_variants():
-    vals = (["Maize"] * 30 + ["maize"] * 8 + ["Maiz"] * 3 + ["maze"] * 2
-            + ["Rice"] * 20 + ["rice"] * 5 + ["Ricee"] * 2
-            + ["Sorghum"] * 15 + ["sorgum"] * 3)
+def test_induction_merges_case_not_typos():
+    # SAME word, different case -> one category. Typos are NOT auto-merged
+    # (they are handled as suggestions by dedupe.group_similar).
+    vals = (["Maize"] * 30 + ["maize"] * 8 + ["MAIZE"] * 3        # case variants -> merge
+            + ["Maiz"] * 3                                          # typo -> stays separate
+            + ["Rice"] * 20 + ["rice"] * 5
+            + ["Sorghum"] * 15)
     v = induce_vocabulary(vals)
-    assert v.n_canonical == 3  # Maize, Rice, Sorghum families
-    # each raw spelling maps to a representative in its family
-    assert v.mapping["maize"] == v.mapping["Maiz"] == v.mapping["Maize"]
+    # case variants of Maize collapse to a single label
+    assert v.mapping["Maize"] == v.mapping["maize"] == v.mapping["MAIZE"] == "Maize"
+    # the typo "Maiz" is a DIFFERENT category (not silently merged)
+    assert v.mapping["Maiz"] != v.mapping["Maize"]
+    # Rice case variants collapse; distinct real words stay distinct
+    assert v.mapping["Rice"] == v.mapping["rice"]
+    assert len({v.mapping["Maize"], v.mapping["Rice"], v.mapping["Sorghum"]}) == 3
+
+
+def test_induction_protects_numbers():
+    # different numeric ranges must NEVER merge, even with identical words
+    vals = ["6 - 10 years", "6-10 Years", "11 - 15 years", "21 - 25 years"]
+    v = induce_vocabulary(vals)
+    assert v.mapping["6 - 10 years"] == v.mapping["6-10 Years"]      # same range, cosmetic diff
+    assert v.mapping["6 - 10 years"] != v.mapping["21 - 25 years"]   # different range, separate
+    assert v.n_canonical == 3   # {6-10, 11-15, 21-25}
+
+
+def test_induction_word_order_and_ampersand():
+    vals = ["Drinks, Water, Wine & Spirits", "drinks, water, wine and spirits",
+            "Fabrics, Tailoring", "fabrics, tailoring"]
+    v = induce_vocabulary(vals)
+    assert v.mapping["Drinks, Water, Wine & Spirits"] == v.mapping["drinks, water, wine and spirits"]
+    assert v.n_canonical == 2
 
 
 def test_auto_categorical_transform():
-    s = col(["Malaria", "malaria", "Malara", "Typhoid", "typhoid", "Typoid"] * 10)
+    # case variants merge; typos remain their own value (surfaced elsewhere as suggestions)
+    s = col(["Malaria", "malaria", "MALARIA", "Typhoid", "typhoid"] * 10)
     res = get_transform("auto_categorical").run(s, "Diagnosis", "Diagnosis")
-    # collapses to 2 families
-    assert len(set(res.series)) == 2
+    assert set(res.series) == {"Malaria", "Typhoid"}
+
 
 
 def test_auto_plan_on_unseen_schema():

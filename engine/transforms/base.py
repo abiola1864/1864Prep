@@ -14,10 +14,20 @@ Design intent (deterministic by construction):
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
+
+_WS = re.compile(r"\s+")
+
+
+def _clean_str(value: Any) -> str:
+    """Shared helper: None/NaN -> '', otherwise trimmed with collapsed whitespace."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    return _WS.sub(" ", str(value).strip())
 
 
 @dataclass

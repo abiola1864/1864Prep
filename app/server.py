@@ -22,6 +22,9 @@ from fastapi.staticfiles import StaticFiles
 from engine.ingest import read_any
 from engine.pipeline import run_plan
 from engine.profile import profile_dataframe, profile_to_plan
+import os
+import regions as _regions
+_regions.set_active_region(os.environ.get("PREP_REGION", "generic"))
 from engine.review import column_overview, spotcheck
 
 app = FastAPI(title="1864 Prep engine", version="0.1")
@@ -41,9 +44,11 @@ async def api_profile(file: UploadFile = File(...)):
     path = _save(file)
     try:
         df, rep = read_any(path)
-        profs = profile_dataframe(df)
+        _ref = _regions.load_reference()
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"])
         return {
             "ingest": rep.summary(),
+            "region": _regions.get_active_region().name,
             "rows": len(df), "cols": len(df.columns),
             "columns": [{"name": p.column, "type": p.semantic_type,
                          "confidence": round(p.confidence, 2)} for p in profs],
@@ -57,8 +62,9 @@ async def api_clean(file: UploadFile = File(...)):
     path = _save(file)
     try:
         df, rep = read_any(path)
-        profs = profile_dataframe(df)
-        plan = profile_to_plan(profs, "auto")
+        _ref = _regions.load_reference()
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"])
+        plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
         types = {p.column: p.semantic_type for p in profs}
         cleaned, report, _ = run_plan(df, plan, "web")
         flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}

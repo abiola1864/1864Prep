@@ -76,3 +76,8 @@ world knowledge, clustering categories by meaning rather than spelling
 It runs locally and sees only distinct values — never rows, never the file —
 so the privacy guarantee is unchanged. That is rung 4 of the ladder in
 CLEANING_APPROACH.md.
+
+
+## Generic core, swappable region packs
+
+The engine stands on established locale-aware libraries (phonenumbers, dateparser, price-parser, ftfy, email-validator, rapidfuzz) so it handles *any* country's values, not one dataset's quirks. Country specifics — default phone region, date order, currency symbols, and optional state/place/LGA lists — live in a swappable `regions/` pack. Nigeria is one pack; `GENERIC` assumes nothing. See `regions/README.md`.

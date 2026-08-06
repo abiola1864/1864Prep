@@ -34,12 +34,13 @@ class ColumnChange:
     n_changed: int
     n_flagged: int
     pct_changed: float
-    examples: list[dict] = field(default_factory=list)   # [{before, after}]
+    examples: list[dict] = field(default_factory=list)   # [{before, after}] (small sample)
+    changes: list[dict] = field(default_factory=list)     # ALL distinct {before, after, count}
 
 
 def column_overview(original: pd.DataFrame, cleaned: pd.DataFrame,
                     types: dict | None = None, flags: dict | None = None,
-                    max_examples: int = 6) -> list[dict]:
+                    max_examples: int = 6, max_changes: int = 800) -> list[dict]:
     types = types or {}
     flags = flags or {}
     out = []
@@ -50,14 +51,18 @@ def column_overview(original: pd.DataFrame, cleaned: pd.DataFrame,
         after = cleaned[col].map(_s).tolist()
         n = len(before)
         changed_pairs, n_changed = [], 0
-        seen = set()
+        distinct = {}                       # (before,after) -> count, every distinct change
         for b, a in zip(before, after):
             if b != a:
                 n_changed += 1
                 key = (b, a)
-                if key not in seen and len(changed_pairs) < max_examples and (b or a):
-                    seen.add(key)
-                    changed_pairs.append({"before": b, "after": a})
+                distinct[key] = distinct.get(key, 0) + 1
+                if len(changed_pairs) < max_examples and (b or a):
+                    if key not in {(c["before"], c["after"]) for c in changed_pairs}:
+                        changed_pairs.append({"before": b, "after": a})
+        # full distinct-change list, most frequent first, grouped-friendly
+        changes = [{"before": b, "after": a, "count": c}
+                   for (b, a), c in sorted(distinct.items(), key=lambda kv: kv[1], reverse=True)][:max_changes]
         out.append(asdict(ColumnChange(
             column=col,
             read_as=types.get(col, "—"),
@@ -66,6 +71,7 @@ def column_overview(original: pd.DataFrame, cleaned: pd.DataFrame,
             n_flagged=int(flags.get(col, 0)),
             pct_changed=round(100 * n_changed / n, 1) if n else 0.0,
             examples=changed_pairs,
+            changes=changes,
         )))
     return out
 

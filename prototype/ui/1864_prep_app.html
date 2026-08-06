@@ -179,6 +179,15 @@
   .np-foot{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
   .np-foot #permsummary{font-size:12.5px;color:var(--ink-soft)}.np-foot .sp{flex:1}
   .np-note{font-size:11.5px;color:var(--ink-soft);margin:12px 0 0;line-height:1.5;max-width:860px}
+  .chgsearch{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;margin:6px 0 8px}
+  .rc-changes{max-height:340px;overflow:auto;border:1px solid var(--line-soft);border-radius:10px;padding:4px 6px}
+  .chg-group{padding:7px 8px;border-bottom:1px solid var(--line-soft)}
+  .chg-group:last-child{border-bottom:none}
+  .chg-head{font-family:var(--mono);font-size:13px;color:var(--ok)}
+  .chg-head .chg-n{color:var(--faint);font-family:var(--sans);font-size:11px;margin-left:6px}
+  .chg-line{font-family:var(--mono);font-size:12px;color:var(--ink-soft);padding:2px 0 2px 14px}
+  .chg-line .b{text-decoration:line-through;text-decoration-color:#cbb488}
+  .chg-empty{color:var(--faint);font-size:12.5px;padding:8px}
 </style>
 </head>
 <body>
@@ -578,7 +587,7 @@ function summarise(f){
     case 'numeric': return 'Cleaned '+n+' numbers (removed symbols like the naira sign and commas).';
     case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left exactly as written.';
     case 'geo': return 'Matched '+n+' entries to the correct state.';
-    case 'categorical': { const c=Math.max(2,Math.round(n/8)); return 'Grouped different spellings into '+c+' standard categories ('+n+' entries tidied).'; }
+    case 'categorical': return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different categories — and different numbers — are kept separate. '+n+' entries tidied.';
     case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
     default: return 'Tidied '+n+' entries.';
   }
@@ -593,14 +602,16 @@ function renderReview(){
   $('#rvbar').style.width=(100*reviewed/N)+'%';
   $('#rvcount').textContent=reviewed+' of '+N+' reviewed';
   $('#backbtn').disabled=idx===0;
-  const ex=examples(f), outN=makeOutliers(f).length;
+  const nChg=(f.rows||[]).length, outN=makeOutliers(f).length;
   $('#reviewcard').innerHTML=
    '<div class="card rcard">'+
      '<div class="rc-name">'+esc(labelOf(f.name))+'</div>'+
      '<div class="rc-sub">the wizard read this as <b>'+TYPEWORD[f.type]+'</b> · <a class="link" onclick="toggleType()">not right?</a></div>'+
      '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+TYPEWORD[t]+'</option>').join('')+'</select></div>'+
      '<div class="rc-summary">'+summarise(f)+'</div>'+
-     (ex.length?'<div class="rc-ex-h">a few examples of the change</div><div class="rc-examples">'+ex.map(e=>'<div class="rc-ex"><span class="b">'+(esc(e[0])||'∅')+'</span><span class="ar">→</span><span class="a">'+(esc(e[1])||'∅')+'</span></div>').join('')+'</div>':'')+
+     (nChg?'<div class="rc-ex-h">all changes ('+nChg+' distinct) — grouped by result</div>'+
+        '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)">'+
+        '<div class="rc-changes" id="chglist"></div>':'')+
      (outN?'<div class="rc-outlier">⚠ '+outN+' value'+(outN>1?'s':'')+' look unusual — we\'ll set '+(outN>1?'them':'it')+' aside for you to check later. You don\'t need to decide now.</div>':'')+
      '<div class="rc-decide">'+
        '<button class="big ok '+(f.decision==='accept'?'chosen':'')+'" onclick="setDecision(\'accept\')"><b>✓ Looks right</b><span>apply this cleaning</span></button>'+
@@ -608,7 +619,26 @@ function renderReview(){
      '</div>'+
      (f.decision?'<div class="rc-done">You chose <b>'+(f.decision==='accept'?'apply cleaning':'keep original')+'</b>.'+(idx<N-1?' Moving to the next column…':' That was the last column.')+'</div>':'')+
    '</div>';
+  if(nChg) renderChanges('');
   updateGate();
+}
+function renderChanges(q){
+  const f=FIELDS[idx]; const box=document.getElementById('chglist'); if(!box) return;
+  const rows=f.rows||[]; const ql=(q||'').toLowerCase();
+  const groups={};
+  rows.forEach(r=>{ const a=(r.after==null?'':String(r.after)); (groups[a]=groups[a]||[]).push(r); });
+  const order=Object.keys(groups).sort((x,y)=>groups[y].length-groups[x].length);
+  let html='';
+  order.forEach(after=>{
+    const all=groups[after];
+    const members=all.filter(r=>!ql || String(r.before).toLowerCase().includes(ql) || after.toLowerCase().includes(ql));
+    if(!members.length) return;
+    html+='<div class="chg-group"><div class="chg-head">→ <b>'+(esc(after)||'∅')+'</b> <span class="chg-n">'+all.length+' value'+(all.length>1?'s':'')+'</span></div>';
+    members.slice(0,300).forEach(r=>{ html+='<div class="chg-line"><span class="b">'+(esc(r.before)||'∅')+'</span></div>'; });
+    if(members.length>300) html+='<div class="chg-line" style="color:var(--faint)">…and '+(members.length-300)+' more</div>';
+    html+='</div>';
+  });
+  box.innerHTML=html||'<div class="chg-empty">no matching changes</div>';
 }
 function setDecision(d){ const f=FIELDS[idx], N=FIELDS.length; f.decision=d;
   if(idx<N-1){ idx++; setTimeout(renderReview,140); } else { renderReview(); } updateGate(); }
@@ -674,7 +704,8 @@ function buildFieldsFromAPI(data, filename){
   const ov=data.overview||[];
   FIELDS=ov.map((c,i)=>{
     const type=(c.read_as && c.read_as!=='—')?c.read_as:'free_text';
-    const rows=(c.examples||[]).slice(0,10).map((ex,j)=>({rid:1000+i*13+j,before:ex.before,after:ex.after,uncertain:false,decision:null}));
+    const src=(c.changes && c.changes.length)?c.changes:(c.examples||[]);
+    const rows=src.map((ex,j)=>({rid:1000+i*13+j,before:ex.before,after:ex.after,uncertain:false,decision:null}));
     return {id:i,name:c.column,type,method:'format',conf:0.9,nChanged:c.n_changed,
             status:(c.n_flagged>0)?'flagged':((c.n_changed>0)?'review':'auto'),
             rows:rows,outliers:[],decision:null,_real:true};
