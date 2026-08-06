@@ -235,6 +235,14 @@ async def api_tool(name: str, files: list[UploadFile] = File(...),
             res, summ = tk.summarise(dfs[0])
         elif name == "dedupe":
             res, summ = tk.dedupe_file(dfs[0])
+        elif name == "compare":
+            res, summ = tk.compare_files(dfs)
+        elif name == "combine":
+            res, summ = tk.combine_files(dfs)
+        elif name == "anonymise":
+            res, summ = tk.anonymise(dfs[0])
+        elif name == "quick_clean":
+            res, summ = tk.quick_clean(dfs[0])
         else:
             return JSONResponse(status_code=404, content={"error": f"unknown tool '{name}'"})
     except Exception as e:

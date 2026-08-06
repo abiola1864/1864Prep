@@ -34,6 +34,19 @@ def test_exports_all_formats():
         assert p.exists() and p.stat().st_size > 0
 
 
+
+def test_compare_combine_anonymise_quickclean():
+    import pandas as pd
+    a = pd.DataFrame({"id":["1","2","3"],"name":["Ada","Musa","Ngozi"]})
+    b = pd.DataFrame({"id":["2","3","4"],"name":["Musa","NGOZI","Emeka"]})
+    _, s = tk.compare_files([a,b]); assert s["added"]==1 and s["removed"]==1 and s["changed"]==1
+    r, s = tk.combine_files([a,b]); assert s["rows"]==6 and "_source_file" in r.columns
+    df = pd.DataFrame({"NIN":["12345678901","22345678901"],"name":["Musa Bello","Ada Obi"],"age":["30","41"]})
+    r, s = tk.anonymise(df); assert "NIN" in s["which"] and "age" not in s["which"]
+    q = pd.DataFrame({"Phone":["08031234567","0806 999 0000"]})
+    r, s = tk.quick_clean(q); assert r.iloc[0]["Phone"].startswith("+234")
+
+
 if __name__ == "__main__":
     fns = [v for k,v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns: fn(); print("ok:", fn.__name__)

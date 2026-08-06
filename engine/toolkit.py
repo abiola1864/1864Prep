@@ -167,3 +167,101 @@ TOOLS = {
     "summarise": ("Summarise / profile", "Per-column type, filled %, distinct, example — a data-quality report.", "report"),
     "dedupe": ("Remove duplicates", "Produce a cleaned file with duplicate rows removed.", "dataset"),
 }
+
+
+# ── 7. compare two files ─────────────────────────────────────────────────────
+def compare_files(dfs: list[pd.DataFrame], key: str | None = None):
+    if len(dfs) != 2:
+        raise ValueError("Compare needs exactly two files (old, new).")
+    a, b = dfs[0], dfs[1]
+    if key is None:
+        per = [{_norm_header(c): c for c in d.columns} for d in (a, b)]
+        common = set(per[0]) & set(per[1])
+        best = None
+        for nk in common:
+            ca, cb = per[0][nk], per[1][nk]
+            sa, sb = set(a[ca].dropna().astype(str)), set(b[cb].dropna().astype(str))
+            if sa and sb:
+                ov = len(sa & sb) / max(1, min(len(sa), len(sb)))
+                if best is None or ov > best[0]:
+                    best = (ov, ca, cb)
+        if not best:
+            raise ValueError("No shared key column found.")
+        _, ka, kb = best
+    else:
+        ka = kb = key
+    a2 = a.copy(); a2[ka] = a2[ka].astype(str)
+    b2 = b.copy(); b2[kb] = b2[kb].astype(str)
+    sa, sb = set(a2[ka]), set(b2[kb])
+    common_cols = [c for c in a.columns if c in b.columns and c != ka]
+    rows = []
+    for k in sb - sa:
+        rows.append({"_status": "added", "key": k})
+    for k in sa - sb:
+        rows.append({"_status": "removed", "key": k})
+    ai = a2.set_index(ka); bi = b2.set_index(kb)
+    for k in sa & sb:
+        changed = [c for c in common_cols
+                   if str(ai.loc[k, c] if k in ai.index else "") != str(bi.loc[k, c] if k in bi.index else "")]
+        if changed:
+            rows.append({"_status": "changed", "key": k, "changed_columns": ", ".join(map(str, changed))})
+    result = pd.DataFrame(rows)
+    summary = {"added": sum(r["_status"] == "added" for r in rows),
+               "removed": sum(r["_status"] == "removed" for r in rows),
+               "changed": sum(r["_status"] == "changed" for r in rows), "key": ka}
+    return result, summary
+
+
+# ── 8. combine / append files ────────────────────────────────────────────────
+def combine_files(dfs: list[pd.DataFrame]):
+    if len(dfs) < 2:
+        raise ValueError("Combine needs at least two files.")
+    tagged = []
+    for i, d in enumerate(dfs, 1):
+        d = d.copy(); d.insert(0, "_source_file", f"file{i}")
+        tagged.append(d)
+    result = pd.concat(tagged, ignore_index=True, sort=False).fillna("")
+    return result, {"files": len(dfs), "rows": len(result), "columns": len(result.columns) - 1}
+
+
+# ── 9. anonymise / mask ──────────────────────────────────────────────────────
+def anonymise(df: pd.DataFrame):
+    profs = {p.column: p for p in profile_dataframe(df, use_ml=True)}
+    out = df.copy()
+    masked = []
+    for c in out.columns:
+        p = profs.get(c)
+        if p and p.semantic_type in ("identifier", "phone", "email", "name"):
+            vals = [str(v) for v in out[c] if str(v).strip()]
+            digits_only = [v for v in vals if v.replace(".", "").isdigit()]
+            if vals and len(digits_only) / len(vals) > 0.9 and all(len(v) <= 4 for v in digits_only):
+                continue   # short pure numbers are ages/counts, not identifiers
+            out[c] = out[c].map(lambda v: "" if pd.isna(v) or str(v).strip() == ""
+                                else hashlib.sha256(str(v).strip().encode()).hexdigest()[:12])
+            masked.append(c)
+    return out, {"columns_masked": len(masked), "which": ", ".join(masked)}
+
+
+# ── 10. quick clean (whole file, one click) ──────────────────────────────────
+def quick_clean(df: pd.DataFrame):
+    from .pipeline import run_plan
+    from .profile import profile_to_plan
+    try:
+        import regions
+        ref = regions.load_reference()
+        profs = profile_dataframe(df, ref["gazetteers"], ref["place_index"], use_ml=True)
+        plan = profile_to_plan(profs, "auto", ref["gazetteer_refs"])
+    except Exception:
+        profs = profile_dataframe(df, use_ml=True)
+        plan = profile_to_plan(profs, "auto")
+    cleaned, report, _ = run_plan(df, plan, "quick_clean")
+    changed = sum(c.get("changed", 0) for c in report.columns)
+    return cleaned, {"columns": len(cleaned.columns), "rows": len(cleaned), "values_changed": int(changed)}
+
+
+TOOLS.update({
+    "compare": ("Compare two files", "Old vs new: what was added, removed, or changed (auto-detects the key).", "report"),
+    "combine": ("Combine / append files", "Stack several files with the same columns into one.", "dataset"),
+    "anonymise": ("Anonymise / mask", "Hash IDs, phones, emails and names for safe sharing.", "dataset"),
+    "quick_clean": ("Quick clean (whole file)", "One-click: clean every column automatically and download.", "dataset"),
+})

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1864 Prep — wizard (prototype)</title>
+<title>1864 Prep, wizard (prototype)</title>
 <style>
   :root{
     --ink:#1b2431;--ink-soft:#586475;--faint:#98a2b1;--paper:#f7f6f2;--card:#fff;--line:#e7e3da;--line-soft:#f1eee7;
@@ -252,6 +252,48 @@
   .progress > i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--navy),#4a6fa5);transition:width .3s ease}
   .prog-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
   .prog-stage{font-size:13px;color:var(--ink);margin-top:8px;min-height:1.2em}
+  /* ---------- world-class polish (overrides) ---------- */
+  :root{ --shadow:0 1px 2px rgba(20,30,45,.04), 0 8px 30px rgba(20,30,45,.06); }
+  body{font-size:14px;line-height:1.5}
+  h1{letter-spacing:-.01em}
+  /* light, calm rail; inactive steps grayscale but present */
+  .rail{background:#fbfaf7;border-right:1px solid var(--line);color:var(--ink-soft)}
+  .rail .brand,.brand{color:var(--ink)!important}
+  .steps li{color:var(--faint);border-left:3px solid transparent;transition:background .2s,color .2s,border-color .2s;border-radius:0 8px 8px 0;margin-right:8px}
+  .steps li .n{background:#fff;border:1.5px solid var(--line);color:var(--faint);transition:all .2s}
+  .steps li:hover:not(.locked){color:var(--ink-soft)}
+  .steps li.active{color:var(--ink);background:#fff;border-left-color:var(--navy);box-shadow:var(--shadow)}
+  .steps li.active .n{border-color:var(--navy);color:var(--navy);background:#eef3f9}
+  .steps li.done{color:var(--ink-soft)} .steps li.done .n{background:var(--ok);border-color:var(--ok);color:#fff}
+  .railfoot{color:var(--faint);border-top:1px solid var(--line);margin-top:auto;padding-top:12px}
+  .railfoot b{color:var(--ink-soft)}
+  .setgear{background:#fff;border:1px solid var(--line);color:var(--ink-soft)}
+  .setgear:hover{border-color:var(--navy);color:var(--navy);transform:translateY(-1px)}
+  /* screen entrance: gentle, every step */
+  @keyframes screenIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .screen.on{animation:screenIn .34s cubic-bezier(.2,.7,.2,1) both}
+  /* buttons + cards: subtle life */
+  .btn{transition:transform .08s ease,background .15s,box-shadow .15s;border-radius:10px}
+  .btn:hover:not(:disabled){box-shadow:var(--shadow)}
+  .btn:active:not(:disabled){transform:translateY(1px) scale(.99)}
+  .sector,.tk-card,.wl-item,.rc-changes,.set-sec{transition:transform .15s,border-color .15s,box-shadow .15s}
+  .sector:hover,.tk-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--navy)}
+  .sector{border-radius:14px}
+  /* progress shimmer */
+  .progress>i{background:linear-gradient(90deg,var(--navy),#4a6fa5,var(--navy));background-size:200% 100%;animation:shim 1.3s linear infinite}
+  @keyframes shim{to{background-position:-200% 0}}
+  /* pop for confirmations */
+  @keyframes pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+  .wl-done{display:inline-block;animation:pop .25s ease both}
+  /* toast slide-up */
+  .toast,#toast{animation:toastUp .3s ease both}
+  @keyframes toastUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  /* modal fade */
+  .modal.on .modal-card{animation:screenIn .28s ease both}
+  /* review card breathes */
+  #reviewcard{animation:screenIn .3s ease both}
+  /* tiny "more" hint next to the tools */
+  .railfoot .hint{display:block;font-size:10px;color:var(--faint);margin-top:8px;letter-spacing:.03em;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -272,6 +314,7 @@
       <li data-s="7"><span class="n"><span>8</span></span> Export</li>
     </ol>
     <div class="railfoot">Runs on this computer.<b id="rf-sector"></b>
+      <span class="hint">More</span>
       <button class="setgear" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" onclick="openSettings()">⚙ Settings</button>
     </div>
@@ -297,7 +340,7 @@
     <!-- 2 choose columns -->
     <section class="screen" data-screen="2">
       <p class="eyebrow">Step 3</p><h1>Which of these columns are in your data?</h1>
-      <p class="lead">Choose by <em>meaning</em>, not by name. Your file almost certainly uses different headers — that's fine, we line them up in the next step. Each field below says what it means; tick the ones your data contains, untick the rest. We don't ask for the data type — the wizard detects that from your file.</p>
+      <p class="lead">Choose by <em>meaning</em>, not by name. Your file almost certainly uses different headers, that's fine, we line them up in the next step. Each field below says what it means; tick the ones your data contains, untick the rest. We don't ask for the data type, the wizard detects that from your file.</p>
       <div class="selbar">
         <span class="cnt"><b id="selcount">0</b> of <span id="seltotal">0</span> selected</span>
         <span class="sp" style="flex:1"></span>
@@ -311,11 +354,11 @@
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
       <p class="eyebrow">Step 4</p><h1>Upload your file</h1>
-      <p class="lead">However it's structured — one messy spreadsheet is fine. The engine reads and cleans it; in the desktop app this happens entirely on your computer. CSV, Excel, JSON and PDF are supported.</p>
+      <p class="lead">Drop in a messy file. CSV, Excel, JSON or PDF. It's read and cleaned right here.</p>
       <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
       <div class="drop" onclick="document.getElementById('realfile').click()">
         <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
-        <p style="color:var(--ink-soft);margin:0;font-size:13px">.csv · .xlsx · .json · .pdf — cleaned by the engine</p>
+        <p style="color:var(--ink-soft);margin:0;font-size:13px">.csv · .xlsx · .json · .pdf, cleaned by the engine</p>
       </div>
       <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="doUpload()">Continue with sample data</a> to walk through the flow.</p>
     </section>
@@ -323,18 +366,18 @@
     <!-- 4 match names -->
     <section class="screen" data-screen="4">
       <p class="eyebrow">Step 5 · unify column names</p><h1>Match your columns to the standard names</h1>
-      <p class="lead">We found these headers in your file and suggested where each belongs. Confirm or change any — this is just aligning <em>names</em>, so a question means the same thing across agencies. Cleaning the values comes next.</p>
+      <p class="lead">We found these headers in your file and suggested where each belongs. Confirm or change any, this is just aligning <em>names</em>, so a question means the same thing across agencies. Cleaning the values comes next.</p>
       <div class="matchtable" id="matchtable">
         <div class="mh"><span>Your column (as uploaded)</span><span></span><span>Standard field</span><span>Suggestion</span></div>
         <div id="matchrows"></div>
       </div>
       <div class="missing" id="missing" style="display:none"></div>
       <div class="aitoggle">
-        <div class="txt"><b>Clean with AI assistance?</b><span id="ainote">Off — the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.</span></div>
+        <div class="txt"><b>Clean with AI assistance?</b><span id="ainote">Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.</span></div>
         <span class="sp"></span>
         <label class="switch"><input type="checkbox" id="aiswitch" onchange="toggleAI(this.checked)"><span class="track"></span><span class="knob"></span></label>
       </div>
-      <div class="actbar"><button class="btn" onclick="startCleaning()">Looks right — clean my data →</button>
+      <div class="actbar"><button class="btn" onclick="startCleaning()">Looks right, clean my data →</button>
         <span class="cnt" style="font-size:12.5px;color:var(--ink-soft)"><b id="matchn" style="font-family:var(--mono);color:var(--navy)">0</b> columns matched</span></div>
     </section>
 
@@ -352,7 +395,7 @@
     <!-- 6 needs your attention (worklist) -->
     <section class="screen" data-screen="6">
       <p class="eyebrow">Step 7</p><h1>Needs your attention</h1>
-      <p class="lead">Nothing here was changed automatically. These are the things the engine left for you: columns you kept as-is, values it flagged, and duplicates or similar entries it noticed. Decide each one — or leave it on purpose.</p>
+      <p class="lead">A few things need your call. Nothing was changed automatically.</p>
       <div id="worklist"></div>
       <div style="display:flex;gap:12px;margin-top:18px">
         <button class="btn" onclick="go(7)">Continue to export →</button>
@@ -363,7 +406,7 @@
     <!-- 7 export -->
     <section class="screen" data-screen="7">
       <p class="eyebrow">Step 8</p><h1>Approved and standardised</h1>
-      <p class="lead">Only the changes you accepted are applied. Rejected values stay exactly as recorded; flagged rows are set aside. The cleaned file stays on your computer.</p>
+      <p class="lead">Only what you approved gets applied. Your file stays on your computer.</p>
       <div class="kpis" id="expkpis"></div>
       <div style="display:flex;gap:12px;margin-top:12px">
         <button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button>
@@ -371,7 +414,7 @@
       <div id="expout" style="margin-top:14px"></div>
 
       <div class="aitoggle" style="max-width:860px;margin-top:24px">
-        <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off — the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned — never the raw record.</span></div>
+        <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.</span></div>
         <span class="sp"></span>
         <label class="switch net"><input type="checkbox" id="netswitch" onchange="toggleNet(this.checked)"><span class="track"></span><span class="knob"></span></label>
       </div>
@@ -398,7 +441,7 @@
     <!-- 8 data toolkit (standalone) -->
     <section class="screen" data-screen="8">
       <p class="eyebrow">Data Toolkit</p><h1>Data Toolkit</h1>
-      <p class="lead">Self-serve tools for the common jobs: find duplicates and outliers, match records across files (it auto-detects the shared ID), validate, remove duplicates, and summarise. Pick a tool, upload your file(s), preview, then download as Excel, CSV or Word.</p>
+      <p class="lead">Handy one-off tools. Pick one, upload, preview, download.</p>
       <div id="toolkit"></div>
     </section>
 
@@ -419,12 +462,12 @@
 
         <div class="set-sec">
           <div class="set-h">AI assistance <span class="set-tag">optional · off by default</span></div>
-          <p class="set-sub">For the hard, meaning-based cases only (e.g. a place not in the list, or synonyms). AI only ever sees column headers and a small sample of values — never full records — and only <b>suggests</b>; its suggestions land in “Needs your attention”, never applied automatically.</p>
+          <p class="set-sub">For the hard, meaning-based cases only (e.g. a place not in the list, or synonyms). AI only ever sees column headers and a small sample of values, never full records, and only <b>suggests</b>; its suggestions land in “Needs your attention”, never applied automatically.</p>
           <label class="set-toggle"><input type="checkbox" id="set-ai" onchange="onAIToggle(this.checked)"> Use AI for hard cases</label>
           <div id="set-ai-panel" style="display:none">
             <div class="set-row"><span>Provider</span>
               <select id="set-provider" class="set-input" onchange="onProviderChange()">
-                <option value="ollama">Local model (Ollama) — stays on this computer</option>
+                <option value="ollama">Local model (Ollama), stays on this computer</option>
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic (Claude)</option>
                 <option value="google">Google (Gemini)</option>
@@ -461,7 +504,7 @@ const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700);}
 
 const DEFS={
- nin:'National Identification Number — the 11-digit national ID.',bvn:'Bank Verification Number — the 11-digit banking ID.',tin:'Tax Identification Number.',rc_number:'Company (RC) registration number from CAC.',bn_number:'Business-name registration number.',
+ nin:'National Identification Number, the 11-digit national ID.',bvn:'Bank Verification Number, the 11-digit banking ID.',tin:'Tax Identification Number.',rc_number:'Company (RC) registration number from CAC.',bn_number:'Business-name registration number.',
  enrollee_id:'Unique member/enrollee number in your scheme.',farmer_id:'Unique number identifying each farmer.',household_id:'Unique number identifying each household.',student_id:'Unique number identifying each student.',account_number:'Bank or wallet account number.',hmo_code:'Code identifying the HMO/provider.',certificate_no:'Certificate number (e.g. birth certificate).',parcel_id:'Unique land parcel/plot identifier.',c_of_o_number:'Certificate of Occupancy number.',plate_number:'Vehicle number plate.',vin_chassis:'Vehicle chassis / VIN number.',license_number:"Driver's licence number.",
  phone:'A contact mobile number.',nok_phone:"Next of kin's phone number.",email:'An email address.',first_name:'Given / first name.',last_name:'Family name / surname.',surname:'Family name / surname.',full_name:'Full name of the person.',sex:'Sex / gender.',date_of_birth:'Date of birth.',head_dob:'Date of birth of the household head.',
  state:'State (of the 36 + FCT).',state_of_residence:'State where the person currently lives.',state_of_origin:'State the person is originally from.',place_of_birth:'Place / state of birth.',lga:'Local Government Area.',ward:'Ward within the LGA.',address:'Street / residential address.',
@@ -473,20 +516,20 @@ const defOf=n=>DEFS[n]||('The '+humanize(n)+' for each record.');
 
 const LABELS={
  nin:'NIN (National ID)',bvn:'BVN (Bank ID)',tin:'TIN (Tax ID)',rc_number:'RC number (CAC)',bn_number:'BN number',hmo_code:'HMO code',
- enrollee_id:'Enrollee / member ID',farmer_id:'Farmer ID',household_id:'Household ID',student_id:'Student ID',head_nin:'Household head — NIN',
+ enrollee_id:'Enrollee / member ID',farmer_id:'Farmer ID',household_id:'Household ID',student_id:'Student ID',head_nin:'Household head, NIN',
  title:'Title (Mr / Mrs / …)',first_name:'First name',middle_name:'Middle name',last_name:'Surname',surname:'Surname',full_name:'Full name',
- head_name:'Household head — name',owner_name:'Owner name',account_name:'Account name',taxpayer_name:'Taxpayer name',child_name:'Child name',
+ head_name:'Household head, name',owner_name:'Owner name',account_name:'Account name',taxpayer_name:'Taxpayer name',child_name:'Child name',
  mother_name:"Mother's name",father_name:"Father's name",director_name:'Director name',guardian_name:'Guardian name',next_of_kin:'Next of kin',
  caseworker:'Caseworker',extension_officer:'Extension officer',registrar:'Registrar',informant_name:'Informant name',enrolled_by:'Enrolled by (officer)',
- sex:'Sex / gender',sex_of_head:'Household head — sex',date_of_birth:'Date of birth',head_dob:'Household head — date of birth',age:'Age',
+ sex:'Sex / gender',sex_of_head:'Household head, sex',date_of_birth:'Date of birth',head_dob:'Household head, date of birth',age:'Age',
  marital_status:'Marital status',nationality:'Nationality',religion:'Religion',ethnicity:'Ethnicity / tribe',
  disability_status:'Has a disability?',disability:'Has a disability?',disability_in_hh:'Disability in household?',
- phone:'Phone number',alternate_phone:'Alternate phone',whatsapp_number:'WhatsApp number',nok_phone:'Next of kin — phone',
+ phone:'Phone number',alternate_phone:'Alternate phone',whatsapp_number:'WhatsApp number',nok_phone:'Next of kin, phone',
  guardian_phone:'Guardian phone',informant_phone:'Informant phone',director_phone:'Director phone',
  email:'Email address',address:'Home address',residential_address:'Residential address',town:'Town / city',ward:'Ward',
  lga:'LGA (Local Govt)',state:'State',state_of_residence:'State of residence',state_of_origin:'State of origin',
  place_of_birth:'Place of birth',facility_state:'Facility state',
- nok_relationship:'Next of kin — relationship',bank_name:'Bank name',account_number:'Account number',
+ nok_relationship:'Next of kin, relationship',bank_name:'Bank name',account_number:'Account number',
  registration_date:'Registration date',registration_channel:'How they registered',record_status:'Record status',remarks:'Remarks / notes',
  enrolment_date:'Enrolment date',expiry_date:'Expiry date',opening_date:'Account opening date',filing_date:'Filing date',
  last_visit_date:'Last visit date',last_payment_date:'Last payment date',
@@ -539,7 +582,7 @@ const SECTORS=[
  {key:'education',name:'Education',ic:'\ud83c\udf93',desc:'Students, scholarships',cols:S(['student_id:identifier'],B.idnin,['title:categorical','first_name:name','middle_name:name','last_name:name','sex:gender','date_of_birth:date','disability:boolean'],['phone:phone','email:email','address:free_text','lga:geo','state_of_origin:geo'],['school_name:categorical','class_level:categorical','exam_score:numeric','average_grade:categorical','subject_stream:categorical','scholarship_status:boolean','sponsor:categorical','guardian_name:name','guardian_phone:phone','enrolment_date:date','attendance_pct:numeric'],B.meta)}
 ];
 const TYPEMETA={identifier:['format',0.97],name:['format',0.86],gender:['format',0.98],date:['format',0.9],phone:['format',0.97],email:['format',0.96],numeric:['format',0.97],boolean:['format',0.98],geo:['model',0.8],categorical:['induced',0.82],free_text:['format',0.72]};
-const PERFECT={identifier:'Kept exactly as recorded (format only — no digits invented).',phone:'+234XXXXXXXXXX (E.164).',email:'lower-case, valid address.',date:'ISO date YYYY-MM-DD.',numeric:'clean number (no symbols/separators).',boolean:'Yes / No.',gender:'Male / Female.',name:'Title Case name (spelling untouched).',geo:'one of the 37 official states.',categorical:'a confirmed category set discovered from the data.',free_text:'trimmed, single-spaced text.'};
+const PERFECT={identifier:'Kept exactly as recorded (format only, no digits invented).',phone:'+234XXXXXXXXXX (E.164).',email:'lower-case, valid address.',date:'ISO date YYYY-MM-DD.',numeric:'clean number (no symbols/separators).',boolean:'Yes / No.',gender:'Male / Female.',name:'Title Case name (spelling untouched).',geo:'one of the 37 official states.',categorical:'a confirmed category set discovered from the data.',free_text:'trimmed, single-spaced text.'};
 const R={identifier:[['REC-00481','00481'],['REC-77120','77120'],['id:9931','9931'],['  40222 ','40222']],phone:[['08031234567','+2348031234567'],['0806 111 2222','+2348061112222'],['234701 555 9000','+2347015559000']],email:[['ADA@X.IO','ada@x.io'],['  Tunde@Mail.COM','tunde@mail.com']],date:[['6/1/2025','2025-06-01'],['01/06/2025','2025-06-01'],['2025/6/1','2025-06-01']],numeric:[['$1,200.50','1200.5'],['N45,000','45000'],['2 300','2300']],boolean:[['yes','Yes'],['NO','No'],['Y','Yes']],gender:[['M','Male'],['f','Female'],['FEMALE','Female']],name:[['ADA LOVELACE','Ada Lovelace'],['alan turing','Alan Turing'],['  grace hopper ','Grace Hopper']],geo:[['Port Harcourt','RIVERS'],['Kastina','KATSINA'],['ibadan','OYO'],['Gwarzo','?']],categorical:[['basic','Basic'],['BASIC','Basic'],['premuim','Premium'],['ENT','Enterprise']],free_text:[['  needs  followup ','needs followup'],['N/A','']]};
 
 /* messy header variants for the unify step */
@@ -571,7 +614,7 @@ $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)
 
 /* sectors */
 $('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('')
-  +`<div class="sector general" onclick="pickGeneral()"><div class="ic">📂</div><h3>General / other</h3><p>Any dataset — my columns aren't listed. The engine detects everything from the file itself.</p><div class="cc">skip to upload</div></div>`;
+  +`<div class="sector general" onclick="pickGeneral()"><div class="ic">📂</div><h3>General / other</h3><p>Any dataset, my columns aren't listed. The engine detects everything from the file itself.</p><div class="cc">skip to upload</div></div>`;
 function pickSector(i){
   SECTOR=SECTORS[i];
   SELECTED=new Set(SECTOR.cols.map((c,j)=>j).filter(j=>j%7!==5)); // pre-tick ~85%
@@ -639,7 +682,7 @@ function renderMatch(){
   const matched=RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').length;
   $('#matchn').textContent=matched;
   if(window.__missingStd){$('#missing').style.display='block';
-    $('#missing').innerHTML=`Heads up: the standard field <b>${esc(labelOf(window.__missingStd))}</b> wasn't found in your file. That's fine — it'll simply be left empty. Add it later if you have it.`;}
+    $('#missing').innerHTML=`Heads up: the standard field <b>${esc(labelOf(window.__missingStd))}</b> wasn't found in your file. That's fine, it'll simply be left empty. Add it later if you have it.`;}
   else $('#missing').style.display='none';
 }
 function setMatch(i,v){RAWS[i].chosen=v;renderMatch();}
@@ -647,8 +690,8 @@ function setMatch(i,v){RAWS[i].chosen=v;renderMatch();}
 /* cleaning overlay -> review */
 function toggleAI(on){USE_AI=on;
   $('#ainote').textContent = on
-    ? 'On — adds an AI model for the hard cases (unusual headers, place names, free text). You\u2019ll connect a model first; only column names and sample values are shared, never full records.'
-    : 'Off — the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.';
+    ? 'On, adds an AI model for the hard cases (unusual headers, place names, free text). You\u2019ll connect a model first; only column names and sample values are shared, never full records.'
+    : 'Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.';
 }
 function startCleaning(){
   const matched=[...new Set(RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').map(r=>r.chosen))];
@@ -668,19 +711,19 @@ function showConnect(){
   const ov=$('#overlay');ov.classList.add('on');
   ov.innerHTML=`<div class="connectbox">
     <div class="ai">🔌</div><h3>Connect an AI model</h3>
-    <p>AI runs outside the built-in engine. Choose where it runs. Only column names and a few sample values are shared — never full records. The built-in engine still does everything it can locally first.</p>
+    <p>AI runs outside the built-in engine. Choose where it runs. Only column names and a few sample values are shared, never full records. The built-in engine still does everything it can locally first.</p>
     <div class="prov">
       <button onclick="confirmConnect('local')">Local / on-prem model</button>
       <button onclick="confirmConnect('cloud')">Connect cloud account</button>
     </div>
-    <button class="btn ghost sm" onclick="cancelConnect()">Cancel — use built-in only</button>
+    <button class="btn ghost sm" onclick="cancelConnect()">Cancel, use built-in only</button>
   </div>`;
 }
 function cancelConnect(){ USE_AI=false; $('#aiswitch').checked=false; toggleAI(false); AI_CONNECTED=false; runClean(); }
 function confirmConnect(kind){ AI_CONNECTED=true; toast(kind==='local'?'Local model connected':'Cloud model connected'); runClean(); }
 function runClean(){
   const ov=$('#overlay');ov.classList.add('on');
-  const title=USE_AI?'Cleaning your data — AI assisted':'Cleaning your data — built-in engine';
+  const title=USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine';
   const sub=USE_AI?'The engine cleans locally; the AI model helps only with the tricky columns.':'Standardising values with built-in rules. Your file stays on this computer.';
   let stages=['Reading & aligning columns','Applying format rules (IDs, dates, phones)','Matching names & places (fuzzy + phonetic)'];
   if(USE_AI) stages.push('AI: understanding unusual columns & places');
@@ -702,7 +745,7 @@ const TYPES=Object.keys(TYPEMETA);
 const OUT={
  numeric:[['9,999,999','far above the typical range for this column'],['-1','negative value where one is not expected']],
  date:[['1899-12-31','implausibly old date'],['2090-01-01','date is in the future']],
- categorical:[['Ozterz','appears only once — likely a typo or a stray new category']],
+ categorical:[['Ozterz','appears only once, likely a typo or a stray new category']],
  identifier:[['12','much shorter than the other IDs in this column']],
  phone:[['000','too short to be a valid number']],
  geo:[['Republic of Benin','reads like a country, not one of the 37 states']]
@@ -720,7 +763,7 @@ function makeRows(f){if(f.rows)return f.rows;const tmpl=R[f.type]||R.free_text;c
 const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',categorical:'categories',free_text:'free text'};
 function summarise(f){
   const n=f.nChanged;
-  if(n===0) return 'Nothing to change — this column already looks clean.';
+  if(n===0) return 'Nothing to change, this column already looks clean.';
   switch(f.type){
     case 'phone': return 'Reformatted '+n+' phone numbers to the +234 standard.';
     case 'email': return 'Lower-cased and tidied '+n+' email addresses.';
@@ -730,7 +773,7 @@ function summarise(f){
     case 'numeric': return 'Cleaned '+n+' numbers (removed symbols like the naira sign and commas).';
     case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left exactly as written.';
     case 'geo': return 'Matched '+n+' entries to the correct state.';
-    case 'categorical': return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different categories — and different numbers — are kept separate. '+n+' entries tidied.';
+    case 'categorical': return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different categories, and different numbers, are kept separate. '+n+' entries tidied.';
     case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
     default: return 'Tidied '+n+' entries.';
   }
@@ -752,10 +795,10 @@ function renderReview(){
      '<div class="rc-sub">the wizard read this as <b>'+TYPEWORD[f.type]+'</b> · <a class="link" onclick="toggleType()">not right?</a></div>'+
      '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+TYPEWORD[t]+'</option>').join('')+'</select></div>'+
      '<div class="rc-summary">'+summarise(f)+'</div>'+
-     (nChg?'<div class="rc-ex-h">all changes ('+nChg+' distinct) — grouped by result</div>'+
+     (nChg?'<div class="rc-ex-h">all changes ('+nChg+' distinct), grouped by result</div>'+
         '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)">'+
         '<div class="rc-changes" id="chglist"></div>':'')+
-     (outN?'<div class="rc-outlier">⚠ '+outN+' value'+(outN>1?'s':'')+' look unusual — we\'ll set '+(outN>1?'them':'it')+' aside for you to check later. You don\'t need to decide now.</div>':'')+
+     (outN?'<div class="rc-outlier">⚠ '+outN+' value'+(outN>1?'s':'')+' look unusual, we\'ll set '+(outN>1?'them':'it')+' aside for you to check later. You don\'t need to decide now.</div>':'')+
      '<div class="rc-decide">'+
        '<button class="big ok '+(f.decision==='accept'?'chosen':'')+'" onclick="setDecision(\'accept\')"><b>✓ Looks right</b><span>apply this cleaning</span></button>'+
        '<button class="big no '+(f.decision==='reject'?'chosen':'')+'" onclick="setDecision(\'reject\')"><b>✗ Keep original</b><span>leave this column unchanged</span></button>'+
@@ -804,7 +847,7 @@ function renderWorklist(){
   let h='';
 
   h+='<div class="wl-sec"><div class="wl-h">Columns you kept as original ('+rejected.length+')</div>';
-  if(!rejected.length) h+='<div class="wl-empty">None — you applied cleaning to every column.</div>';
+  if(!rejected.length) h+='<div class="wl-empty">None, you applied cleaning to every column.</div>';
   rejected.forEach(f=>{ const k='col:'+f.name,d=WLDECISIONS[k];
     h+='<div class="wl-item"><div class="wl-t"><b>'+esc(f.name)+'</b><span class="wl-type">'+f.type+'</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
       '<div class="wl-acts"><button onclick="wlRecleanCol(\''+f.name+'\')">Try a different clean</button>'+
@@ -826,7 +869,7 @@ function renderWorklist(){
   h+='<div class="wl-sec"><div class="wl-h">Possible duplicate rows ('+dp.length+')</div>';
   if(!dp.length) h+='<div class="wl-empty">No duplicate rows found.</div>';
   dp.forEach((g,i)=>{ const k='dup:'+i,d=WLDECISIONS[k];
-    h+='<div class="wl-item"><div class="wl-t">'+(g.kind==='exact'?'Exact match':'Near match ('+Math.round(g.similarity*100)+'%)')+' — rows '+g.rows.join(', ')+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+    h+='<div class="wl-item"><div class="wl-t">'+(g.kind==='exact'?'Exact match':'Near match ('+Math.round(g.similarity*100)+'%)')+', rows '+g.rows.join(', ')+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
       '<div class="wl-vals"><span class="wl-val">'+esc(g.preview)+'</span></div>'+
       '<div class="wl-acts"><button onclick="wlSet(\'dup:'+i+'\',\'remove duplicates (keep first)\')">Remove duplicates</button>'+
       '<button class="leave" onclick="wlSet(\'dup:'+i+'\',\'kept both\')">Keep both</button></div></div>'; });
@@ -913,8 +956,8 @@ function renderExport(){
 const SENSITIVE=new Set(['identifier']);
 function toggleNet(on){ $('#netpanel').style.display=on?'block':'none';
   $('#netnote').textContent = on
-    ? 'On — pick the columns other agencies may ask about. Only a verified answer is returned; the record never leaves this computer.'
-    : 'Off — the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned — never the raw record.';
+    ? 'On, pick the columns other agencies may ask about. Only a verified answer is returned; the record never leaves this computer.'
+    : 'Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.';
 }
 function renderPerm(){
   const box=$('#permlist'); if(!box) return;
@@ -932,7 +975,7 @@ function renderPerm(){
 }
 function setPerm(name,lvl){ PERM[name]=lvl; renderPerm(); }
 function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSITIVE.has(f.type))?'off':lvl; }); renderPerm();
-  if(lvl==='confirm') toast('Sensitive ID columns left off — switch them on individually if needed'); }
+  if(lvl==='confirm') toast('Sensitive ID columns left off, switch them on individually if needed'); }
 function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
 
 let SETTINGS={region:'ng',ai:false,provider:'ollama',key:'',contrib:false};
@@ -957,8 +1000,8 @@ function onProviderChange(){
   $('#set-key-label').textContent=local?'Local server URL':'API key';
   $('#set-key').placeholder=local?'http://localhost:11434':'paste your '+p+' API key';
   $('#set-ai-priv').innerHTML=local
-    ? 'A local model keeps everything on your machine — nothing is sent to any company.'
-    : 'Uses your own '+p+' API key. Only column headers and a small sample of values are sent to '+p+' — never full records.';
+    ? 'A local model keeps everything on your machine, nothing is sent to any company.'
+    : 'Uses your own '+p+' API key. Only column headers and a small sample of values are sent to '+p+', never full records.';
 }
 function saveSettings(){
   SETTINGS={region:$('#set-region').value, ai:$('#set-ai').checked, provider:$('#set-provider').value,
@@ -980,7 +1023,7 @@ async function renderToolkit(){
 }
 function openTool(id){
   TK_CUR=TK_TOOLS.find(t=>t.id===id); TK_RESULT=null;
-  const multi=(id==='match');
+  const multi=(id==='match'||id==='compare'||id==='combine');
   const box=$('#toolkit');
   box.innerHTML='<button class="btn ghost sm" onclick="renderToolkit()">← All tools</button>'+
     '<h2 style="margin:12px 0 4px">'+esc(TK_CUR.name)+'</h2><p class="lead">'+esc(TK_CUR.desc)+'</p>'+
@@ -993,7 +1036,7 @@ function openTool(id){
 }
 function tkPick(){ const inp=$('#tk-input'); const n=inp.files.length;
   $('#tk-filelabel').textContent=n?(n+' file'+(n>1?'s':'')+' selected'):'Choose a file…';
-  $('#tk-run').disabled=(n===0 || (TK_CUR.id==='match'&&n<2)); }
+  $('#tk-run').disabled=(n===0 || (['match','compare','combine'].includes(TK_CUR.id)&&n<2)); }
 async function runTool(){
   const inp=$('#tk-input'); if(!inp.files.length) return;
   const out=$('#tk-out');
@@ -1012,7 +1055,7 @@ async function runTool(){
     TK_RESULT=d;
     const sm=Object.entries(d.summary).map(([k,v])=>'<b>'+esc(v)+'</b> '+esc(k.replace(/_/g,' '))).join(' · ');
     let html='<div class="tk-summary">'+sm+'</div>';
-    if(d.rows_total===0){ html+='<div class="wl-empty">Nothing found — your data looks clean for this check.</div>'; }
+    if(d.rows_total===0){ html+='<div class="wl-empty">Nothing found, your data looks clean for this check.</div>'; }
     else{
       html+='<div class="tk-tablewrap"><table class="tk-table"><thead><tr>'+d.columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
         d.preview.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x==null?'':String(x))+'</td>').join('')+'</tr>').join('')+
@@ -1082,7 +1125,7 @@ async function onRealFile(e){
 function buildFieldsFromAPI(data, filename){
   const ov=data.overview||[];
   FIELDS=ov.map((c,i)=>{
-    const type=(c.read_as && c.read_as!=='—')?c.read_as:'free_text';
+    const type=(c.read_as && c.read_as!==',')?c.read_as:'free_text';
     const src=(c.changes && c.changes.length)?c.changes:(c.examples||[]);
     const rows=src.map((ex,j)=>({rid:1000+i*13+j,before:ex.before,after:ex.after,uncertain:false,decision:null}));
     return {id:i,name:c.column,type,method:'format',conf:0.9,nChanged:c.n_changed,
