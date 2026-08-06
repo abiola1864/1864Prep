@@ -234,11 +234,13 @@
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
       <p class="eyebrow">Step 4</p><h1>Upload your file</h1>
-      <p class="lead">However it's structured — one messy spreadsheet is fine. It's read on this computer; nothing is uploaded anywhere. Next we'll line your column names up with the standard ones.</p>
-      <div class="drop" onclick="doUpload()">
+      <p class="lead">However it's structured — one messy spreadsheet is fine. The engine reads and cleans it; in the desktop app this happens entirely on your computer. CSV, Excel, JSON and PDF are supported.</p>
+      <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
+      <div class="drop" onclick="document.getElementById('realfile').click()">
         <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
-        <p style="color:var(--ink-soft);margin:0;font-size:13px">.xlsx · .csv · .pdf — read locally</p>
+        <p style="color:var(--ink-soft);margin:0;font-size:13px">.csv · .xlsx · .json · .pdf — cleaned by the engine</p>
       </div>
+      <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="doUpload()">Continue with sample data</a> to walk through the flow.</p>
     </section>
 
     <!-- 4 match names -->
@@ -650,6 +652,37 @@ function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSI
   if(lvl==='confirm') toast('Sensitive ID columns left off — switch them on individually if needed'); }
 function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
 
+async function onRealFile(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const ov=$('#overlay'); ov.classList.add('on');
+  ov.innerHTML='<div class="cleanbox"><div class="spin"></div><h3>Reading &amp; cleaning your file…</h3><p>Sent to the engine for standardisation. In the desktop app this runs offline on your computer.</p></div>';
+  try{
+    const fd=new FormData(); fd.append('file', file);
+    const res=await fetch('/api/clean',{method:'POST',body:fd});
+    const data=await res.json();
+    if(!res.ok || data.error) throw new Error(data.error || ('server '+res.status));
+    buildFieldsFromAPI(data, file.name);
+    reached=Math.max(reached,5);
+    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 400);
+  }catch(err){
+    ov.classList.remove('on');
+    toast('Could not clean that file: '+err.message);
+  }
+}
+function buildFieldsFromAPI(data, filename){
+  const ov=data.overview||[];
+  FIELDS=ov.map((c,i)=>{
+    const type=(c.read_as && c.read_as!=='—')?c.read_as:'free_text';
+    const rows=(c.examples||[]).slice(0,10).map((ex,j)=>({rid:1000+i*13+j,before:ex.before,after:ex.after,uncertain:false,decision:null}));
+    return {id:i,name:c.column,type,method:'format',conf:0.9,nChanged:c.n_changed,
+            status:(c.n_flagged>0)?'flagged':((c.n_changed>0)?'review':'auto'),
+            rows:rows,outliers:[],decision:null,_real:true};
+  });
+  idx=0;
+  SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
+  if(data.ingest) toast(data.ingest);
+}
 go(0);
 </script>
 </body>

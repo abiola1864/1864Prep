@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from engine.ingest import read_any
@@ -78,6 +78,15 @@ async def health():
     return {"ok": True}
 
 
-# serve the prototype UI at / (mounted last so /api/* wins)
+@app.get("/")
+async def root():
+    index = UI_DIR / "1864_prep_app.html"
+    if index.exists():
+        return FileResponse(str(index))
+    return JSONResponse({"service": "1864 Prep engine", "ui": "not bundled",
+                         "try": ["/api/health", "/api/profile", "/api/clean"]})
+
+
+# serve any other UI assets (e.g. cleaning_review.html) under /ui
 if UI_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
+    app.mount("/ui", StaticFiles(directory=str(UI_DIR), html=True), name="ui")
