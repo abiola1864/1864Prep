@@ -570,12 +570,19 @@ function go(n){
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
 
 /* sectors */
-$('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('');
+$('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('')
+  +`<div class="sector general" onclick="pickGeneral()"><div class="ic">📂</div><h3>General / other</h3><p>Any dataset — my columns aren't listed. The engine detects everything from the file itself.</p><div class="cc">skip to upload</div></div>`;
 function pickSector(i){
   SECTOR=SECTORS[i];
   SELECTED=new Set(SECTOR.cols.map((c,j)=>j).filter(j=>j%7!==5)); // pre-tick ~85%
   $('#rf-sector').textContent=SECTOR.name;
   reached=Math.max(reached,2); go(2);
+}
+function pickGeneral(){
+  SECTOR={name:"General / other", desc:"", ic:"📂", cols:[]};
+  SELECTED=new Set();
+  $('#rf-sector').textContent=SECTOR.name;
+  reached=Math.max(reached,3); go(3);   // straight to upload; no preset columns to choose
 }
 
 /* choose columns */
@@ -592,6 +599,7 @@ function selectAll(v){SELECTED=v?new Set(SECTOR.cols.map((c,j)=>j)):new Set();re
 
 /* upload -> build messy raw headers from selected columns */
 function doUpload(){
+  if(!SECTOR || !SECTOR.cols || !SECTOR.cols.length){ SECTOR=SECTORS[0]; SELECTED=new Set(SECTOR.cols.map((c,j)=>j).filter(j=>j%7!==5)); }
   const chosen=[...SELECTED].sort((a,b)=>a-b);
   RAWS=[];
   const dropIdx=chosen[Math.min(3,chosen.length-1)];      // one selected col missing from file
