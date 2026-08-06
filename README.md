@@ -72,8 +72,12 @@ sector → choose columns (by meaning) → upload → match column names → cle
   learning + review).
 - **`prototype/ui/`** — clickable HTML mockups of the wizard and review screen. These
   show the intended experience; they are **not** the final app (see Roadmap).
+- **`app/`** — a small web service around the engine (`server.py`) and a desktop
+  entry point (`desktop.py`). The same code powers a cheap web demo and the
+  offline desktop app — see `docs/DEPLOY.md` for how to run, host, and package it.
 - **Top level** — `cli.py` (run the engine from a terminal), `pyproject.toml`
-  (dependencies), `README.md`, `LICENSE`, `CONTRIBUTING.md`.
+  (dependencies), `render.yaml` (one-click web demo), `README.md`, `LICENSE`,
+  `CONTRIBUTING.md`.
 
 ### Sample data
 

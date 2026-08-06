@@ -1,0 +1,27 @@
+name: Build desktop apps
+on:
+  workflow_dispatch:        # run manually from the Actions tab
+  push:
+    tags: ["v*"]            # or on a version tag like v0.1
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[web,desktop]" pyinstaller
+      # data-file separator differs: ':' on macOS, ';' on Windows
+      - if: runner.os == 'macOS'
+        run: pyinstaller --noconfirm --windowed --name 1864Prep --add-data "prototype/ui:prototype/ui" app/desktop.py
+      - if: runner.os == 'Windows'
+        run: pyinstaller --noconfirm --windowed --name 1864Prep --add-data "prototype/ui;prototype/ui" app/desktop.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 1864Prep-${{ matrix.os }}
+          path: dist/*

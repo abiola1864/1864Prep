@@ -1,0 +1,12 @@
+# Deploy the live DEMO (synthetic data only) to Render's free tier.
+# In Render: New > Blueprint > point at this repo. Free instances sleep when idle.
+services:
+  - type: web
+    name: 1864prep-demo
+    runtime: python
+    plan: free
+    buildCommand: "pip install -e .[web]"
+    startCommand: "uvicorn app.server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.4"
