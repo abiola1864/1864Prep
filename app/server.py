@@ -169,7 +169,9 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             for k, p in enumerate(text_cols):
                 nun = df[p.column].nunique()
                 if 2 <= nun <= 400:
-                    gs = cluster_similar(df[p.column].tolist())[:20]
+                    from engine.domains import detect_domain
+                    _dom = detect_domain(df[p.column].tolist(), p.column)
+                    gs = cluster_similar(df[p.column].tolist(), domain=_dom)[:20]
                     if gs:
                         similar.append({"column": p.column,
                                         "groups": [{"representative": g["representative"], "members": g["members"][:20],

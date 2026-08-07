@@ -128,7 +128,8 @@ def _sim_guarded(a: str, b: str) -> float:
     return _sim(a, b)
 
 
-def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False) -> list[dict]:
+def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False,
+                    domain: str | None = None) -> list[dict]:
     """Group values that MIGHT be the same, graded by confidence — no merging.
 
     Instead of one yes/no cutoff, values are linked when similar, then each
@@ -136,16 +137,30 @@ def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False
       * confidence 'high'   — very likely the same (tight variants)
       * 'medium' / 'low'    — possibly the same (looser; for a human to judge)
     Each cluster carries a suggested single name (most frequent, most complete).
-    Different numbers never link. Returns clusters of 2+, most confident first.
+    Different numbers never link. If `domain` is given (e.g. 'country'), two
+    values that map to DIFFERENT canonical entities are never linked, even if
+    they look alike ('Niger' vs 'Nigeria'). Returns clusters of 2+.
     """
     counts = Counter(str(v).strip() for v in values if str(v).strip())
     distinct = list(counts)
     if len(distinct) > _MAX:
         distinct = [v for v, _ in counts.most_common(_MAX)]
 
+    def _blocked(a, b):
+        if domain:
+            try:
+                from .domains import same_entity
+                if same_entity(domain, a, b) is False:
+                    return True
+            except Exception:
+                pass
+        return False
+
     uf = _UF(distinct)
     for i in range(len(distinct)):
         for j in range(i + 1, len(distinct)):
+            if _blocked(distinct[i], distinct[j]):
+                continue
             if _sim_guarded(distinct[i], distinct[j]) >= link_threshold:
                 uf.union(distinct[i], distinct[j])
 
@@ -154,7 +169,7 @@ def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False
             from .ml.embed import available, semantic_pairs
             if available():
                 for a, b, _s in semantic_pairs(distinct, threshold=0.62):
-                    if _numbers(a) == _numbers(b):     # still never merge across different numbers
+                    if _numbers(a) == _numbers(b) and not _blocked(a, b):
                         uf.union(a, b)
         except Exception:
             pass

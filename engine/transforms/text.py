@@ -99,10 +99,41 @@ class BooleanTransform(Transform):
 
 
 class NumericTransform(Transform):
-    """Locale/currency-robust number parsing via `price_parser` (handles ₦, $, €,
-    thousands separators, comma-vs-dot decimals), plus parentheses-negatives and
-    trailing %. A digit must be present, so 'free'/'N/A' are flagged, not zeroed."""
+    """Number parsing that respects the decimal point. A lone dot is a decimal
+    (so 42.959 stays 42.959, not 42959); commas are thousands unless clearly a
+    decimal comma (12,5). Handles currency symbols, %, and parentheses-negatives.
+    A digit must be present, so 'free'/'N/A' are flagged, not zeroed."""
     name = "numeric"
+
+    @staticmethod
+    def _parse(s: str):
+        st = s.strip()
+        neg = (st.startswith("(") and st.endswith(")")) or st.startswith("-") or st.startswith("\u2212")
+        pct = st.endswith("%")
+        t = re.sub(r"[^0-9.,]", "", st)          # keep digits and separators only
+        if t == "":
+            return None, neg, pct
+        has_c, has_d = "," in t, "." in t
+        if has_c and has_d:
+            if t.rfind(",") > t.rfind("."):       # 1.200,50 -> decimal comma
+                t = t.replace(".", "").replace(",", ".")
+            else:                                  # 1,200.50 -> thousands comma
+                t = t.replace(",", "")
+        elif has_c:
+            parts = t.split(",")
+            if len(parts) == 2 and len(parts[1]) in (1, 2):
+                t = parts[0] + "." + parts[1]     # 12,5 -> 12.5 (decimal comma)
+            else:
+                t = t.replace(",", "")            # 1,200 / 1,200,000 -> thousands
+        elif has_d:
+            if t.count(".") > 1:                  # 1.234.567 -> thousands dots
+                t = t.replace(".", "")
+            # single dot stays a decimal point
+        try:
+            val = float(t)
+        except ValueError:
+            return None, neg, pct
+        return (-abs(val) if neg else val), neg, pct
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         s = _clean_str(value)
@@ -110,24 +141,11 @@ class NumericTransform(Transform):
             return "", True, "empty numeric"
         if not any(ch.isdigit() for ch in s):
             return value, True, "not numeric (no digits)"
-        st = s.strip()
-        neg = (st.startswith("(") and st.endswith(")")) or st.startswith("-") or st.startswith("\u2212")
-        pct = st.endswith("%")
-        try:
-            from price_parser import Price
-            amount = Price.fromstring(s).amount_float
-        except Exception:
-            amount = None
+        amount, neg, pct = self._parse(s)
         if amount is None:
-            try:
-                amount = float(re.sub(r"[^\d.\-eE]", "", s.replace(",", "")))
-            except ValueError:
-                return value, True, "not numeric"
-        amount = -abs(amount) if neg else abs(amount)   # price_parser drops the sign; restore it
-        if pct:
-            note = "read as percent value"
-            return (str(int(amount)) if float(amount).is_integer() else str(amount)), False, note
-        return (str(int(amount)) if float(amount).is_integer() else str(amount)), False, ""
+            return value, True, "not numeric"
+        out = str(int(amount)) if float(amount).is_integer() else repr(amount)
+        return out, False, ("read as percent value" if pct else "")
 
 
 class TextNormaliseTransform(Transform):
