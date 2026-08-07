@@ -26,17 +26,22 @@ class NameTransform(Transform):
         s = _clean_str(value)
         if s == "":
             return "", True, "empty name"
-        parts = []
-        for w in s.split(" "):
+
+        def _cap(w: str) -> str:
             lw = w.lower()
-            if lw in self._particles:
+            if lw.startswith("o'") and len(lw) > 2:
+                return "O'" + _cap(w[2:])
+            if lw.startswith("mc") and len(lw) > 2:
+                return "Mc" + w[2:].capitalize()
+            return "-".join(p.capitalize() for p in w.split("-"))  # Mary-Jane, not Mary-jane
+
+        parts = []
+        for i, w in enumerate(s.split(" ")):
+            lw = w.lower()
+            if lw in self._particles and i > 0:      # particle lower-cased only mid-name
                 parts.append(lw)
-            elif lw.startswith("o'") and len(lw) > 2:
-                parts.append("O'" + lw[2:].capitalize())
-            elif lw.startswith("mc") and len(lw) > 2:
-                parts.append("Mc" + lw[2:].capitalize())
             else:
-                parts.append(w.capitalize())
+                parts.append(_cap(w))
         return " ".join(parts), False, ""
 
 
@@ -152,7 +157,18 @@ class TextNormaliseTransform(Transform):
     name = "text_normalise"
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
-        return _clean_str(value), False, ""
+        s = _clean_str(value)
+        if s == "":
+            return "", False, ""
+        try:
+            import ftfy
+            s = ftfy.fix_text(s)                       # repair mojibake (Ã© -> é)
+        except Exception:
+            pass
+        s = (s.replace("\u2018", "'").replace("\u2019", "'")
+              .replace("\u201c", '"').replace("\u201d", '"')
+              .replace("\u2013", "-").replace("\u2014", "-"))
+        return _clean_str(s), False, ""
 
 
 class TextCleanTransform(Transform):

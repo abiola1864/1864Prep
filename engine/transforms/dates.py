@@ -59,7 +59,7 @@ class DateISOTransform(Transform):
                 d = _dt.date(y, mo, dy)
                 return (d.isoformat(), False, "") if self._in_range(d) else (value, True, "date out of range")
             except ValueError:
-                pass
+                return value, True, "impossible date (month/day out of range)"
         d = dateparser.parse(s, settings={
             "DATE_ORDER": self._order,
             "PREFER_DAY_OF_MONTH": "first",
@@ -95,6 +95,11 @@ class DateTimeISOTransform(Transform):
         iso = _re.match(r"^\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?", s)
         if iso:
             y, mo, d, h, mi, se = iso.groups()
+            try:
+                import datetime as _dt
+                _dt.datetime(int(y), int(mo), int(d), int(h), int(mi), int(se or 0))
+            except ValueError:
+                return value, True, "impossible datetime (out of range)"
             return f"{y}-{mo}-{d} {int(h):02d}:{mi}:{se or '00'}", False, ""
         try:
             import dateparser

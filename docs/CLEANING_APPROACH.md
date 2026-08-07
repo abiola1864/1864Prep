@@ -99,3 +99,13 @@ Deterministic transforms and reshape helpers, each tested:
 Reshape operations change table shape, so they are offered as explicit actions
 rather than applied silently. Sentinel/range are opt-in (flag-first) to avoid
 false positives; unit parsing auto-proposes only for known units.
+
+## Best-practice hardening (regression-tested)
+
+- Unicode whitespace: non-breaking spaces, zero-width characters, tabs are stripped/normalised everywhere.
+- Mojibake repair (Ã© -> é) via ftfy on text columns; smart quotes/dashes normalised.
+- Leading-zero codes (007, ZIP 01234, account numbers) stay identifiers, never numeric, so zeros are preserved.
+- Numbers: decimal point respected (42.959 stays 42.959), thousands commas and nbsp handled, currency symbols, %, parentheses-negatives.
+- Booleans (Y/N/1/0/T/F), sentinel/refusal codes, range/outlier checks, Excel serial dates, ISO date preservation.
+- Banner/caption rows before the table are detected and shown, never dropped silently.
+- Entity identity via packages (country_converter, pycountry) so look-alike entities (Niger/Nigeria) never merge.

@@ -39,6 +39,23 @@ def _save(upload: UploadFile) -> Path:
     return tmp
 
 
+
+def _dup_payload(df):
+    """Duplicate groups with per-row previews + the true total of removable rows."""
+    from engine.dedupe import near_duplicate_rows
+    groups = near_duplicate_rows(df)
+    total = sum(len(g["rows"]) - 1 for g in groups)
+    def prev(i):
+        return " \u00b7 ".join(str(v) for v in df.iloc[i].tolist() if str(v).strip())[:90]
+    out = []
+    for g in groups[:50]:
+        out.append({"rows": g["rows"], "kind": g["kind"], "similarity": g["similarity"],
+                    "keep_row": g["rows"][0], "remove_rows": g["rows"][1:],
+                    "preview": prev(g["rows"][0]),
+                    "row_previews": [{"row": i, "text": prev(i)} for i in g["rows"]]})
+    return out, total
+
+
 @app.post("/api/profile")
 async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
     if region:
@@ -50,6 +67,7 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
         profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True)
         return {
             "ingest": rep.summary(),
+                "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
             "region": _regions.get_active_region().name,
             "rows": len(df), "cols": len(df.columns),
             "columns": [{"name": p.column, "type": p.semantic_type,
@@ -82,12 +100,7 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
                 flagged.append({"column": c["source_column"],
                                 "values": [{"row": x["row"], "value": x["value"],
                                             "reason": x["reason"]} for x in fl[:50]]})
-        dups = []
-        for g in near_duplicate_rows(df)[:50]:
-            r0 = g["rows"][0]
-            preview = " · ".join(str(v) for v in df.iloc[r0].tolist()[:4] if str(v).strip())
-            dups.append({"rows": g["rows"], "kind": g["kind"],
-                         "similarity": g["similarity"], "preview": preview})
+        dups, _dup_total = _dup_payload(df)
         similar = []
         for p in profs[:12]:
             if p.semantic_type in ("categorical", "name", "free_text"):
@@ -107,11 +120,12 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
         _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
         return {
             "ingest": rep.summary(),
+                "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
             "region": _regions.get_active_region().name,
             "session_id": sid,
             "overview": column_overview(df, cleaned, types, flags),
             "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
-            "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar,
+            "worklist": {"flagged": flagged, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
                          "repeated_columns": duplicate_columns(df)},
         }
     except Exception as e:  # never 500 silently in a demo
@@ -157,11 +171,9 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     flagged.append({"column": c["source_column"],
                                     "values": [{"row": x["row"], "value": x["value"], "reason": x["reason"]} for x in fl[:50]]})
             yield json.dumps({"t": "progress", "pct": 0.86, "stage": "Checking for duplicate rows"}) + "\n"
-            dups = []
-            for g in near_duplicate_rows(df)[:50]:
-                r0 = g["rows"][0]
-                preview = " · ".join(str(v) for v in df.iloc[r0].tolist()[:4] if str(v).strip())
-                dups.append({"rows": g["rows"], "kind": g["kind"], "similarity": g["similarity"], "preview": preview})
+            _dup_groups = near_duplicate_rows(df)
+            _dup_total = sum(len(g["rows"]) - 1 for g in _dup_groups)
+            dups, _dup_total = _dup_payload(df)
             # similar-value scan across ALL text columns, with real per-column progress
             text_cols = [p for p in profs if p.semantic_type in ("categorical", "name", "free_text", "geo")]
             M = max(1, len(text_cols))
@@ -183,11 +195,12 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
             payload = {
                 "ingest": rep.summary(),
+                "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
                 "region": _regions.get_active_region().name,
                 "session_id": sid,
                 "overview": column_overview(df, cleaned, types, flags),
                 "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
-                "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar,
+                "worklist": {"flagged": flagged, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
                              "repeated_columns": duplicate_columns(df)},
             }
             yield json.dumps({"t": "result", "payload": payload}) + "\n"

@@ -21,13 +21,18 @@ from typing import Any
 import pandas as pd
 
 _WS = re.compile(r"\s+")
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff\u2060"), None)
+_UNI_SPACE = {ord(c): " " for c in "\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005"
+              "\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000"}
 
 
 def _clean_str(value: Any) -> str:
-    """Shared helper: None/NaN -> '', otherwise trimmed with collapsed whitespace."""
+    """Shared helper: None/NaN -> ''; strip zero-width chars, turn non-breaking
+    and other unicode spaces into normal spaces, then trim and collapse."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return ""
-    return _WS.sub(" ", str(value).strip())
+    s = str(value).translate(_ZERO_WIDTH).translate(_UNI_SPACE)
+    return _WS.sub(" ", s.strip())
 
 
 @dataclass

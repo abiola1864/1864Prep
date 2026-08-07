@@ -35,6 +35,7 @@ class IngestReport:
     rows: int = 0
     cols: int = 0
     notes: list[str] = field(default_factory=list)
+    skipped_rows: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         bits = [f"{self.kind}", f"{self.rows} rows x {self.cols} cols"]
@@ -119,6 +120,7 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
                        rows=len(df), cols=len(df.columns))
     if hdr > 0:
         rep.notes.append(f"skipped {hdr} banner/metadata row(s) above the header")
+        rep.skipped_rows = [" · ".join(c.strip() for c in rows[k] if c.strip()) for k in range(hdr)]
     return df, rep
 
 
@@ -142,6 +144,9 @@ def read_excel(path: Path) -> tuple[pd.DataFrame, IngestReport]:
                        header_row=hdr + 1, rows=len(df), cols=len(df.columns))
     if len(sheets) > 1:
         rep.notes.append(f"{len(sheets)} sheets; picked the fullest ({best!r})")
+    if hdr > 0:
+        rep.notes.append(f"skipped {hdr} banner/metadata row(s) above the header")
+        rep.skipped_rows = [" · ".join(str(c).strip() for c in raw[k] if str(c).strip()) for k in range(hdr)]
     return df, rep
 
 

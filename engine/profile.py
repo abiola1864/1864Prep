@@ -207,6 +207,18 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     if phone_rate >= 0.7:
         return ColumnProfile(name, "phone", phone_rate, "phone_ng", evidence=ev)
 
+    # leading-zero digit strings are codes (IDs, ZIP, account nos), never measures:
+    # "007" is not the number 7. Keep them as identifiers so zeros are preserved.
+    pure_digits = [v for v in vals if v.isdigit()]
+    if pure_digits and len(pure_digits) / len(vals) >= 0.8:
+        lead_zero = [v for v in pure_digits if len(v) > 1 and v[0] == "0"]
+        if len(lead_zero) / len(pure_digits) >= 0.3:
+            lens = [len(v) for v in pure_digits]
+            mode_len = max(set(lens), key=lens.count)
+            ev["leading_zeros"] = True
+            return ColumnProfile(name, "identifier", 0.9, "fixed_id",
+                                 params={"length": mode_len}, evidence=ev)
+
     # numeric MEASURE with decimals (e.g. hectares, amounts) -> numeric, before id.
     if numeric_rate >= 0.85 and decimal_rate >= 0.3:
         return ColumnProfile(name, "numeric", numeric_rate, "numeric", evidence=ev)

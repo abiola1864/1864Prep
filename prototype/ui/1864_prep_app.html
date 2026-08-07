@@ -338,6 +338,19 @@
   .link.tiny{font-size:11.5px;color:var(--ink-soft)}
   .mgg-vals{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin:6px 0;line-height:1.7}
   .mgg-name input{font-family:var(--sans)}
+  .dup-list{max-height:300px;overflow:auto;border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px}
+  .dup-grp{border-bottom:1px solid var(--line-soft);padding:6px 4px}
+  .dup-grp:last-child{border-bottom:none}
+  .dup-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 6px;font-family:var(--mono)}
+  .dup-tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:99px;padding:1px 7px;font-family:var(--sans)}
+  .dup-row.keep .dup-tag{background:var(--ok-bg);color:var(--ok)} .dup-row.drop .dup-tag{background:#f6e5e5;color:#a83a3a}
+  .dup-row.drop .dup-vals{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:var(--line)}
+  .dup-rn{color:var(--faint);min-width:52px} .dup-vals{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ban-list{border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px;max-height:220px;overflow:auto}
+  .ban-row{display:flex;gap:10px;align-items:baseline;padding:5px 8px;font-size:12.5px;border-bottom:1px solid var(--line-soft)}
+  .ban-row:last-child{border-bottom:none}
+  .ban-rn{color:var(--faint);font-family:var(--mono);font-size:11px;min-width:52px}
+  .ban-txt{font-family:var(--mono);color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -625,7 +638,7 @@ function messy(std,i){
   return std;                                                   // as-is
 }
 
-let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false;
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null;
 
 function go(n){
   cur=n;
@@ -824,6 +837,7 @@ function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(
 let CARDS=[];
 function buildCards(){
   CARDS=[];
+  if(SKIPPED && SKIPPED.length){ CARDS.push({kind:'banner', rows:SKIPPED.slice(0,20), headerRow:HEADER_ROW}); }
   const simByCol={}; ((WORKLIST&&WORKLIST.similar)||[]).forEach(s=>{
     simByCol[s.column]=(s.groups||[]).map(g=>({members:(g.members||[]).filter(Boolean),representative:g.representative,confidence:g.confidence}))
       .filter(g=>g.members.length>=2 && g.confidence!=='low');
@@ -837,8 +851,8 @@ function buildCards(){
         gmerge:groups.map(()=>true), split:groups.map(()=>false)});
     }
   });
-  const dupN=((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
-  if(dupN>0) CARDS.push({kind:'dupes', count:dupN});
+  const dupTotal=(WORKLIST&&WORKLIST.duplicates_total)||((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
+  if(dupTotal>0) CARDS.push({kind:'dupes', count:dupTotal, groups:((WORKLIST&&WORKLIST.duplicates)||[])});
   CARDS.push({kind:'done'});
 }
 function curField(){ const c=CARDS[idx]; return c&&c.field; }
@@ -853,7 +867,8 @@ function renderReview(){
   $('#rvcount').textContent = c.kind==='done' ? 'all done' : (idx+' of '+total+' done');
   $('#backbtn').disabled=idx===0;
   let html='';
-  if(c.kind==='column') html=cardColumn(c);
+  if(c.kind==='banner') html=cardBanner(c);
+  else if(c.kind==='column') html=cardColumn(c);
   else if(c.kind==='dupes') html=cardDupes(c);
   else html=cardDone();
   $('#reviewcard').innerHTML=html;
@@ -931,10 +946,32 @@ function commitColumn(){ const c=CARDS[idx], f=c.field;
   });
   c.decision='done'; if(merged) toast('Recorded '+merged+' merge'+(merged>1?'s':'')+' for this column'); advanceCard();
 }
+function cardBanner(c){
+  const n=c.rows.length;
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Skipped '+n+' row'+(n>1?'s':'')+' before your table</div>'+
+    '<div class="rc-sub">These looked like a title or caption, not data. Your table starts at row '+(c.headerRow||'?')+'. Check they are not real records.</div>'+
+    '<div class="ban-list">'+c.rows.map((t,i)=>'<div class="ban-row"><span class="ban-rn">row '+(i+1)+'</span><span class="ban-txt">'+esc(t||'(blank)')+'</span></div>').join('')+'</div>'+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardDecide(\'skip\')"><b>✓ Skip them</b><span>they are a caption</span></button>'+
+      '<button class="big no" onclick="bannerKeep()"><b>These are data</b><span>do not cut them</span></button>'+
+    '</div></div>';
+}
+function bannerKeep(){ toast('Noted. Re-upload the file with the caption rows removed, or tell us the header row, full restore is coming.'); cardDecide('skip'); }
 function cardDupes(c){
+  const groups=c.groups||[]; const shown=groups.length;
+  let list='';
+  if(shown){
+    list='<div class="dup-list">'+groups.slice(0,50).map(g=>{
+      const rows=(g.row_previews||[]).map((rp,i)=>'<div class="dup-row '+(i===0?'keep':'drop')+'"><span class="dup-tag">'+(i===0?'keep':'remove')+'</span><span class="dup-rn">row '+(rp.row+1)+'</span><span class="dup-vals">'+esc(rp.text||'')+'</span></div>').join('');
+      return '<div class="dup-grp">'+rows+'</div>';
+    }).join('')+'</div>';
+  }
   return '<div class="card rcard">'+
     '<div class="rc-name">Duplicate rows</div>'+
-    '<div class="rc-sub">Found <b>'+c.count+'</b> row'+(c.count>1?'s':'')+' that repeat another row.</div>'+
+    '<div class="rc-sub">Found <b>'+c.count+'</b> row'+(c.count>1?'s':'')+' that repeat another row'+
+      (c.count>shown && shown? ', showing the first '+shown+' set'+(shown>1?'s':''):'')+'. "Remove" keeps the first of each set.</div>'+
+    list+
     '<div class="rc-decide">'+
       '<button class="big ok" onclick="cardDupesYes()"><b>Remove duplicates</b><span>keep the first of each</span></button>'+
       '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep all</b><span>change nothing</span></button>'+
@@ -1319,6 +1356,7 @@ function buildFieldsFromAPI(data, filename){
   WORKLIST=data.worklist||null; WLDECISIONS={};
   CARDS=[];
   SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
+  SKIPPED=(data.skipped_rows||[]); HEADER_ROW=data.header_row||null;
   buildCards();
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   if(data.ingest){ const m=/(\d+)\s*rows\s*x\s*(\d+)\s*cols/i.exec(data.ingest); const ext=(data.ingest.split('|')[0]||'').trim();
