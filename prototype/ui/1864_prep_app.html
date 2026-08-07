@@ -1176,12 +1176,12 @@ function makeProgressManual(el, title, sub){
         eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
   let last=0, t0=Date.now();
   return {
-    set(frac,stage){ frac=Math.max(0,Math.min(1,frac)); const p=Math.round(frac*100);
+    set(frac,stage){ frac=Math.max(0,Math.min(0.99,frac)); const p=Math.round(frac*100);
       bar.style.width=p+'%'; pct.textContent=p+'%'; if(stage) stg.textContent=stage;
-      if(frac>0.02 && frac<0.99){ const el2=(Date.now()-t0)/1000; const remain=el2*(1-frac)/frac;
-        eta.textContent = remain>1 ? ('about '+Math.ceil(remain)+' sec left') : 'almost done…'; }
+      if(frac>0.04){ const elp=(Date.now()-t0)/1000; const remain=elp*(1-frac)/frac;
+        eta.textContent = remain>2 ? ('about '+Math.ceil(remain)+' sec left') : 'wrapping up'; }
       last=frac; },
-    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='ready'; }
+    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; }
   };
 }
 function makeProgress(el, estMs, stages, title, sub){
@@ -1219,7 +1219,7 @@ async function onRealFile(e){
   if(!file) return;
   const ov=$('#overlay'); ov.classList.add('on');
   const prog=makeProgressManual(ov, "Reading &amp; cleaning your file…",
-    "Runs on your computer in the desktop app. Big files take longer, the bar tracks real progress.");
+    "Reading <b>"+esc(file.name)+"</b> on this computer. Nothing is uploaded in the desktop app.");
   try{
     const fd=new FormData(); fd.append('file', file); fd.append('region', SETTINGS.region||'ng');
     const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
@@ -1231,8 +1231,8 @@ async function onRealFile(e){
       let nl; while((nl=buf.indexOf('\n'))>=0){
         const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
         let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
-        if(msg.t==='progress'){ prog.set((msg.done||0)/(msg.total||1), msg.stage); }
-        else if(msg.t==='result'){ payload=msg.payload; }
+        if(msg.t==='progress'){ const frac=(msg.pct!=null)?msg.pct:((msg.done||0)/(msg.total||1)); prog.set(frac, msg.stage); }
+        else if(msg.t==='result'){ payload=msg.payload; if(payload.ingest){ const s=$('#pgstage'); if(s) s.textContent=payload.ingest; } }
         else if(msg.t==='error'){ errMsg=msg.error; }
       }
     }

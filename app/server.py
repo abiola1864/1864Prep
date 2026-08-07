@@ -135,7 +135,7 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
         from engine.profile import profile_column, profile_to_plan
         from engine.dedupe import cluster_similar, duplicate_columns, near_duplicate_rows
         try:
-            yield json.dumps({"t": "progress", "done": 0, "total": 1, "stage": "reading the file"}) + "\n"
+            yield json.dumps({"t": "progress", "pct": 0.04, "stage": "Reading the file"}) + "\n"
             df, rep = read_any(path)
             _ref = _regions.load_reference()
             cols = list(df.columns); N = max(1, len(cols))
@@ -143,14 +143,14 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             for i, c in enumerate(cols):
                 profs.append(profile_column(df[c], c, _ref["gazetteers"], _ref["place_index"], use_ml=True))
                 if i % 2 == 0 or i == N - 1:
-                    yield json.dumps({"t": "progress", "done": i + 1, "total": N,
-                                      "stage": f"understanding columns ({i+1}/{N})"}) + "\n"
+                    yield json.dumps({"t": "progress", "pct": 0.05 + 0.75 * (i + 1) / N,
+                                      "stage": f"Checking column {i+1} of {N}"}) + "\n"
             plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
             types = {p.column: p.semantic_type for p in profs}
-            yield json.dumps({"t": "progress", "done": N, "total": N, "stage": "cleaning the values"}) + "\n"
+            yield json.dumps({"t": "progress", "pct": 0.85, "stage": "Cleaning values"}) + "\n"
             cleaned, report, _ = run_plan(df, plan, "web")
             flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}
-            yield json.dumps({"t": "progress", "done": N, "total": N, "stage": "checking duplicates & similar"}) + "\n"
+            yield json.dumps({"t": "progress", "pct": 0.94, "stage": "Finding duplicates and matches"}) + "\n"
             flagged = []
             for c in report.columns:
                 fl = c.get("flags") or []
