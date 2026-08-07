@@ -350,11 +350,10 @@
     <ol class="steps" id="steps">
       <li data-s="0"><span class="n"><span>1</span></span> Sign in</li>
       <li data-s="1"><span class="n"><span>2</span></span> Sector</li>
-      <li data-s="2"><span class="n"><span>3</span></span> Choose columns</li>
-      <li data-s="3"><span class="n"><span>4</span></span> Upload</li>
-      <li data-s="4"><span class="n"><span>5</span></span> Match names</li>
-      <li data-s="5"><span class="n"><span>6</span></span> Review</li>
-      <li data-s="7"><span class="n"><span>7</span></span> Export</li>
+      <li data-s="3"><span class="n"><span>3</span></span> Upload</li>
+      <li data-s="4"><span class="n"><span>4</span></span> Match names</li>
+      <li data-s="5"><span class="n"><span>5</span></span> Review</li>
+      <li data-s="7"><span class="n"><span>6</span></span> Export</li>
     </ol>
     <div class="railfoot">Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
       <span class="hint">More</span>
@@ -380,22 +379,7 @@
       <div class="sectors" id="sectors"></div>
     </section>
 
-    <!-- 2 choose columns -->
-    <section class="screen" data-screen="2">
-      <p class="eyebrow">Step 3</p><h1>Which columns are in your data?</h1>
-      <p class="lead">Pick by meaning, not header name. We line up your real headers next. No need to say the type, the wizard detects it.</p>
-      <div class="selbar">
-        <span class="cnt"><b id="selcount">0</b> of <span id="seltotal">0</span> selected</span>
-        <span class="sp" style="flex:1"></span>
-        <button class="btn ghost sm" onclick="selectAll(true)">Select all</button>
-        <button class="btn ghost sm" onclick="selectAll(false)">Select none</button>
-      </div>
-      <input id="colsearch" class="colsearch" placeholder="Search columns" oninput="renderColumns()">
-      <div class="colgrid" id="colgrid"></div>
-      <div id="colmore" style="margin:10px 0"></div>
-      <div class="actbar"><button class="btn" onclick="go(3)">Continue to upload →</button></div>
-    </section>
-
+    
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
       <p class="eyebrow">Step 4</p><h1>Upload your file</h1>
@@ -648,7 +632,6 @@ function go(n){
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
   $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n);li.classList.toggle('done',s<n&&s<=reached);});
   $('#gate').style.display=n===5?'flex':'none';
-  if(n===2){VIS_N=8;renderColumns();}
   if(n===4)renderMatch();
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
@@ -662,9 +645,9 @@ $('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSec
   +`<div class="sector general" onclick="pickGeneral()"><div class="ic">📂</div><h3>General / other</h3><p>Any dataset, my columns aren't listed. The engine detects everything from the file itself.</p><div class="cc">skip to upload</div></div>`;
 function pickSector(i){
   SECTOR=SECTORS[i];
-  SELECTED=new Set(SECTOR.cols.map((c,j)=>j).filter(j=>j%7!==5)); // pre-tick ~85%
+  SELECTED=new Set(SECTOR.cols.map((c,j)=>j));   // sample walkthrough uses all
   $('#rf-sector').textContent=SECTOR.name;
-  reached=Math.max(reached,2); go(2);
+  reached=Math.max(reached,3); go(3);            // straight to upload; engine detects columns
 }
 function pickGeneral(){
   SECTOR={name:"General / other", desc:"", ic:"📂", cols:[]};
