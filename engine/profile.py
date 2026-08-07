@@ -104,14 +104,31 @@ def _header_hint(name: str):
 
 
 def _is_coordish(s: str) -> bool:
+    s = str(s).strip()
+    if not s:
+        return False
+    # reject values carrying words (e.g. "6 - 10 years"): a coordinate has no letters
+    # other than direction markers N/S/E/W
+    letters = [c for c in s if c.isalpha()]
+    if letters and any(c.upper() not in "NSEW" for c in letters):
+        return False
+    # a bare "6 - 10" is a range, not DMS: DMS uses ° ' " markers
+    if "-" in s[1:] and not any(m in s for m in "°'\""):
+        return False
+    # plain decimal in a plausible coordinate range
     try:
-        from lat_lon_parser import parse
-        float(parse(s)); return True
-    except Exception:
+        f = float(s.replace(",", "").strip())
+        return -180.0 <= f <= 180.0
+    except ValueError:
+        pass
+    # proper DMS with degree/direction markers
+    if any(m in s for m in "°'\"") or (letters and all(c.upper() in "NSEW" for c in letters)):
         try:
-            float(s.replace(",", "").strip()); return True
-        except ValueError:
+            from lat_lon_parser import parse
+            float(parse(s)); return True
+        except Exception:
             return False
+    return False
 
 
 def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None = None,

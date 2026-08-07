@@ -120,6 +120,79 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
         path.unlink(missing_ok=True)
 
 
+@app.post("/api/clean_stream")
+async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None)):
+    """Same as /api/clean but streams real progress (one tick per column) so the
+    bar reflects the actual workload instead of an estimate."""
+    if region:
+        _regions.set_active_region(region)
+    path = _save(file)
+    fname = file.filename
+
+    def gen():
+        import json
+        import uuid as _uuid
+        from engine.profile import profile_column, profile_to_plan
+        from engine.dedupe import cluster_similar, duplicate_columns, near_duplicate_rows
+        try:
+            yield json.dumps({"t": "progress", "done": 0, "total": 1, "stage": "reading the file"}) + "\n"
+            df, rep = read_any(path)
+            _ref = _regions.load_reference()
+            cols = list(df.columns); N = max(1, len(cols))
+            profs = []
+            for i, c in enumerate(cols):
+                profs.append(profile_column(df[c], c, _ref["gazetteers"], _ref["place_index"], use_ml=True))
+                if i % 2 == 0 or i == N - 1:
+                    yield json.dumps({"t": "progress", "done": i + 1, "total": N,
+                                      "stage": f"understanding columns ({i+1}/{N})"}) + "\n"
+            plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
+            types = {p.column: p.semantic_type for p in profs}
+            yield json.dumps({"t": "progress", "done": N, "total": N, "stage": "cleaning the values"}) + "\n"
+            cleaned, report, _ = run_plan(df, plan, "web")
+            flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}
+            yield json.dumps({"t": "progress", "done": N, "total": N, "stage": "checking duplicates & similar"}) + "\n"
+            flagged = []
+            for c in report.columns:
+                fl = c.get("flags") or []
+                if fl:
+                    flagged.append({"column": c["source_column"],
+                                    "values": [{"row": x["row"], "value": x["value"], "reason": x["reason"]} for x in fl[:50]]})
+            dups = []
+            for g in near_duplicate_rows(df)[:50]:
+                r0 = g["rows"][0]
+                preview = " · ".join(str(v) for v in df.iloc[r0].tolist()[:4] if str(v).strip())
+                dups.append({"rows": g["rows"], "kind": g["kind"], "similarity": g["similarity"], "preview": preview})
+            similar = []
+            for p in profs[:12]:
+                if p.semantic_type in ("categorical", "name", "free_text"):
+                    nun = df[p.column].nunique()
+                    if 2 <= nun <= 400:
+                        gs = cluster_similar(df[p.column].tolist(), semantic=True)[:20]
+                        if gs:
+                            similar.append({"column": p.column,
+                                            "groups": [{"representative": g["representative"], "members": g["members"][:20],
+                                                        "size": g["size"], "confidence": g["confidence"], "score": g["score"]} for g in gs]})
+            sid = _uuid.uuid4().hex[:12]
+            _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
+            payload = {
+                "ingest": rep.summary(),
+                "region": _regions.get_active_region().name,
+                "session_id": sid,
+                "overview": column_overview(df, cleaned, types, flags),
+                "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
+                "worklist": {"flagged": flagged, "duplicates": dups, "similar": similar,
+                             "repeated_columns": duplicate_columns(df)},
+            }
+            yield json.dumps({"t": "result", "payload": payload}) + "\n"
+        except Exception as e:
+            yield json.dumps({"t": "error", "error": str(e)}) + "\n"
+        finally:
+            path.unlink(missing_ok=True)
+
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
+
+
 @app.get("/api/regions")
 async def api_regions():
     return {"active": _regions.get_active_region().key,

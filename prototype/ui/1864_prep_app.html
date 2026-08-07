@@ -294,6 +294,12 @@
   #reviewcard{animation:screenIn .3s ease both}
   /* tiny "more" hint next to the tools */
   .railfoot .hint{display:block;font-size:10px;color:var(--faint);margin-top:8px;letter-spacing:.03em;text-transform:uppercase}
+  .colsearch{width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;margin:6px 0 12px;background:#fff;transition:border-color .15s}
+  .colsearch:focus{outline:none;border-color:var(--navy)}
+  .colmore-done{font-size:11.5px;color:var(--faint)}
+  .colgrid label.colchk{animation:screenIn .25s ease both}
+  .chg-tag{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:1px 7px;margin-left:8px;text-transform:uppercase;letter-spacing:.04em}
+  .chg-line .b.same{text-decoration:none;color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -339,15 +345,17 @@
 
     <!-- 2 choose columns -->
     <section class="screen" data-screen="2">
-      <p class="eyebrow">Step 3</p><h1>Which of these columns are in your data?</h1>
-      <p class="lead">Choose by <em>meaning</em>, not by name. Your file almost certainly uses different headers, that's fine, we line them up in the next step. Each field below says what it means; tick the ones your data contains, untick the rest. We don't ask for the data type, the wizard detects that from your file.</p>
+      <p class="eyebrow">Step 3</p><h1>Which columns are in your data?</h1>
+      <p class="lead">Pick by meaning, not header name. We line up your real headers next. No need to say the type, the wizard detects it.</p>
       <div class="selbar">
         <span class="cnt"><b id="selcount">0</b> of <span id="seltotal">0</span> selected</span>
         <span class="sp" style="flex:1"></span>
         <button class="btn ghost sm" onclick="selectAll(true)">Select all</button>
         <button class="btn ghost sm" onclick="selectAll(false)">Select none</button>
       </div>
+      <input id="colsearch" class="colsearch" placeholder="Search columns" oninput="renderColumns()">
       <div class="colgrid" id="colgrid"></div>
+      <div id="colmore" style="margin:10px 0"></div>
       <div class="actbar"><button class="btn" onclick="go(3)">Continue to upload →</button></div>
     </section>
 
@@ -603,7 +611,7 @@ function go(n){
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
   $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n);li.classList.toggle('done',s<n&&s<=reached);});
   $('#gate').style.display=n===5?'flex':'none';
-  if(n===2)renderColumns();
+  if(n===2){VIS_N=8;renderColumns();}
   if(n===4)renderMatch();
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
@@ -628,13 +636,22 @@ function pickGeneral(){
   reached=Math.max(reached,3); go(3);   // straight to upload; no preset columns to choose
 }
 
-/* choose columns */
+/* choose columns, incremental so a wide file never clogs */
+let VIS_N=8;
+function moreCols(){ VIS_N+=8; renderColumns(); }
 function renderColumns(){
   $('#seltotal').textContent=SECTOR.cols.length;
-  $('#colgrid').innerHTML=SECTOR.cols.map((spec,j)=>{const n=spec.split(':')[0];
-    const also=ALSO[n]?`<span class="alt">your file might call it: ${esc(ALSO[n])}</span>`:'';
-    return `<label class="colchk ${SELECTED.has(j)?'on':''}" onclick="toggleCol(${j},event)"><input type="checkbox" ${SELECTED.has(j)?'checked':''}>
+  const q=(($('#colsearch')||{}).value||'').toLowerCase();
+  const all=SECTOR.cols.map((spec,j)=>({j,n:spec.split(':')[0]}));
+  const filtered=q?all.filter(o=>o.n.toLowerCase().includes(q)):all;
+  const show=filtered.slice(0,VIS_N);
+  $('#colgrid').innerHTML=show.map(o=>{const n=o.n;
+    const also=ALSO[n]?`<span class="alt">might be called: ${esc(ALSO[n])}</span>`:'';
+    return `<label class="colchk ${SELECTED.has(o.j)?'on':''}" onclick="toggleCol(${o.j},event)"><input type="checkbox" ${SELECTED.has(o.j)?'checked':''}>
       <span class="ci"><span class="nm">${esc(n)}</span><span class="def">${esc(defOf(n))}</span>${also}</span></label>`;}).join('');
+  const rem=filtered.length-show.length;
+  const more=$('#colmore');
+  if(more) more.innerHTML = rem>0 ? `<button class="btn ghost sm" onclick="moreCols()">Show ${Math.min(8,rem)} more · ${rem} left</button>` : (filtered.length>8?`<span class="colmore-done">all ${filtered.length} shown</span>`:'');
   $('#selcount').textContent=SELECTED.size;
 }
 function toggleCol(j,e){e.preventDefault();if(SELECTED.has(j))SELECTED.delete(j);else SELECTED.add(j);renderColumns();}
@@ -760,22 +777,26 @@ function makeOutliers(f){
  return f.outliers;
 }
 function makeRows(f){if(f.rows)return f.rows;const tmpl=R[f.type]||R.free_text;const k=Math.max(3,Math.min(9,Math.round(f.nChanged/22)+3));f.rows=[];for(let i=0;i<k;i++){const [b,a]=tmpl[i%tmpl.length];f.rows.push({rid:1000+f.id*17+i,before:b,after:a,uncertain:a==='?',decision:null});}return f.rows;}
-const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',categorical:'categories',free_text:'free text'};
+const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',datetime:'date & time',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',categorical:'categories',free_text:'free text',latitude:'latitude',longitude:'longitude',geopoint:'map coordinates',indicator:'0/1 marker',empty:'empty column',coordinate:'coordinates'};
+function typeWord(t){ return TYPEWORD[t]||(t?String(t).replace(/_/g,' '):'text'); }
 function summarise(f){
   const n=f.nChanged;
   if(n===0) return 'Nothing to change, this column already looks clean.';
   switch(f.type){
     case 'phone': return 'Reformatted '+n+' phone numbers to the +234 standard.';
     case 'email': return 'Lower-cased and tidied '+n+' email addresses.';
-    case 'date': return 'Converted '+n+' dates to the YYYY-MM-DD format.';
+    case 'date': return 'Converted '+n+' dates to YYYY-MM-DD.';
+    case 'datetime': return 'Converted '+n+' timestamps to YYYY-MM-DD HH:MM:SS. The date order is kept as written.';
+    case 'latitude': case 'longitude': case 'coordinate': return 'Checked '+n+' coordinates: kept the decimals, flagged anything out of range.';
     case 'gender': return 'Standardised '+n+' entries to Male / Female.';
     case 'boolean': return 'Standardised '+n+' entries to Yes / No.';
     case 'numeric': return 'Cleaned '+n+' numbers (removed symbols like the naira sign and commas).';
-    case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left exactly as written.';
+    case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left as written.';
     case 'geo': return 'Matched '+n+' entries to the correct state.';
-    case 'categorical': return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different categories, and different numbers, are kept separate. '+n+' entries tidied.';
+    case 'categorical': return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different words and different numbers stay separate. '+n+' entries tidied.';
     case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
-    default: return 'Tidied '+n+' entries.';
+    case 'free_text': return 'Tidied spacing and stray characters on '+n+' entries. The wording is left as written.';
+    default: return 'Tidied formatting on '+n+' entries (spacing and stray characters).';
   }
 }
 function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(r=>[r.before,r.after]); }
@@ -792,8 +813,8 @@ function renderReview(){
   $('#reviewcard').innerHTML=
    '<div class="card rcard">'+
      '<div class="rc-name">'+esc(labelOf(f.name))+'</div>'+
-     '<div class="rc-sub">the wizard read this as <b>'+TYPEWORD[f.type]+'</b> · <a class="link" onclick="toggleType()">not right?</a></div>'+
-     '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+TYPEWORD[t]+'</option>').join('')+'</select></div>'+
+     '<div class="rc-sub">the wizard read this as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">not right?</a></div>'+
+     '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>'+
      '<div class="rc-summary">'+summarise(f)+'</div>'+
      (nChg?'<div class="rc-ex-h">all changes ('+nChg+' distinct), grouped by result</div>'+
         '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)">'+
@@ -820,7 +841,13 @@ function renderChanges(q){
     const members=all.filter(r=>!ql || String(r.before).toLowerCase().includes(ql) || after.toLowerCase().includes(ql));
     if(!members.length) return;
     html+='<div class="chg-group"><div class="chg-head">→ <b>'+(esc(after)||'∅')+'</b> <span class="chg-n">'+all.length+' value'+(all.length>1?'s':'')+'</span></div>';
-    members.slice(0,300).forEach(r=>{ html+='<div class="chg-line"><span class="b">'+(esc(r.before)||'∅')+'</span></div>'; });
+    members.slice(0,300).forEach(r=>{
+      const before=(r.before==null?'':String(r.before));
+      const norm=s=>s.replace(/\s+/g,' ').trim();
+      const spacingOnly=norm(before).toLowerCase()===norm(after).toLowerCase();
+      if(spacingOnly) html+='<div class="chg-line"><span class="b same">'+(esc(before)||'∅')+'</span> <span class="chg-tag">spacing</span></div>';
+      else html+='<div class="chg-line"><span class="b">'+(esc(before)||'∅')+'</span></div>';
+    });
     if(members.length>300) html+='<div class="chg-line" style="color:var(--faint)">…and '+(members.length-300)+' more</div>';
     html+='</div>';
   });
@@ -1069,6 +1096,24 @@ async function runTool(){
   }catch(err){ prog.fail(); out.innerHTML='<div class="wl-empty">Could not run: '+esc(err.message)+'</div>'; }
 }
 function tkDownload(fmt){ if(!TK_RESULT) return; window.open('/api/tool/download/'+TK_RESULT.result_id+'?fmt='+fmt,'_blank'); }
+function makeProgressManual(el, title, sub){
+  el.innerHTML=`<div class="cleanbox">
+    <h3>${title}</h3><p>${sub||''}</p>
+    <div class="progress"><i id="pgbar"></i></div>
+    <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta"></span></div>
+    <div class="prog-stage" id="pgstage">starting…</div></div>`;
+  const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
+        eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
+  let last=0, t0=Date.now();
+  return {
+    set(frac,stage){ frac=Math.max(0,Math.min(1,frac)); const p=Math.round(frac*100);
+      bar.style.width=p+'%'; pct.textContent=p+'%'; if(stage) stg.textContent=stage;
+      if(frac>0.02 && frac<0.99){ const el2=(Date.now()-t0)/1000; const remain=el2*(1-frac)/frac;
+        eta.textContent = remain>1 ? ('about '+Math.ceil(remain)+' sec left') : 'almost done…'; }
+      last=frac; },
+    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='ready'; }
+  };
+}
 function makeProgress(el, estMs, stages, title, sub){
   el.innerHTML=`<div class="cleanbox">
     <h3>${title}</h3><p>${sub||''}</p>
@@ -1103,22 +1148,32 @@ async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
   const ov=$('#overlay'); ov.classList.add('on');
-  const stages=["Reading your file…","Working out each column…","Cleaning the values…",
-                "Checking duplicates & outliers…","Preparing your review…"];
-  const prog=makeProgress(ov, estimateMs(file.size), stages,
-    "Reading &amp; cleaning your file…",
-    "In the desktop app this runs offline on your computer.");
+  const prog=makeProgressManual(ov, "Reading &amp; cleaning your file…",
+    "Runs on your computer in the desktop app. Big files take longer, the bar tracks real progress.");
   try{
     const fd=new FormData(); fd.append('file', file); fd.append('region', SETTINGS.region||'ng');
-    const res=await fetch('/api/clean',{method:'POST',body:fd});
-    const data=await res.json();
-    if(!res.ok || data.error) throw new Error(data.error || ('server '+res.status));
-    buildFieldsFromAPI(data, file.name);
+    const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
+    if(!res.ok || !res.body) throw new Error('stream '+res.status);
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='', payload=null, errMsg=null;
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let nl; while((nl=buf.indexOf('\n'))>=0){
+        const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
+        let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
+        if(msg.t==='progress'){ prog.set((msg.done||0)/(msg.total||1), msg.stage); }
+        else if(msg.t==='result'){ payload=msg.payload; }
+        else if(msg.t==='error'){ errMsg=msg.error; }
+      }
+    }
+    if(errMsg) throw new Error(errMsg);
+    if(!payload) throw new Error('no result');
+    buildFieldsFromAPI(payload, file.name);
     reached=Math.max(reached,5);
     prog.finish();
-    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 550);
+    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 400);
   }catch(err){
-    prog.fail(); ov.classList.remove('on');
+    ov.classList.remove('on');
     toast('Could not clean that file: '+err.message);
   }
 }

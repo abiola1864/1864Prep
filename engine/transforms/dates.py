@@ -51,6 +51,15 @@ class DateISOTransform(Transform):
             if 20000 <= n <= 60000:
                 d = _EXCEL_EPOCH + _dt.timedelta(days=n)
                 return (d.isoformat(), False, "") if self._in_range(d) else (value, True, "date out of range")
+        # ISO-like (YYYY-MM-DD) is unambiguous: keep as-is, never day-first swap
+        _iso = _re.match(r"^\s*(\d{4})-(\d{1,2})-(\d{1,2})\s*$", s) if (_re := __import__("re")) else None
+        if _iso:
+            y, mo, dy = (int(x) for x in _iso.groups())
+            try:
+                d = _dt.date(y, mo, dy)
+                return (d.isoformat(), False, "") if self._in_range(d) else (value, True, "date out of range")
+            except ValueError:
+                pass
         d = dateparser.parse(s, settings={
             "DATE_ORDER": self._order,
             "PREFER_DAY_OF_MONTH": "first",
@@ -81,6 +90,12 @@ class DateTimeISOTransform(Transform):
         s = _clean_str(value)
         if s == "":
             return "", True, "empty datetime"
+        # ISO-like (YYYY-MM-DD ...) is unambiguous: never apply day-first ordering
+        import re as _re
+        iso = _re.match(r"^\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?", s)
+        if iso:
+            y, mo, d, h, mi, se = iso.groups()
+            return f"{y}-{mo}-{d} {int(h):02d}:{mi}:{se or '00'}", False, ""
         try:
             import dateparser
             dt = dateparser.parse(s, settings={"DATE_ORDER": self._order, "PREFER_DAY_OF_MONTH": "first"})
