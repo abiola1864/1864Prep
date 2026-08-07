@@ -334,6 +334,10 @@
   .mgg-name{display:flex;align-items:center;gap:8px;margin:4px 0} .mgg-name label{font-size:11.5px;color:var(--ink-soft);min-width:74px}
   .mgg-name input{flex:1;max-width:360px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-weight:600}
   .mgg-name input:focus{outline:none;border-color:var(--navy)}
+  .rf-file{color:var(--faint);font-family:var(--mono);font-size:10.5px;margin-top:2px}
+  .link.tiny{font-size:11.5px;color:var(--ink-soft)}
+  .mgg-vals{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin:6px 0;line-height:1.7}
+  .mgg-name input{font-family:var(--sans)}
 </style>
 </head>
 <body>
@@ -352,7 +356,7 @@
       <li data-s="5"><span class="n"><span>6</span></span> Review</li>
       <li data-s="7"><span class="n"><span>7</span></span> Export</li>
     </ol>
-    <div class="railfoot">Runs on this computer.<b id="rf-sector"></b>
+    <div class="railfoot">Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
       <span class="hint">More</span>
       <button class="setgear" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" onclick="openSettings()">⚙ Settings</button>
@@ -847,7 +851,7 @@ function buildCards(){
       CARDS.push({kind:'column', field:f, groups, applyClean:true,
         assign:groups.map(g=>g.members.map(()=>'A')),
         gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
-        gmerge:groups.map(()=>true)});
+        gmerge:groups.map(()=>true), split:groups.map(()=>false)});
     }
   });
   const dupN=((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
@@ -893,29 +897,42 @@ function cardColumn(c){
   }
   if(nChg){
     h+='<div class="col-clean"><label class="switch2"><input type="checkbox" '+(c.applyClean?'checked':'')+' onchange="toggleApplyClean()"><span class="tk"></span></label>'+
-      '<div class="col-clean-txt"><b>Tidy formatting</b><span>'+esc(summarise(f))+'</span></div></div>'+seeChangesHTML(nChg);
+      '<div class="col-clean-txt"><b>Tidy formatting</b><span>'+esc(summariseShort(f))+'</span></div></div>'+seeChangesHTML(nChg);
   }
-  h+='<div class="col-groups-h">Possible duplicate values, check each set</div>';
+  h+='<div class="col-groups-h">Possible duplicates</div>';
   c.groups.forEach((g,gi)=>{ h+=groupBlock(c,g,gi); });
   h+='<div class="rc-decide"><button class="big ok wide" onclick="commitColumn()"><b>Save &amp; continue →</b><span>apply your choices for this column</span></button></div></div>';
   return h;
 }
+function summariseShort(f){ const n=f.nChanged; switch(f.type){
+  case 'phone':return 'Reformat '+n+' numbers'; case 'email':return 'Tidy '+n+' emails';
+  case 'date':return 'Standardise '+n+' dates'; case 'datetime':return 'Standardise '+n+' timestamps';
+  case 'gender':return 'Standardise '+n; case 'boolean':return 'Standardise '+n;
+  case 'numeric':return 'Clean '+n+' numbers'; case 'name':return 'Fix caps on '+n+' names';
+  case 'geo':return 'Match '+n+' to states'; case 'categorical':return 'Tidy '+n+' entries';
+  case 'latitude': case 'longitude': case 'coordinate': return 'Check '+n+' coordinates';
+  case 'identifier':return 'Tidy '+n+' IDs'; default:return 'Fix spacing on '+n+' entries'; } }
 function groupBlock(c,g,gi){
-  const used=[...new Set(c.assign[gi])].sort();
-  let b='<div class="mgg"><div class="mgg-top"><span class="mg-badge '+(g.confidence||'')+'">'+(g.confidence||'')+' match</span>'+
+  const merging=c.gmerge[gi], splitting=c.split[gi];
+  let b='<div class="mgg"><div class="mgg-top"><span class="mg-badge '+(g.confidence||'')+'">'+(g.confidence||'')+'</span>'+
     '<span class="sp" style="flex:1"></span>'+
-    '<label class="switch2 sm"><input type="checkbox" '+(c.gmerge[gi]?'checked':'')+' onchange="toggleGMerge('+gi+')"><span class="tk"></span></label>'+
-    '<span class="mgg-lbl">'+(c.gmerge[gi]?'merge':'keep separate')+'</span></div>';
-  if(c.gmerge[gi]){
-    const multi=used.length>1;
-    b+='<div class="mgg-hint">'+(multi?'Two or more sets, each merges on its own.':'Tap a value to split it into another set if they are not all the same.')+'</div>';
-    b+='<div class="mgg-members">'+g.members.map((m,mi)=>{const L=c.assign[gi][mi];
+    '<label class="switch2 sm"><input type="checkbox" '+(merging?'checked':'')+' onchange="toggleGMerge('+gi+')"><span class="tk"></span></label>'+
+    '<span class="mgg-lbl">'+(merging?'merge':'keep')+'</span></div>';
+  if(!merging){ return b+'<div class="mgg-vals">'+g.members.map(esc).join('  ·  ')+'</div></div>'; }
+  if(!splitting){
+    b+='<div class="mgg-name"><input value="'+esc(c.gnames[gi].A||g.members[0]||'')+'" oninput="setGName('+gi+',\'A\',this.value)"></div>';
+    b+='<div class="mgg-vals">'+g.members.map(esc).join('  ·  ')+'</div>';
+    b+='<a class="link tiny" onclick="startSplit('+gi+')">not all the same? split</a>';
+  } else {
+    b+='<div class="mgg-hint">Tap a value to move it to another set.</div><div class="mgg-members">'+
+      g.members.map((m,mi)=>{const L=c.assign[gi][mi];
         return '<button class="chip grp-'+L+'" onclick="cycleChip('+gi+','+mi+')">'+esc(m)+' <span class="chip-l">'+L+'</span></button>';}).join('')+'</div>';
-    used.forEach(L=>{ const cnt=c.assign[gi].filter(x=>x===L).length;
-      b+='<div class="mgg-name"><label>Set '+L+' ('+cnt+') →</label><input value="'+esc(c.gnames[gi][L]||'')+'" oninput="setGName('+gi+',\''+L+'\',this.value)"></div>'; });
-  } else { b+='<div class="mgg-hint">Kept as different values.</div>'; }
+    [...new Set(c.assign[gi])].sort().forEach(L=>{ const cnt=c.assign[gi].filter(x=>x===L).length;
+      b+='<div class="mgg-name"><label>Set '+L+' ('+cnt+')</label><input value="'+esc(c.gnames[gi][L]||'')+'" oninput="setGName('+gi+',\''+L+'\',this.value)"></div>'; });
+  }
   return b+'</div>';
 }
+function startSplit(gi){ CARDS[idx].split[gi]=true; renderReview(); }
 function toggleApplyClean(){ CARDS[idx].applyClean=!CARDS[idx].applyClean; }
 function toggleGMerge(gi){ const c=CARDS[idx]; c.gmerge[gi]=!c.gmerge[gi]; renderReview(); }
 function cycleChip(gi,mi){ const c=CARDS[idx]; const L=c.assign[gi][mi]; const nx=L==='A'?'B':(L==='B'?'C':'A');
@@ -1290,7 +1307,7 @@ async function onRealFile(e){
         const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
         let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
         if(msg.t==='progress'){ const frac=(msg.pct!=null)?msg.pct:((msg.done||0)/(msg.total||1)); prog.set(frac, msg.stage); }
-        else if(msg.t==='result'){ payload=msg.payload; if(payload.ingest){ const s=$('#pgstage'); if(s) s.textContent=payload.ingest; } }
+        else if(msg.t==='result'){ payload=msg.payload; }
         else if(msg.t==='error'){ errMsg=msg.error; }
       }
     }
@@ -1321,7 +1338,8 @@ function buildFieldsFromAPI(data, filename){
   SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
   buildCards();
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
-  if(data.ingest) toast(data.ingest);
+  if(data.ingest){ const m=/(\d+)\s*rows\s*x\s*(\d+)\s*cols/i.exec(data.ingest); const ext=(data.ingest.split('|')[0]||'').trim();
+    const rf=$('#rf-file'); if(rf) rf.textContent = m ? (m[1]+'×'+m[2]+' · '+ext) : data.ingest; }
 }
 go(0);
 </script>
