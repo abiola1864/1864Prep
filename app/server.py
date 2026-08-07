@@ -163,8 +163,12 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                 preview = " · ".join(str(v) for v in df.iloc[r0].tolist()[:4] if str(v).strip())
                 dups.append({"rows": g["rows"], "kind": g["kind"], "similarity": g["similarity"], "preview": preview})
             similar = []
-            for p in profs[:12]:
-                if p.semantic_type in ("categorical", "name", "free_text"):
+            _scanned = 0
+            for p in profs:
+                if _scanned >= 60:
+                    break
+                if p.semantic_type in ("categorical", "name", "free_text", "geo"):
+                    _scanned += 1
                     nun = df[p.column].nunique()
                     if 2 <= nun <= 400:
                         gs = cluster_similar(df[p.column].tolist(), semantic=True)[:20]

@@ -300,6 +300,20 @@
   .colgrid label.colchk{animation:screenIn .25s ease both}
   .chg-tag{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:1px 7px;margin-left:8px;text-transform:uppercase;letter-spacing:.04em}
   .chg-line .b.same{text-decoration:none;color:var(--ink-soft)}
+  .mg-name{margin:10px 0 6px;display:flex;align-items:center;gap:10px}
+  .mg-name label{font-size:12px;color:var(--ink-soft)}
+  .mg-name input{flex:1;max-width:360px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;font-weight:600}
+  .mg-name input:focus{outline:none;border-color:var(--navy)}
+  .mg-list{border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;margin:6px 0 4px;max-height:200px;overflow:auto}
+  .mg-m{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);padding:3px 0}
+  .mg-badge{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:99px;padding:2px 9px;margin-left:8px;vertical-align:middle}
+  .mg-badge.high{background:var(--ok-bg);color:var(--ok)} .mg-badge.medium{background:var(--warn-bg);color:var(--warn)} .mg-badge.low{background:#eef1f5;color:var(--ink-soft)}
+  details.rc-see{margin:6px 0 2px;border:1px solid var(--line-soft);border-radius:10px;padding:2px 12px}
+  details.rc-see summary{cursor:pointer;font-size:12.5px;color:var(--ink-soft);padding:8px 0;list-style:none}
+  details.rc-see summary::-webkit-details-marker{display:none}
+  details.rc-see[open] summary{border-bottom:1px solid var(--line-soft);margin-bottom:8px}
+  .big.wide{grid-column:1 / -1}
+  .rc-doneCard{text-align:center}
 </style>
 </head>
 <body>
@@ -316,8 +330,7 @@
       <li data-s="3"><span class="n"><span>4</span></span> Upload</li>
       <li data-s="4"><span class="n"><span>5</span></span> Match names</li>
       <li data-s="5"><span class="n"><span>6</span></span> Review</li>
-      <li data-s="6"><span class="n"><span>7</span></span> Needs attention</li>
-      <li data-s="7"><span class="n"><span>8</span></span> Export</li>
+      <li data-s="7"><span class="n"><span>7</span></span> Export</li>
     </ol>
     <div class="railfoot">Runs on this computer.<b id="rf-sector"></b>
       <span class="hint">More</span>
@@ -440,10 +453,10 @@
       </div>
     </section>
 
-    <div class="gate" id="gate" style="display:none">
+    <div class="gate" id="gate" style="display:none !important">
       <span class="msg" id="gatemsg"></span><span class="sp"></span>
       <button class="btn ghost sm" onclick="acceptRemaining()">Accept all remaining</button>
-      <button class="btn" id="finish" disabled onclick="go(6)">Approve &amp; export</button>
+      <button class="btn" id="finish" disabled onclick="go(7)">Approve &amp; export</button>
     </div>
 
     <!-- 8 data toolkit (standalone) -->
@@ -801,36 +814,94 @@ function summarise(f){
 }
 function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(r=>[r.before,r.after]); }
 
-function renderReview(){
-  if(!FIELDS.length) return;
-  const N=FIELDS.length, f=FIELDS[idx];
-  $('#rvpos').textContent='Column '+(idx+1)+' of '+N;
-  const reviewed=FIELDS.filter(x=>x.decision).length;
-  $('#rvbar').style.width=(100*reviewed/N)+'%';
-  $('#rvcount').textContent=reviewed+' of '+N+' reviewed';
-  $('#backbtn').disabled=idx===0;
-  const nChg=(f.rows||[]).length, outN=makeOutliers(f).length;
-  $('#reviewcard').innerHTML=
-   '<div class="card rcard">'+
-     '<div class="rc-name">'+esc(labelOf(f.name))+'</div>'+
-     '<div class="rc-sub">the wizard read this as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">not right?</a></div>'+
-     '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>'+
-     '<div class="rc-summary">'+summarise(f)+'</div>'+
-     (nChg?'<div class="rc-ex-h">all changes ('+nChg+' distinct), grouped by result</div>'+
-        '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)">'+
-        '<div class="rc-changes" id="chglist"></div>':'')+
-     (outN?'<div class="rc-outlier">⚠ '+outN+' value'+(outN>1?'s':'')+' look unusual, we\'ll set '+(outN>1?'them':'it')+' aside for you to check later. You don\'t need to decide now.</div>':'')+
-     '<div class="rc-decide">'+
-       '<button class="big ok '+(f.decision==='accept'?'chosen':'')+'" onclick="setDecision(\'accept\')"><b>✓ Looks right</b><span>apply this cleaning</span></button>'+
-       '<button class="big no '+(f.decision==='reject'?'chosen':'')+'" onclick="setDecision(\'reject\')"><b>✗ Keep original</b><span>leave this column unchanged</span></button>'+
-     '</div>'+
-     (f.decision?'<div class="rc-done">You chose <b>'+(f.decision==='accept'?'apply cleaning':'keep original')+'</b>.'+(idx<N-1?' Moving to the next column…':' That was the last column.')+'</div>':'')+
-   '</div>';
-  if(nChg) renderChanges('');
-  updateGate();
+let CARDS=[];
+function buildCards(){
+  CARDS=[];
+  const simByCol={}; ((WORKLIST&&WORKLIST.similar)||[]).forEach(s=>simByCol[s.column]=s.groups||[]);
+  FIELDS.forEach(f=>{
+    if(f.nChanged>0) CARDS.push({kind:'clean', field:f});
+    (simByCol[f.name]||[]).forEach((g,gi)=>{
+      const members=(g.members||[]).filter(Boolean);
+      if(members.length>=2 && g.confidence!=='low') CARDS.push({kind:'merge', column:f.name, into:g.representative||members[0], members, confidence:g.confidence});
+    });
+  });
+  const dupN=((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
+  if(dupN>0) CARDS.push({kind:'dupes', count:dupN});
+  CARDS.push({kind:'done'});
 }
+function curField(){ const c=CARDS[idx]; return c&&c.field; }
+function renderReview(){
+  if(!CARDS.length) buildCards();
+  if(!CARDS.length) return;
+  if(idx>CARDS.length-1) idx=CARDS.length-1;
+  const N=CARDS.length, c=CARDS[idx];
+  const stepN=Math.min(idx+1,N-1), total=Math.max(1,N-1);
+  $('#rvpos').textContent = c.kind==='done' ? 'Review complete' : ('Step '+stepN+' of '+total);
+  $('#rvbar').style.width=(100*idx/Math.max(1,N-1))+'%';
+  $('#rvcount').textContent = c.kind==='done' ? 'all done' : (idx+' of '+total+' done');
+  $('#backbtn').disabled=idx===0;
+  let html='';
+  if(c.kind==='clean') html=cardClean(c);
+  else if(c.kind==='merge') html=cardMerge(c);
+  else if(c.kind==='dupes') html=cardDupes(c);
+  else html=cardDone();
+  $('#reviewcard').innerHTML=html;
+  if(c.kind==='clean' && (c.field.rows||[]).length) renderChanges('');
+}
+function cardClean(c){
+  const f=c.field, nChg=(f.rows||[]).length;
+  return '<div class="card rcard">'+
+    '<div class="rc-name">'+esc(labelOf(f.name))+'</div>'+
+    '<div class="rc-sub">read as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">change</a></div>'+
+    '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>'+
+    '<div class="rc-summary">'+summarise(f)+'</div>'+
+    (nChg?'<details class="rc-see"><summary>see '+nChg+' change'+(nChg>1?'s':'')+'</summary>'+
+       '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)"><div class="rc-changes" id="chglist"></div></details>':'')+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardDecide(\'accept\')"><b>✓ Clean it</b><span>apply this</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'reject\')"><b>✗ Keep original</b><span>leave unchanged</span></button>'+
+    '</div></div>';
+}
+function cardMerge(c){
+  const badge=c.confidence?'<span class="mg-badge '+c.confidence+'">'+c.confidence+' match</span>':'';
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Same thing? '+badge+'</div>'+
+    '<div class="rc-sub">In <b>'+esc(labelOf(c.column))+'</b>, these look like one entry.</div>'+
+    '<div class="mg-name"><label>Combine into</label><input id="mgname" value="'+esc(c.into)+'"></div>'+
+    '<div class="mg-list">'+c.members.map(m=>'<div class="mg-m">'+esc(m)+'</div>').join('')+'</div>'+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardMergeYes()"><b>⤳ Merge into one</b><span>use the name above</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep separate</b><span>leave as different</span></button>'+
+    '</div></div>';
+}
+function cardDupes(c){
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Duplicate rows</div>'+
+    '<div class="rc-sub">Found <b>'+c.count+'</b> row'+(c.count>1?'s':'')+' that repeat another row.</div>'+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardDupesYes()"><b>Remove duplicates</b><span>keep the first of each</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep all</b><span>change nothing</span></button>'+
+    '</div></div>';
+}
+function cardDone(){
+  return '<div class="card rcard rc-doneCard">'+
+    '<div class="rc-name">All reviewed 🎉</div>'+
+    '<div class="rc-sub">Your choices are ready. Nothing changes until you produce the file.</div>'+
+    '<div class="rc-decide"><button class="big ok wide" onclick="go(7)"><b>Produce cleaned file →</b><span>apply and download</span></button></div>'+
+    '</div>';
+}
+function advanceCard(){ if(idx<CARDS.length-1){ idx++; setTimeout(renderReview,140); } else renderReview(); }
+function cardDecide(d){ const c=CARDS[idx]; c.decision=d;
+  if(c.kind==='clean') c.field.decision=(d==='accept')?'accept':'reject';
+  advanceCard();
+}
+function cardMergeYes(){ const c=CARDS[idx]; const nm=($('#mgname')||{}).value||c.into;
+  c.decision='merge'; c.into=nm; WL_MERGES.push({column:c.column, into:nm, members:c.members});
+  toast('Will merge into "'+nm+'"'); advanceCard();
+}
+function cardDupesYes(){ const c=CARDS[idx]; c.decision='remove'; WL_REMOVE_DUPES=true; toast('Will remove duplicate rows'); advanceCard(); }
 function renderChanges(q){
-  const f=FIELDS[idx]; const box=document.getElementById('chglist'); if(!box) return;
+  const f=curField(); if(!f)return; const box=document.getElementById('chglist'); if(!box) return;
   const rows=f.rows||[]; const ql=(q||'').toLowerCase();
   const groups={};
   rows.forEach(r=>{ const a=(r.after==null?'':String(r.after)); (groups[a]=groups[a]||[]).push(r); });
@@ -853,11 +924,10 @@ function renderChanges(q){
   });
   box.innerHTML=html||'<div class="chg-empty">no matching changes</div>';
 }
-function setDecision(d){ const f=FIELDS[idx], N=FIELDS.length; f.decision=d;
-  if(idx<N-1){ idx++; setTimeout(renderReview,140); } else { renderReview(); } updateGate(); }
+function setDecision(d){ cardDecide(d); }
 function rvBack(){ if(idx>0){ idx--; renderReview(); } }
 function toggleType(){ const el=$('#typepick'); el.style.display=el.style.display==='none'?'block':'none'; }
-function setType(v){ const f=FIELDS[idx]; f.type=v; f.method=(TYPEMETA[v]||['format',0.9])[0]; f.rows=null; f.outliers=null; renderReview(); }
+function setType(v){ const f=curField(); if(!f)return; f.type=v; f.method=(TYPEMETA[v]||['format',0.9])[0]; f.rows=null; f.outliers=null; renderReview(); }
 function acceptRemaining(){ FIELDS.forEach(f=>{ if(!f.decision) f.decision='accept'; }); renderReview(); toast('Accepted all remaining columns'); }
 function updateGate(){ const N=FIELDS.length, reviewed=FIELDS.filter(f=>f.decision).length, left=N-reviewed;
   $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' column'+(left>1?'s':'')+' still to review' : 'All '+N+' columns reviewed.';
@@ -1189,7 +1259,9 @@ function buildFieldsFromAPI(data, filename){
   });
   idx=0;
   WORKLIST=data.worklist||null; WLDECISIONS={};
+  CARDS=[];
   SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
+  buildCards();
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   if(data.ingest) toast(data.ingest);
 }
