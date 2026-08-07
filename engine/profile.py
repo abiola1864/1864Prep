@@ -264,7 +264,8 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
 
 
 def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
-                   place_index: dict | None = None, use_ml: bool = False) -> ColumnProfile:
+                   place_index: dict | None = None, use_ml: bool = False,
+                   use_nlp: bool = False) -> ColumnProfile:
     """Rule-based profiling, optionally rescued by the trained type classifier.
 
     The rules stay authoritative. When `use_ml` is on and the rules land on a
@@ -274,6 +275,18 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
     with 'Do not know'. If no model is installed, behaviour is unchanged.
     """
     result = _profile_column_rules(series, name, gazetteers, place_index)
+    if use_nlp and result.semantic_type in {"categorical", "name", "free_text"}:
+        try:
+            from .nlp import available as _nlp_ok, column_entity_type
+            if _nlp_ok():
+                ner_type, ner_conf = column_entity_type(_clean_vals(series))
+                _safe = {"numeric", "date", "name", "organization", "place"}
+                if ner_type in _safe and ner_conf >= 0.6 and ner_type != result.semantic_type:
+                    tf = {"numeric": "numeric", "date": "date_iso", "name": "name"}.get(ner_type)  # org/place -> no-op
+                    ev = dict(result.evidence or {}); ev["nlp"] = {ner_type: round(ner_conf, 2)}
+                    return ColumnProfile(name, ner_type, ner_conf, tf, evidence=ev)
+        except Exception:
+            pass
     if not use_ml or result.semantic_type not in {"categorical", "name", "free_text", "identifier"}:
         return result
     try:
@@ -300,8 +313,8 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
 
 
 def profile_dataframe(df: pd.DataFrame, gazetteers: dict | None = None,
-                      place_index: dict | None = None, use_ml: bool = False) -> list[ColumnProfile]:
-    return [profile_column(df[c], c, gazetteers, place_index, use_ml) for c in df.columns]
+                      place_index: dict | None = None, use_ml: bool = False, use_nlp: bool = False) -> list[ColumnProfile]:
+    return [profile_column(df[c], c, gazetteers, place_index, use_ml, use_nlp) for c in df.columns]
 
 
 # --- turn profiles into an executable, review-ready plan -------------------
@@ -329,7 +342,7 @@ def profile_to_plan(profiles: list[ColumnProfile], plan_name: str = "auto",
     gazetteer_refs = gazetteer_refs or {}
     mappings = []
     for p in profiles:
-        if p.semantic_type in ("indicator", "empty", "geopoint"):
+        if p.semantic_type in ("indicator", "empty", "geopoint", "organization", "place"):
             continue
         if p.semantic_type == "identifier":
             transform = p.transform  # 'nin' or 'fixed_id'

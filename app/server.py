@@ -47,7 +47,7 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
     try:
         df, rep = read_any(path)
         _ref = _regions.load_reference()
-        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True)
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True)
         return {
             "ingest": rep.summary(),
             "region": _regions.get_active_region().name,
@@ -67,7 +67,7 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
     try:
         df, rep = read_any(path)
         _ref = _regions.load_reference()
-        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True)
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True)
         plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
         types = {p.column: p.semantic_type for p in profs}
         cleaned, report, _ = run_plan(df, plan, "web")
@@ -141,7 +141,7 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             cols = list(df.columns); N = max(1, len(cols))
             profs = []
             for i, c in enumerate(cols):
-                profs.append(profile_column(df[c], c, _ref["gazetteers"], _ref["place_index"], use_ml=True))
+                profs.append(profile_column(df[c], c, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True))
                 if i % 2 == 0 or i == N - 1:
                     yield json.dumps({"t": "progress", "pct": 0.05 + 0.75 * (i + 1) / N,
                                       "stage": f"Checking column {i+1} of {N}"}) + "\n"

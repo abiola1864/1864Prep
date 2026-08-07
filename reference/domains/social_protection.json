@@ -1,51 +1,182 @@
 {
   "sex": {
-    "Male": ["male", "m", "man", "boy", "1"],
-    "Female": ["female", "f", "woman", "girl", "2"]
+    "Male": [
+      "male",
+      "m",
+      "man",
+      "boy",
+      "1"
+    ],
+    "Female": [
+      "female",
+      "f",
+      "woman",
+      "girl",
+      "2"
+    ]
   },
   "relationship_to_head": {
-    "Head": ["head", "household head", "hoh", "self"],
-    "Spouse": ["spouse", "wife", "husband", "partner"],
-    "Child": ["child", "son", "daughter", "kid"],
-    "Grandchild": ["grandchild", "grandson", "granddaughter"],
-    "Parent": ["parent", "father", "mother"],
-    "Sibling": ["sibling", "brother", "sister"],
-    "Other relative": ["other relative", "relative", "cousin", "uncle", "aunt", "niece", "nephew", "in-law"],
-    "Non-relative": ["non-relative", "non relative", "unrelated", "househelp", "house help", "tenant"]
+    "Head": [
+      "head",
+      "household head",
+      "hoh",
+      "self"
+    ],
+    "Spouse": [
+      "spouse",
+      "wife",
+      "husband",
+      "partner"
+    ],
+    "Child": [
+      "child",
+      "son",
+      "daughter",
+      "kid"
+    ],
+    "Grandchild": [
+      "grandchild",
+      "grandson",
+      "granddaughter"
+    ],
+    "Parent": [
+      "parent",
+      "father",
+      "mother"
+    ],
+    "Sibling": [
+      "sibling",
+      "brother",
+      "sister"
+    ],
+    "Other relative": [
+      "other relative",
+      "relative",
+      "cousin",
+      "uncle",
+      "aunt",
+      "niece",
+      "nephew",
+      "in-law"
+    ],
+    "Non-relative": [
+      "non-relative",
+      "non relative",
+      "unrelated",
+      "househelp",
+      "house help",
+      "tenant"
+    ]
   },
   "disability_status": {
-    "No disability": ["no disability", "none", "no", "not disabled"],
-    "Has disability": ["has disability", "disabled", "yes", "person with disability", "pwd"],
-    "Visual": ["visual", "blind", "sight", "seeing"],
-    "Hearing": ["hearing", "deaf", "hearing impairment"],
-    "Physical": ["physical", "mobility", "walking", "limb"],
-    "Intellectual": ["intellectual", "cognitive", "learning"],
-    "Psychosocial": ["psychosocial", "mental", "psychiatric"]
+    "No disability": [
+      "no disability",
+      "none",
+      "no",
+      "not disabled"
+    ],
+    "Has disability": [
+      "has disability",
+      "disabled",
+      "yes",
+      "person with disability",
+      "pwd"
+    ],
+    "Visual": [
+      "visual",
+      "blind",
+      "sight",
+      "seeing"
+    ],
+    "Hearing": [
+      "hearing",
+      "deaf",
+      "hearing impairment"
+    ],
+    "Physical": [
+      "physical",
+      "mobility",
+      "walking",
+      "limb"
+    ],
+    "Intellectual": [
+      "intellectual",
+      "cognitive",
+      "learning"
+    ],
+    "Psychosocial": [
+      "psychosocial",
+      "mental",
+      "psychiatric"
+    ]
   },
   "payment_channel": {
-    "Bank account": ["bank", "bank account", "bank transfer", "account"],
-    "Mobile money": ["mobile money", "momo", "mobile wallet", "wallet", "ussd"],
-    "Cash": ["cash", "cash in hand", "physical cash", "cash payment"],
-    "Cheque": ["cheque", "check"],
-    "Agent": ["agent", "cash agent", "pos agent", "pos"],
-    "Card": ["card", "atm card", "debit card", "prepaid card"]
+    "Bank account": [
+      "bank",
+      "bank account",
+      "bank transfer",
+      "account"
+    ],
+    "Mobile money": [
+      "mobile money",
+      "momo",
+      "mobile wallet",
+      "wallet",
+      "ussd"
+    ],
+    "Cash": [
+      "cash",
+      "cash in hand",
+      "physical cash",
+      "cash payment"
+    ],
+    "Cheque": [
+      "cheque",
+      "check"
+    ],
+    "Agent": [
+      "agent",
+      "cash agent",
+      "pos agent",
+      "pos"
+    ],
+    "Card": [
+      "card",
+      "atm card",
+      "debit card",
+      "prepaid card"
+    ]
   },
   "id_type": {
-    "NIN": ["nin", "national id", "national identification number", "nimc"],
-    "BVN": ["bvn", "bank verification number"],
-    "Voter ID": ["voter id", "voters card", "pvc", "voter card"],
-    "Driver's License": ["driver's license", "drivers license", "driving licence", "dl"],
-    "Passport": ["passport", "international passport"],
-    "SSN": ["ssn", "social security number"]
-  },
-  "currency": {
-    "NGN": ["ngn", "naira", "n", "\u20a6"],
-    "USD": ["usd", "dollar", "us dollar", "$"],
-    "EUR": ["eur", "euro", "\u20ac"],
-    "GBP": ["gbp", "pound", "\u00a3"],
-    "GHS": ["ghs", "cedi", "ghana cedi"],
-    "KES": ["kes", "shilling", "kenyan shilling"],
-    "XOF": ["xof", "cfa franc", "west african franc"],
-    "ZAR": ["zar", "rand"]
+    "NIN": [
+      "nin",
+      "national id",
+      "national identification number",
+      "nimc"
+    ],
+    "BVN": [
+      "bvn",
+      "bank verification number"
+    ],
+    "Voter ID": [
+      "voter id",
+      "voters card",
+      "pvc",
+      "voter card"
+    ],
+    "Driver's License": [
+      "driver's license",
+      "drivers license",
+      "driving licence",
+      "dl"
+    ],
+    "Passport": [
+      "passport",
+      "international passport"
+    ],
+    "SSN": [
+      "ssn",
+      "social security number"
+    ]
   }
 }

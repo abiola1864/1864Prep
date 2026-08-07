@@ -797,7 +797,7 @@ function makeOutliers(f){
  return f.outliers;
 }
 function makeRows(f){if(f.rows)return f.rows;const tmpl=R[f.type]||R.free_text;const k=Math.max(3,Math.min(9,Math.round(f.nChanged/22)+3));f.rows=[];for(let i=0;i<k;i++){const [b,a]=tmpl[i%tmpl.length];f.rows.push({rid:1000+f.id*17+i,before:b,after:a,uncertain:a==='?',decision:null});}return f.rows;}
-const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',datetime:'date & time',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',categorical:'categories',free_text:'free text',latitude:'latitude',longitude:'longitude',geopoint:'map coordinates',indicator:'0/1 marker',empty:'empty column',coordinate:'coordinates'};
+const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',datetime:'date & time',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',organization:'organisations',place:'places',categorical:'categories',free_text:'free text',latitude:'latitude',longitude:'longitude',geopoint:'map coordinates',indicator:'0/1 marker',empty:'empty column',coordinate:'coordinates'};
 function typeWord(t){ return TYPEWORD[t]||(t?String(t).replace(/_/g,' '):'text'); }
 function summarise(f){
   const n=f.nChanged;

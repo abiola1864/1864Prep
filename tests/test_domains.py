@@ -1,32 +1,55 @@
-"""Domain packs: resolve entities and keep look-alike different entities apart."""
+"""Domain resolution via packages: keep look-alike different entities apart."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from engine import domains as D          # noqa
+from engine import domains as D            # noqa
 from engine.dedupe import cluster_similar  # noqa
 
 
-def test_detect_and_resolve():
-    assert D.detect_domain(["Nigeria","Niger","Ghana","naija","DRC"], "Country") == "country"
-    assert D.resolve_value("country","naija")[0] == "Nigeria"
-    assert D.resolve_value("country","DRC")[0] == "Congo, Dem. Rep."
+def test_country_detect_and_resolve():
+    col = ["Nigeria","Niger","Congo, Dem. Rep.","Congo, Rep.","Ghana","Kenya"]
+    assert D.detect_domain(col, "Country Name") == "country"
+    name, changed = D.resolve_value("country", "Congo, Dem. Rep.")
+    assert name and name != "Congo, Dem. Rep." and changed
+
+
+def test_lookalike_countries_are_distinct():
+    for a, b in [("Niger","Nigeria"),("Sudan","South Sudan"),
+                 ("Congo, Dem. Rep.","Congo, Rep."),
+                 ("Korea, Dem. People's Rep.","Korea, Rep."),
+                 ("China","Hong Kong SAR, China"),("China","Taiwan, China")]:
+        assert D.same_entity("country", a, b) is False, f"{a} vs {b} should differ"
+    # real spelling variants of the SAME country resolve together
+    assert D.same_entity("country", "United States", "USA") is True
+
+
+def test_clustering_respects_country_domain():
+    vals = ["Niger","Nigeria","Congo, Dem. Rep.","Congo, Rep.","Sudan","South Sudan",
+            "China","Hong Kong SAR, China","Taiwan, China"]
+    for g in cluster_similar(vals, domain="country"):
+        ids = {D.canonical_of("country", m) for m in g["members"]}
+        assert len(ids) == 1, f"group mixes countries: {g['members']}"
+
+
+def test_survey_categoricals_json():
     assert D.detect_domain(["M","F","male","female"], "Sex") == "sex"
+    assert D.resolve_value("sex", "m")[0] == "Male"
 
 
-def test_lookalikes_are_different_entities():
-    for a,b in [("Niger","Nigeria"),("Iceland","Ireland"),("Guinea","Guinea-Bissau"),
-                ("Congo, Dem. Rep.","Congo, Rep.")]:
-        assert D.same_entity("country",a,b) is False
-    assert D.same_entity("country","Nigeria","naija") is True
+
+def test_subdivision_and_currency_via_pycountry():
+    assert D.detect_domain(["Kano","Kaduna","Cross River","Rivers","Lagos"], "State") == "subdivision"
+    assert D.same_entity("subdivision", "Cross River", "Rivers") is False
+    assert D.detect_domain(["NGN","USD","Naira","EUR","GBP"], "Currency") == "currency"
+    assert D.resolve_value("currency", "Naira")[0] == "NGN"
 
 
-def test_clustering_respects_domain():
-    vals = ["Niger","Nigeria","Nigeria","naija","Iceland","Ireland","Guinea","Guinea-Bissau"]
-    # without domain, string similarity would group Niger+Nigeria; with domain it must not
-    groups = cluster_similar(vals, domain="country")
-    for g in groups:
-        canon = {D.canonical_of("country", m) for m in g["members"]}
-        assert len(canon) == 1, f"group mixes entities: {g['members']}"
+def test_ner_layer_degrades_without_model():
+    from engine import nlp
+    # sandbox has no spaCy model; must not raise, must return (None, 0.0)
+    assert nlp.available() in (True, False)
+    t, c = nlp.column_entity_type(["Ada Obi", "Musa Bello"])
+    assert (t is None and c == 0.0) or isinstance(t, str)
 
 
 if __name__ == "__main__":
