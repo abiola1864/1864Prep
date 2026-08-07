@@ -314,6 +314,26 @@
   details.rc-see[open] summary{border-bottom:1px solid var(--line-soft);margin-bottom:8px}
   .big.wide{grid-column:1 / -1}
   .rc-doneCard{text-align:center}
+  .col-clean{display:flex;align-items:center;gap:12px;border:1px solid var(--line-soft);border-radius:12px;padding:10px 14px;margin:8px 0}
+  .col-clean-txt{display:flex;flex-direction:column} .col-clean-txt b{font-size:13.5px} .col-clean-txt span{font-size:12px;color:var(--ink-soft)}
+  .switch2{position:relative;display:inline-block;width:40px;height:22px;flex:0 0 40px}
+  .switch2 input{opacity:0;width:0;height:0} .switch2 .tk{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s}
+  .switch2 .tk:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch2 input:checked + .tk{background:var(--ok)} .switch2 input:checked + .tk:before{transform:translateX(18px)}
+  .switch2.sm{width:34px;height:19px;flex:0 0 34px} .switch2.sm .tk:before{height:13px;width:13px} .switch2.sm input:checked + .tk:before{transform:translateX(15px)}
+  .col-groups-h{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:16px 0 6px}
+  .mgg{border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;margin:8px 0;background:rgba(0,0,0,.015)}
+  .mgg-top{display:flex;align-items:center;gap:8px;margin-bottom:6px} .mgg-lbl{font-size:12px;color:var(--ink-soft);min-width:74px}
+  .mgg-hint{font-size:12px;color:var(--ink-soft);margin:2px 0 8px}
+  .mgg-members{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
+  .chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:99px;padding:5px 10px;cursor:pointer;background:#fff;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .chip:hover{border-color:var(--navy)} .chip .chip-l{font-weight:700;font-size:10px;border-radius:99px;padding:0 6px;color:#fff}
+  .chip.grp-A{border-color:#2f6f57;background:#eef5f1} .chip.grp-A .chip-l{background:#2f6f57}
+  .chip.grp-B{border-color:#b5761c;background:#f8efdc} .chip.grp-B .chip-l{background:#b5761c}
+  .chip.grp-C{border-color:#2d5f86;background:#e9f0f7} .chip.grp-C .chip-l{background:#2d5f86}
+  .mgg-name{display:flex;align-items:center;gap:8px;margin:4px 0} .mgg-name label{font-size:11.5px;color:var(--ink-soft);min-width:74px}
+  .mgg-name input{flex:1;max-width:360px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-weight:600}
+  .mgg-name input:focus{outline:none;border-color:var(--navy)}
 </style>
 </head>
 <body>
@@ -817,13 +837,18 @@ function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(
 let CARDS=[];
 function buildCards(){
   CARDS=[];
-  const simByCol={}; ((WORKLIST&&WORKLIST.similar)||[]).forEach(s=>simByCol[s.column]=s.groups||[]);
+  const simByCol={}; ((WORKLIST&&WORKLIST.similar)||[]).forEach(s=>{
+    simByCol[s.column]=(s.groups||[]).map(g=>({members:(g.members||[]).filter(Boolean),representative:g.representative,confidence:g.confidence}))
+      .filter(g=>g.members.length>=2 && g.confidence!=='low');
+  });
   FIELDS.forEach(f=>{
-    if(f.nChanged>0) CARDS.push({kind:'clean', field:f});
-    (simByCol[f.name]||[]).forEach((g,gi)=>{
-      const members=(g.members||[]).filter(Boolean);
-      if(members.length>=2 && g.confidence!=='low') CARDS.push({kind:'merge', column:f.name, into:g.representative||members[0], members, confidence:g.confidence});
-    });
+    const groups=simByCol[f.name]||[];
+    if(f.nChanged>0 || groups.length){
+      CARDS.push({kind:'column', field:f, groups, applyClean:true,
+        assign:groups.map(g=>g.members.map(()=>'A')),
+        gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
+        gmerge:groups.map(()=>true)});
+    }
   });
   const dupN=((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
   if(dupN>0) CARDS.push({kind:'dupes', count:dupN});
@@ -841,38 +866,70 @@ function renderReview(){
   $('#rvcount').textContent = c.kind==='done' ? 'all done' : (idx+' of '+total+' done');
   $('#backbtn').disabled=idx===0;
   let html='';
-  if(c.kind==='clean') html=cardClean(c);
-  else if(c.kind==='merge') html=cardMerge(c);
+  if(c.kind==='column') html=cardColumn(c);
   else if(c.kind==='dupes') html=cardDupes(c);
   else html=cardDone();
   $('#reviewcard').innerHTML=html;
-  if(c.kind==='clean' && (c.field.rows||[]).length) renderChanges('');
+  if(c.kind==='column' && (c.field.rows||[]).length) renderChanges('');
 }
-function cardClean(c){
-  const f=c.field, nChg=(f.rows||[]).length;
-  return '<div class="card rcard">'+
-    '<div class="rc-name">'+esc(labelOf(f.name))+'</div>'+
-    '<div class="rc-sub">read as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">change</a></div>'+
-    '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>'+
-    '<div class="rc-summary">'+summarise(f)+'</div>'+
-    (nChg?'<details class="rc-see"><summary>see '+nChg+' change'+(nChg>1?'s':'')+'</summary>'+
-       '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)"><div class="rc-changes" id="chglist"></div></details>':'')+
-    '<div class="rc-decide">'+
+function seeChangesHTML(nChg){
+  return '<details class="rc-see"><summary>see '+nChg+' formatting change'+(nChg>1?'s':'')+'</summary>'+
+    '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)"><div class="rc-changes" id="chglist"></div></details>';
+}
+function typeRow(f){
+  return '<div class="rc-sub">read as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">change</a></div>'+
+    '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>';
+}
+function cardColumn(c){
+  const f=c.field, nChg=(f.rows||[]).length, hasGroups=c.groups.length>0;
+  let h='<div class="card rcard"><div class="rc-name">'+esc(labelOf(f.name))+'</div>'+typeRow(f);
+  if(!hasGroups){
+    h+='<div class="rc-summary">'+summarise(f)+'</div>'+(nChg?seeChangesHTML(nChg):'')+
+      '<div class="rc-decide">'+
       '<button class="big ok" onclick="cardDecide(\'accept\')"><b>✓ Clean it</b><span>apply this</span></button>'+
       '<button class="big no" onclick="cardDecide(\'reject\')"><b>✗ Keep original</b><span>leave unchanged</span></button>'+
-    '</div></div>';
+      '</div></div>';
+    return h;
+  }
+  if(nChg){
+    h+='<div class="col-clean"><label class="switch2"><input type="checkbox" '+(c.applyClean?'checked':'')+' onchange="toggleApplyClean()"><span class="tk"></span></label>'+
+      '<div class="col-clean-txt"><b>Tidy formatting</b><span>'+esc(summarise(f))+'</span></div></div>'+seeChangesHTML(nChg);
+  }
+  h+='<div class="col-groups-h">Possible duplicate values, check each set</div>';
+  c.groups.forEach((g,gi)=>{ h+=groupBlock(c,g,gi); });
+  h+='<div class="rc-decide"><button class="big ok wide" onclick="commitColumn()"><b>Save &amp; continue →</b><span>apply your choices for this column</span></button></div></div>';
+  return h;
 }
-function cardMerge(c){
-  const badge=c.confidence?'<span class="mg-badge '+c.confidence+'">'+c.confidence+' match</span>':'';
-  return '<div class="card rcard">'+
-    '<div class="rc-name">Same thing? '+badge+'</div>'+
-    '<div class="rc-sub">In <b>'+esc(labelOf(c.column))+'</b>, these look like one entry.</div>'+
-    '<div class="mg-name"><label>Combine into</label><input id="mgname" value="'+esc(c.into)+'"></div>'+
-    '<div class="mg-list">'+c.members.map(m=>'<div class="mg-m">'+esc(m)+'</div>').join('')+'</div>'+
-    '<div class="rc-decide">'+
-      '<button class="big ok" onclick="cardMergeYes()"><b>⤳ Merge into one</b><span>use the name above</span></button>'+
-      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep separate</b><span>leave as different</span></button>'+
-    '</div></div>';
+function groupBlock(c,g,gi){
+  const used=[...new Set(c.assign[gi])].sort();
+  let b='<div class="mgg"><div class="mgg-top"><span class="mg-badge '+(g.confidence||'')+'">'+(g.confidence||'')+' match</span>'+
+    '<span class="sp" style="flex:1"></span>'+
+    '<label class="switch2 sm"><input type="checkbox" '+(c.gmerge[gi]?'checked':'')+' onchange="toggleGMerge('+gi+')"><span class="tk"></span></label>'+
+    '<span class="mgg-lbl">'+(c.gmerge[gi]?'merge':'keep separate')+'</span></div>';
+  if(c.gmerge[gi]){
+    const multi=used.length>1;
+    b+='<div class="mgg-hint">'+(multi?'Two or more sets, each merges on its own.':'Tap a value to split it into another set if they are not all the same.')+'</div>';
+    b+='<div class="mgg-members">'+g.members.map((m,mi)=>{const L=c.assign[gi][mi];
+        return '<button class="chip grp-'+L+'" onclick="cycleChip('+gi+','+mi+')">'+esc(m)+' <span class="chip-l">'+L+'</span></button>';}).join('')+'</div>';
+    used.forEach(L=>{ const cnt=c.assign[gi].filter(x=>x===L).length;
+      b+='<div class="mgg-name"><label>Set '+L+' ('+cnt+') →</label><input value="'+esc(c.gnames[gi][L]||'')+'" oninput="setGName('+gi+',\''+L+'\',this.value)"></div>'; });
+  } else { b+='<div class="mgg-hint">Kept as different values.</div>'; }
+  return b+'</div>';
+}
+function toggleApplyClean(){ CARDS[idx].applyClean=!CARDS[idx].applyClean; }
+function toggleGMerge(gi){ const c=CARDS[idx]; c.gmerge[gi]=!c.gmerge[gi]; renderReview(); }
+function cycleChip(gi,mi){ const c=CARDS[idx]; const L=c.assign[gi][mi]; const nx=L==='A'?'B':(L==='B'?'C':'A');
+  c.assign[gi][mi]=nx; if(!(nx in c.gnames[gi])||!c.gnames[gi][nx]) c.gnames[gi][nx]=''; renderReview(); }
+function setGName(gi,L,v){ CARDS[idx].gnames[gi][L]=v; }
+function commitColumn(){ const c=CARDS[idx], f=c.field;
+  f.decision = (f.nChanged>0 && !c.applyClean) ? 'reject' : 'accept';
+  let merged=0;
+  c.groups.forEach((g,gi)=>{ if(!c.gmerge[gi]) return; const byL={};
+    g.members.forEach((m,mi)=>{ const L=c.assign[gi][mi]; (byL[L]=byL[L]||[]).push(m); });
+    Object.keys(byL).forEach(L=>{ const members=byL[L]; if(members.length>=2){
+      const into=(c.gnames[gi][L]||members[0]); WL_MERGES.push({column:f.name,into,members}); merged++; }});
+  });
+  c.decision='done'; if(merged) toast('Recorded '+merged+' merge'+(merged>1?'s':'')+' for this column'); advanceCard();
 }
 function cardDupes(c){
   return '<div class="card rcard">'+
@@ -892,12 +949,8 @@ function cardDone(){
 }
 function advanceCard(){ if(idx<CARDS.length-1){ idx++; setTimeout(renderReview,140); } else renderReview(); }
 function cardDecide(d){ const c=CARDS[idx]; c.decision=d;
-  if(c.kind==='clean') c.field.decision=(d==='accept')?'accept':'reject';
+  if(c.kind==='column') c.field.decision=(d==='accept')?'accept':'reject';
   advanceCard();
-}
-function cardMergeYes(){ const c=CARDS[idx]; const nm=($('#mgname')||{}).value||c.into;
-  c.decision='merge'; c.into=nm; WL_MERGES.push({column:c.column, into:nm, members:c.members});
-  toast('Will merge into "'+nm+'"'); advanceCard();
 }
 function cardDupesYes(){ const c=CARDS[idx]; c.decision='remove'; WL_REMOVE_DUPES=true; toast('Will remove duplicate rows'); advanceCard(); }
 function renderChanges(q){
