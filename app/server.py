@@ -147,35 +147,36 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                                       "stage": f"Checking column {i+1} of {N}"}) + "\n"
             plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
             types = {p.column: p.semantic_type for p in profs}
-            yield json.dumps({"t": "progress", "pct": 0.85, "stage": "Cleaning values"}) + "\n"
+            yield json.dumps({"t": "progress", "pct": 0.82, "stage": "Cleaning values"}) + "\n"
             cleaned, report, _ = run_plan(df, plan, "web")
             flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}
-            yield json.dumps({"t": "progress", "pct": 0.94, "stage": "Finding duplicates and matches"}) + "\n"
             flagged = []
             for c in report.columns:
                 fl = c.get("flags") or []
                 if fl:
                     flagged.append({"column": c["source_column"],
                                     "values": [{"row": x["row"], "value": x["value"], "reason": x["reason"]} for x in fl[:50]]})
+            yield json.dumps({"t": "progress", "pct": 0.86, "stage": "Checking for duplicate rows"}) + "\n"
             dups = []
             for g in near_duplicate_rows(df)[:50]:
                 r0 = g["rows"][0]
                 preview = " · ".join(str(v) for v in df.iloc[r0].tolist()[:4] if str(v).strip())
                 dups.append({"rows": g["rows"], "kind": g["kind"], "similarity": g["similarity"], "preview": preview})
+            # similar-value scan across ALL text columns, with real per-column progress
+            text_cols = [p for p in profs if p.semantic_type in ("categorical", "name", "free_text", "geo")]
+            M = max(1, len(text_cols))
             similar = []
-            _scanned = 0
-            for p in profs:
-                if _scanned >= 60:
-                    break
-                if p.semantic_type in ("categorical", "name", "free_text", "geo"):
-                    _scanned += 1
-                    nun = df[p.column].nunique()
-                    if 2 <= nun <= 400:
-                        gs = cluster_similar(df[p.column].tolist(), semantic=True)[:20]
-                        if gs:
-                            similar.append({"column": p.column,
-                                            "groups": [{"representative": g["representative"], "members": g["members"][:20],
-                                                        "size": g["size"], "confidence": g["confidence"], "score": g["score"]} for g in gs]})
+            for k, p in enumerate(text_cols):
+                nun = df[p.column].nunique()
+                if 2 <= nun <= 400:
+                    gs = cluster_similar(df[p.column].tolist())[:20]
+                    if gs:
+                        similar.append({"column": p.column,
+                                        "groups": [{"representative": g["representative"], "members": g["members"][:20],
+                                                    "size": g["size"], "confidence": g["confidence"], "score": g["score"]} for g in gs]})
+                if k % 2 == 0 or k == M - 1:
+                    yield json.dumps({"t": "progress", "pct": 0.88 + 0.10 * (k + 1) / M,
+                                      "stage": f"Finding matches ({k+1} of {M})"}) + "\n"
             sid = _uuid.uuid4().hex[:12]
             _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
             payload = {

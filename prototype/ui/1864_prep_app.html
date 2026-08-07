@@ -1174,13 +1174,18 @@ function makeProgressManual(el, title, sub){
     <div class="prog-stage" id="pgstage">starting…</div></div>`;
   const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
         eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
-  let last=0, t0=Date.now();
+  let t0=Date.now(), prevT=t0, prevF=0, rate=0;
   return {
     set(frac,stage){ frac=Math.max(0,Math.min(0.99,frac)); const p=Math.round(frac*100);
       bar.style.width=p+'%'; pct.textContent=p+'%'; if(stage) stg.textContent=stage;
-      if(frac>0.04){ const elp=(Date.now()-t0)/1000; const remain=elp*(1-frac)/frac;
-        eta.textContent = remain>2 ? ('about '+Math.ceil(remain)+' sec left') : 'wrapping up'; }
-      last=frac; },
+      const now=Date.now();
+      if(frac>prevF){ const inst=(frac-prevF)/Math.max(0.001,(now-prevT)/1000);
+        rate = rate? (0.5*rate+0.5*inst) : inst; prevT=now; prevF=frac; }
+      if(rate>0 && frac>0.05 && frac<0.98){ const remain=(1-frac)/rate;
+        eta.textContent = remain>90 ? ('a few minutes left') : (remain>2 ? ('about '+Math.ceil(remain)+' sec left') : 'wrapping up');
+      } else if(frac>=0.98){ eta.textContent='wrapping up'; }
+      else { eta.textContent='working…'; }
+    },
     finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; }
   };
 }
