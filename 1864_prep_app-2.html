@@ -1,0 +1,1534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1864 Prep, wizard (prototype)</title>
+<style>
+  :root{
+    --ink:#1b2431;--ink-soft:#586475;--faint:#98a2b1;--paper:#f7f6f2;--card:#fff;--line:#e7e3da;--line-soft:#f1eee7;
+    --navy:#1d3a53;--navy-d:#142a3d;--ok:#2f6f57;--ok-bg:#e7f1ec;--warn:#b5761c;--warn-bg:#f8efdc;--stop:#a83a3a;--stop-bg:#f7e7e5;
+    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;font-size:14px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  button{font-family:inherit;cursor:pointer}
+  .app{display:flex;height:100vh;min-height:0}
+  .rail{width:206px;flex:0 0 206px;background:var(--navy-d);color:#c7d6e4;display:flex;flex-direction:column;padding:18px 0}
+  .brand{display:flex;align-items:center;gap:10px;padding:2px 18px 18px}
+  .brand svg{width:24px;height:24px}.brand b{color:#fff;font-size:13px;letter-spacing:.06em}
+  .brand span{display:block;font-size:9.5px;color:#7fa0bd;letter-spacing:.16em;text-transform:uppercase;margin-top:2px}
+  .steps{list-style:none;margin:8px 0 0;padding:0;flex:1}
+  .steps li{display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:12.5px;color:#9fb6cb;cursor:pointer;border-left:3px solid transparent}
+  .steps li .n{width:20px;height:20px;flex:0 0 20px;border-radius:50%;border:1.5px solid #3d5c78;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-family:var(--mono);color:#9fb6cb}
+  .steps li.done .n{background:var(--ok);border-color:var(--ok);color:#fff}.steps li.done .n::after{content:"✓"}.steps li.done .n span{display:none}
+  .steps li.active{color:#fff;background:rgba(255,255,255,.06);border-left-color:#5b91c0}.steps li.active .n{border-color:#fff;color:#fff}
+  .steps li.locked{opacity:.5;cursor:not-allowed}
+  .railfoot{padding:14px 18px 2px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#7c99b6;line-height:1.5}
+  .railfoot b{color:#c7d6e4;display:block;font-family:var(--mono);margin-top:6px}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+  .screen{flex:1;overflow:auto;padding:26px 30px;display:none}.screen.on{display:block}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:-.01em}
+  .lead{color:var(--ink-soft);margin:0 0 18px;max-width:72ch}
+  .eyebrow{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#5b91c0;font-weight:700;margin:0 0 7px}
+  .btn{border:1px solid var(--navy);background:var(--navy);color:#fff;font-size:13.5px;font-weight:600;padding:9px 18px;border-radius:8px}
+  .btn:hover{background:var(--navy-d)}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.ghost{background:#fff;color:var(--navy);border-color:var(--line)}.btn.ghost:hover{border-color:var(--navy)}
+  .btn.sm{padding:6px 12px;font-size:12px;border-radius:6px}
+  .center{max-width:400px;margin:40px auto 0;text-align:center}
+  .field{text-align:left;margin:12px 0}.field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:5px;font-weight:600}
+  .field input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  .actbar{display:flex;gap:10px;align-items:center;margin-top:18px}
+
+  .sectors{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:12px;margin-top:6px}
+  .sector{background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:15px;cursor:pointer;transition:.12s}
+  .sector:hover{border-color:#5b91c0;transform:translateY(-1px)}
+  .sector .ic{font-size:22px}.sector h3{margin:7px 0 3px;font-size:14.5px}.sector p{margin:0;font-size:11.5px;color:var(--ink-soft)}
+  .sector .cc{margin-top:9px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  /* column select */
+  .selbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .selbar .cnt{font-size:13px;color:var(--ink-soft)}.selbar .cnt b{color:var(--navy);font-family:var(--mono)}
+  .colgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+  .colchk{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+  .colchk.on{background:#eef4fb;border-color:#5b91c0}
+  .colchk input{width:15px;height:15px;accent-color:var(--navy);margin-top:2px;flex:0 0 15px}
+  .colchk .ci{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .colchk .nm{font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .colchk .def{font-size:11.5px;color:var(--ink-soft);line-height:1.4}
+  .colchk .alt{font-size:10.5px;color:var(--faint);font-style:italic}
+
+  /* upload */
+  .drop{border:2px dashed var(--line);border-radius:14px;background:#fff;padding:44px;text-align:center;cursor:pointer;margin-top:6px}
+  .drop:hover{border-color:#5b91c0;background:#fbfcfe}
+
+  /* match / unify */
+  .matchtable{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;max-width:860px}
+  .mh,.mrow{display:grid;grid-template-columns:1fr 30px 1fr 120px;gap:12px;align-items:center;padding:10px 16px}
+  .mh{background:#f5f8fb;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700}
+  .mrow{border-top:1px solid var(--line-soft)}
+  .mrow .raw{font-family:var(--mono);font-size:13px;font-weight:600}
+  .mrow .arr{color:#5b91c0;text-align:center}
+  .mrow select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:#fff}
+  .mrow.ignore{opacity:.55}
+  .mrow.needpick select{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}
+  .cf{font-size:11px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:20px;justify-self:start}
+  .cf.hi{background:var(--ok-bg);color:var(--ok)}.cf.md{background:var(--warn-bg);color:var(--warn)}.cf.lo{background:var(--stop-bg);color:var(--stop)}
+  .missing{margin-top:14px;background:var(--warn-bg);border:1px solid #ecd9b0;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#6b5322;max-width:860px}
+  .missing b{font-family:var(--mono)}
+
+  /* cleaning overlay */
+  .overlay{position:absolute;inset:0;background:rgba(247,246,242,.94);display:none;align-items:center;justify-content:center;z-index:20}
+  .overlay.on{display:flex}
+  .cleanbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:30px 34px;max-width:520px;text-align:center;box-shadow:0 10px 40px rgba(20,25,35,.1)}
+  .spin{width:42px;height:42px;border:3px solid var(--line);border-top-color:var(--navy);border-radius:50%;margin:0 auto 16px;animation:sp 0.8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .cleanbox h3{margin:0 0 6px;font-size:17px}.cleanbox p{margin:0 0 16px;color:var(--ink-soft);font-size:13px}
+  .cbar{height:8px;background:var(--line-soft);border-radius:6px;overflow:hidden;margin:8px 0 14px}
+  .cbar i{display:block;height:100%;width:0;background:var(--ok)}
+  .cladder{display:flex;flex-direction:column;gap:6px;text-align:left;font-size:12px}
+  .cladder .r{display:flex;justify-content:space-between;color:var(--ink-soft)}
+  .cladder .r b{font-family:var(--mono);color:var(--navy)}
+  .cladder .r.pending{opacity:.4}
+
+  /* sequential review (unchanged core) */
+  .rv-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+  .rv-sector{font-size:12px;color:var(--ink-soft)}.rv-sector b{color:var(--ink)}
+  .rv-pos{font-family:var(--mono);font-size:12.5px;color:var(--navy);font-weight:700}
+  .rv-progress{height:6px;background:var(--line-soft);border-radius:20px;overflow:hidden;flex:1;min-width:120px;max-width:300px}
+  .rv-progress i{display:block;height:100%;background:var(--ok);transition:width .2s}
+  .index{display:none;flex-wrap:wrap;gap:6px;margin:10px 0 4px}.index.on{display:flex}
+  .idxchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-family:var(--mono);cursor:pointer}
+  .idxchip.cur{border-color:var(--navy);box-shadow:0 0 0 2px rgba(29,58,83,.12)}
+  .fdot{width:7px;height:7px;border-radius:50%}
+  .fdot.auto{background:var(--ok)}.fdot.review{background:var(--warn)}.fdot.flagged{background:var(--stop)}.fdot.done{background:#c3ccd6}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;max-width:920px;margin-top:12px}
+  .d-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.d-name{font-family:var(--mono);font-size:18px;font-weight:700}
+  .chip{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;font-family:var(--mono)}
+  .chip.type{background:#eef2f6;color:var(--navy)}.chip.memory{background:#e8eef5;color:var(--navy)}.chip.fuzzy{background:#e8f0f8;color:#3a6ea8}
+  .chip.induced{background:var(--warn-bg);color:var(--warn)}.chip.model{background:#f0e9f6;color:#7a4fa0}.chip.format{background:var(--ok-bg);color:var(--ok)}
+  .statusdot{margin-left:auto;font-size:11.5px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:7px}
+  .perfect{background:var(--ok-bg);border:1px solid #cfe3d8;border-radius:9px;padding:10px 13px;font-size:12.5px;color:#1f4d3c;margin:12px 0}.perfect b{color:var(--ok)}
+  .howmini{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--ink-soft);margin:8px 0 4px;flex-wrap:wrap}
+  .howmini .m{padding:2px 8px;border:1px solid var(--line);border-radius:20px;background:#fff}.howmini .m.hit{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+  .rowbar{display:flex;align-items:center;gap:10px;margin:14px 0 8px;flex-wrap:wrap}.rowbar .prog{font-size:12.5px;color:var(--ink-soft)}.rowbar .prog b{color:var(--ok)}
+  .rowtable{border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .rowh,.row{display:grid;grid-template-columns:60px 1fr 1fr 200px;gap:12px;align-items:center;padding:9px 14px}
+  .rowh{background:#f5f8fb;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700}
+  .row{border-top:1px solid var(--line-soft);font-family:var(--mono);font-size:12.5px}
+  .row .rid{color:var(--faint);font-size:11px}.row .before{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:#cbb488}.row .after{color:var(--ink);font-weight:600}
+  .row.acc{background:#fcfefd}.row.acc .after{color:var(--ok)}
+  .row.rej{background:#fdf7f6}.row.rej .after{color:var(--stop);font-weight:400;text-decoration:line-through;text-decoration-color:#d7a3a3}.row.rej .before{text-decoration:none;color:var(--ink);font-weight:600}
+  .row.rev{background:#fdfaf2}
+  .acts{display:flex;gap:5px;justify-content:flex-end}
+  .acts button{border:1px solid var(--line);background:#fff;font-size:11px;font-weight:600;padding:5px 9px;border-radius:6px;color:var(--ink-soft)}
+  .acts button.a.on{background:var(--ok);border-color:var(--ok);color:#fff}.acts button.r.on{background:var(--stop);border-color:var(--stop);color:#fff}.acts button.v.on{background:var(--warn);border-color:var(--warn);color:#fff}
+  .acts button:hover{border-color:var(--ink-soft)}
+  .navrow{display:flex;align-items:center;gap:10px;margin-top:16px;max-width:920px}.navrow .sp{flex:1}
+  .gate{flex:0 0 58px;border-top:1px solid var(--line);background:#fff;display:flex;align-items:center;gap:14px;padding:0 30px}
+  .gate .msg{font-size:13px;color:var(--ink-soft)}.gate .msg b{color:var(--warn)}.gate .sp{flex:1}
+  .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1}
+  .kpis{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 8px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 15px;min-width:120px}.kpi .n{font-size:20px;font-weight:700;font-family:var(--mono)}.kpi .l{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em}
+  .rv-count{font-size:12.5px;color:var(--ink-soft);margin-left:auto}
+  .rcard{max-width:640px;margin:18px auto 0;padding:26px 30px}
+  .rc-name{font-size:23px;font-weight:700;letter-spacing:-.01em}
+  .rc-sub{font-size:12.5px;color:var(--ink-soft);margin-top:4px}
+  .rc-sub .link{color:var(--navy);text-decoration:underline;cursor:pointer}
+  .typepick{margin-top:10px}.typepick select{padding:8px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  .rc-summary{font-size:16px;line-height:1.55;margin:18px 0 2px}
+  .rc-ex-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-top:16px}
+  .rc-examples{margin:8px 0 2px;display:flex;flex-direction:column;gap:6px}
+  .rc-ex{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:13px;background:#fbfaf7;border:1px solid var(--line-soft);border-radius:8px;padding:8px 12px}
+  .rc-ex .b{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:#cbb488}
+  .rc-ex .ar{color:#5b91c0}.rc-ex .a{color:var(--ok);font-weight:600}
+  .rc-outlier{margin-top:16px;background:var(--warn-bg);border:1px solid #ecd9b0;border-radius:9px;padding:11px 14px;font-size:12.5px;color:#6b5322}
+  .rc-decide{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+  .big{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:15px 16px;text-align:left;cursor:pointer;transition:.12s;display:flex;flex-direction:column;gap:3px}
+  .big b{font-size:15px}.big span{font-size:12px;color:var(--ink-soft)}
+  .big.ok:hover,.big.ok.chosen{border-color:var(--ok);background:var(--ok-bg)}
+  .big.no:hover,.big.no.chosen{border-color:var(--stop);background:var(--stop-bg)}
+  .big.ok.chosen b{color:var(--ok)}.big.no.chosen b{color:var(--stop)}
+  .rc-done{margin-top:16px;font-size:12.5px;color:var(--ink-soft);text-align:center}
+  .aitoggle{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin:16px 0 4px;max-width:860px}
+  .aitoggle .txt b{font-size:13.5px}.aitoggle .txt span{display:block;font-size:12px;color:var(--ink-soft);margin-top:3px;max-width:64ch}
+  .aitoggle .sp{flex:1}
+  .switch{position:relative;width:46px;height:26px;flex:0 0 46px;cursor:pointer}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .track{position:absolute;inset:0;background:#c3cedb;border-radius:20px;transition:.18s}
+  .switch .knob{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .switch input:checked + .track{background:#7a4fa0}
+  .switch input:checked + .track + .knob{transform:translateX(20px)}
+  .connectbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 32px;max-width:460px;text-align:center;box-shadow:0 10px 40px rgba(20,25,35,.1)}
+  .connectbox .ai{font-size:30px;margin-bottom:8px}.connectbox h3{margin:0 0 6px;font-size:17px}.connectbox p{margin:0 0 16px;color:var(--ink-soft);font-size:12.5px;line-height:1.5}
+  .connectbox .prov{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+  .connectbox .prov button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600}
+  .connectbox .prov button:hover{border-color:#7a4fa0}
+  .switch.net input:checked + .track{background:var(--navy)}
+  .netperm{border:1px solid var(--line);border-radius:12px;background:#fff;padding:16px 18px;max-width:860px;margin-top:12px}
+  .np-bar{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+  .permrow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line-soft)}
+  .permrow:first-of-type{border-top:none}
+  .permrow .pl{font-size:13px;font-weight:600}.permrow .pl .pt{font-size:10.5px;color:var(--faint);font-family:var(--mono);font-weight:400;margin-left:8px}
+  .permrow.sensitive .pl::after{content:'⚠ sensitive';color:var(--warn);font-size:10px;font-weight:700;margin-left:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
+  .seg button{border:none;background:#fff;padding:6px 11px;font-size:11.5px;color:var(--ink-soft);cursor:pointer;border-left:1px solid var(--line)}
+  .seg button:first-child{border-left:none}
+  .seg button.on{background:var(--navy);color:#fff}
+  .np-foot{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .np-foot #permsummary{font-size:12.5px;color:var(--ink-soft)}.np-foot .sp{flex:1}
+  .np-note{font-size:11.5px;color:var(--ink-soft);margin:12px 0 0;line-height:1.5;max-width:860px}
+  .chgsearch{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;margin:6px 0 8px}
+  .rc-changes{max-height:340px;overflow:auto;border:1px solid var(--line-soft);border-radius:10px;padding:4px 6px}
+  .chg-group{padding:7px 8px;border-bottom:1px solid var(--line-soft)}
+  .chg-group:last-child{border-bottom:none}
+  .chg-head{font-family:var(--mono);font-size:13px;color:var(--ok)}
+  .chg-head .chg-n{color:var(--faint);font-family:var(--sans);font-size:11px;margin-left:6px}
+  .chg-line{font-family:var(--mono);font-size:12px;color:var(--ink-soft);padding:2px 0 2px 14px}
+  .chg-line .b{text-decoration:line-through;text-decoration-color:#cbb488}
+  .chg-empty{color:var(--faint);font-size:12.5px;padding:8px}
+  .wl-sec{margin:14px 0;border:1px solid var(--line);border-radius:12px;padding:12px 15px;background:var(--paper)}
+  .wl-h{font-weight:650;margin-bottom:8px}
+  .wl-empty{color:var(--faint);font-size:13px}
+  .wl-item{border-top:1px solid var(--line-soft);padding:10px 0}
+  .wl-item:first-of-type{border-top:none}
+  .wl-t{font-size:14px;margin-bottom:5px}
+  .wl-type{color:var(--faint);font-size:11px;font-family:var(--mono);margin-left:6px}
+  .wl-done{color:var(--ok);font-size:12px;margin-left:8px}
+  .wl-vals{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 8px}
+  .wl-val{font-family:var(--mono);font-size:11.5px;background:rgba(0,0,0,.035);border:1px solid var(--line-soft);border-radius:6px;padding:2px 7px}
+  .wl-more{color:var(--faint);font-size:11px}
+  .wl-acts{display:flex;flex-wrap:wrap;gap:8px}
+  .wl-acts button{font:inherit;font-size:12.5px;padding:6px 11px;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:8px;cursor:pointer}
+  .wl-acts button.leave{background:transparent;color:var(--ink-soft);border-color:var(--line)}
+  .wl-foot{margin-top:12px;font-size:12.5px;color:var(--ink-soft)}
+  .wl-badge{font-size:11px;padding:1px 8px;border-radius:20px;margin-left:6px;font-family:var(--sans)}
+  .wl-badge.high{background:#e3f0e8;color:#2f6f57}
+  .wl-badge.medium{background:#f5ecd6;color:#8a6a1c}
+  .wl-badge.low{background:#efe7e2;color:#8a6a5c}
+  .sim-members{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0 8px}
+  .sim-mem{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;color:var(--ink)}
+  .sim-name{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;color:var(--ink-soft)}
+  .sim-name input{flex:1;max-width:420px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+  .setgear{display:block;margin-top:10px;background:none;border:1px solid var(--line);color:var(--ink-soft);font:inherit;font-size:12px;padding:5px 10px;border-radius:8px;cursor:pointer}
+  .modal{position:fixed;inset:0;background:rgba(20,28,38,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal.on{display:flex}
+  .modal-card{background:var(--paper);border-radius:16px;max-width:620px;width:100%;max-height:88vh;overflow:auto;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal-top{display:flex;align-items:center;justify-content:space-between}
+  .modal-top h2{margin:0;font-size:20px}
+  .modal-x{background:none;border:none;font-size:18px;cursor:pointer;color:var(--ink-soft)}
+  .modal-note{background:rgba(0,0,0,.03);border:1px solid var(--line-soft);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--ink-soft);margin:10px 0 4px}
+  .set-sec{padding:14px 0;border-top:1px solid var(--line-soft)}
+  .set-h{font-weight:650}
+  .set-tag{font-weight:400;font-size:11px;color:var(--faint);margin-left:6px}
+  .set-sub{font-size:12.5px;color:var(--ink-soft);margin:4px 0 8px;line-height:1.5}
+  .set-input{width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+  .set-toggle{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer}
+  .set-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .set-row span{font-size:12.5px;color:var(--ink-soft);min-width:110px}
+  .modal-foot{display:flex;gap:10px;padding-top:14px;border-top:1px solid var(--line-soft);margin-top:6px}
+  .tk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px}
+  .tk-card{border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;background:var(--paper);transition:border-color .15s}
+  .tk-card:hover{border-color:var(--navy)}
+  .tk-name{font-weight:650;margin-bottom:4px}
+  .tk-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.45}
+  .tk-kind{margin-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
+  .tk-panel{border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .tk-file{flex:1;min-width:240px;border:1px dashed var(--line);border-radius:10px;padding:12px;cursor:pointer;font-size:13px;color:var(--ink-soft)}
+  .tk-file input{display:block;margin-bottom:4px}
+  .tk-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+  .tk-row select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit}
+  .tk-summary{background:rgba(0,0,0,.03);border:1px solid var(--line-soft);border-radius:10px;padding:10px 12px;font-size:13px;margin:6px 0 10px}
+  .tk-tablewrap{max-height:360px;overflow:auto;border:1px solid var(--line-soft);border-radius:10px}
+  .tk-table{border-collapse:collapse;font-size:12px;width:100%}
+  .tk-table th,.tk-table td{border-bottom:1px solid var(--line-soft);padding:6px 9px;text-align:left;white-space:nowrap}
+  .tk-table th{position:sticky;top:0;background:var(--paper);font-family:var(--mono);font-size:11px}
+  .tk-more{font-size:11.5px;color:var(--faint);margin-top:6px}
+  .tk-dl{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;color:var(--ink-soft)}
+  .tk-run-msg{color:var(--ink-soft);font-size:13px;padding:8px 0}
+  .btn.sm{font-size:12.5px;padding:6px 12px}
+  .progress{width:100%;height:9px;background:var(--line-soft);border-radius:99px;overflow:hidden;margin:16px 0 8px}
+  .progress > i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--navy),#4a6fa5);transition:width .3s ease}
+  .prog-meta{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .prog-stage{font-size:13px;color:var(--ink);margin-top:8px;min-height:1.2em}
+  /* ---------- world-class polish (overrides) ---------- */
+  :root{ --shadow:0 1px 2px rgba(20,30,45,.04), 0 8px 30px rgba(20,30,45,.06); }
+  body{font-size:14px;line-height:1.5}
+  h1{letter-spacing:-.01em}
+  /* light, calm rail; inactive steps grayscale but present */
+  .rail{background:#fbfaf7;border-right:1px solid var(--line);color:var(--ink-soft)}
+  .rail .brand,.brand{color:var(--ink)!important}
+  .steps li{color:var(--faint);border-left:3px solid transparent;transition:background .2s,color .2s,border-color .2s;border-radius:0 8px 8px 0;margin-right:8px}
+  .steps li .n{background:#fff;border:1.5px solid var(--line);color:var(--faint);transition:all .2s}
+  .steps li:hover:not(.locked){color:var(--ink-soft)}
+  .steps li.active{color:var(--ink);background:#fff;border-left-color:var(--navy);box-shadow:var(--shadow)}
+  .steps li.active .n{border-color:var(--navy);color:var(--navy);background:#eef3f9}
+  .steps li.done{color:var(--ink-soft)} .steps li.done .n{background:var(--ok);border-color:var(--ok);color:#fff}
+  .railfoot{color:var(--faint);border-top:1px solid var(--line);margin-top:auto;padding-top:12px}
+  .railfoot b{color:var(--ink-soft)}
+  .setgear{background:#fff;border:1px solid var(--line);color:var(--ink-soft)}
+  .setgear:hover{border-color:var(--navy);color:var(--navy);transform:translateY(-1px)}
+  /* screen entrance: gentle, every step */
+  @keyframes screenIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .screen.on{animation:screenIn .34s cubic-bezier(.2,.7,.2,1) both}
+  /* buttons + cards: subtle life */
+  .btn{transition:transform .08s ease,background .15s,box-shadow .15s;border-radius:10px}
+  .btn:hover:not(:disabled){box-shadow:var(--shadow)}
+  .btn:active:not(:disabled){transform:translateY(1px) scale(.99)}
+  .sector,.tk-card,.wl-item,.rc-changes,.set-sec{transition:transform .15s,border-color .15s,box-shadow .15s}
+  .sector:hover,.tk-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--navy)}
+  .sector{border-radius:14px}
+  /* progress shimmer */
+  .progress>i{background:linear-gradient(90deg,var(--navy),#4a6fa5,var(--navy));background-size:200% 100%;animation:shim 1.3s linear infinite}
+  @keyframes shim{to{background-position:-200% 0}}
+  /* pop for confirmations */
+  @keyframes pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+  .wl-done{display:inline-block;animation:pop .25s ease both}
+  /* toast slide-up */
+  .toast,#toast{animation:toastUp .3s ease both}
+  @keyframes toastUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  /* modal fade */
+  .modal.on .modal-card{animation:screenIn .28s ease both}
+  /* review card breathes */
+  #reviewcard{animation:screenIn .3s ease both}
+  /* tiny "more" hint next to the tools */
+  .railfoot .hint{display:block;font-size:10px;color:var(--faint);margin-top:8px;letter-spacing:.03em;text-transform:uppercase}
+  .colsearch{width:100%;max-width:420px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;margin:6px 0 12px;background:#fff;transition:border-color .15s}
+  .colsearch:focus{outline:none;border-color:var(--navy)}
+  .colmore-done{font-size:11.5px;color:var(--faint)}
+  .colgrid label.colchk{animation:screenIn .25s ease both}
+  .chg-tag{font-size:10px;color:var(--faint);border:1px solid var(--line);border-radius:99px;padding:1px 7px;margin-left:8px;text-transform:uppercase;letter-spacing:.04em}
+  .chg-line .b.same{text-decoration:none;color:var(--ink-soft)}
+  .mg-name{margin:10px 0 6px;display:flex;align-items:center;gap:10px}
+  .mg-name label{font-size:12px;color:var(--ink-soft)}
+  .mg-name input{flex:1;max-width:360px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;font:inherit;font-weight:600}
+  .mg-name input:focus{outline:none;border-color:var(--navy)}
+  .mg-list{border:1px solid var(--line-soft);border-radius:10px;padding:8px 10px;margin:6px 0 4px;max-height:200px;overflow:auto}
+  .mg-m{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);padding:3px 0}
+  .mg-badge{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:99px;padding:2px 9px;margin-left:8px;vertical-align:middle}
+  .mg-badge.high{background:var(--ok-bg);color:var(--ok)} .mg-badge.medium{background:var(--warn-bg);color:var(--warn)} .mg-badge.low{background:#eef1f5;color:var(--ink-soft)}
+  details.rc-see{margin:6px 0 2px;border:1px solid var(--line-soft);border-radius:10px;padding:2px 12px}
+  details.rc-see summary{cursor:pointer;font-size:12.5px;color:var(--ink-soft);padding:8px 0;list-style:none}
+  details.rc-see summary::-webkit-details-marker{display:none}
+  details.rc-see[open] summary{border-bottom:1px solid var(--line-soft);margin-bottom:8px}
+  .big.wide{grid-column:1 / -1}
+  .rc-doneCard{text-align:center}
+  .col-clean{display:flex;align-items:center;gap:12px;border:1px solid var(--line-soft);border-radius:12px;padding:10px 14px;margin:8px 0}
+  .col-clean-txt{display:flex;flex-direction:column} .col-clean-txt b{font-size:13.5px} .col-clean-txt span{font-size:12px;color:var(--ink-soft)}
+  .switch2{position:relative;display:inline-block;width:40px;height:22px;flex:0 0 40px}
+  .switch2 input{opacity:0;width:0;height:0} .switch2 .tk{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.2s}
+  .switch2 .tk:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch2 input:checked + .tk{background:var(--ok)} .switch2 input:checked + .tk:before{transform:translateX(18px)}
+  .switch2.sm{width:34px;height:19px;flex:0 0 34px} .switch2.sm .tk:before{height:13px;width:13px} .switch2.sm input:checked + .tk:before{transform:translateX(15px)}
+  .col-groups-h{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:16px 0 6px}
+  .mgg{border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px;margin:8px 0;background:rgba(0,0,0,.015)}
+  .mgg-top{display:flex;align-items:center;gap:8px;margin-bottom:6px} .mgg-lbl{font-size:12px;color:var(--ink-soft);min-width:74px}
+  .mgg-hint{font-size:12px;color:var(--ink-soft);margin:2px 0 8px}
+  .mgg-members{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px}
+  .chip{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:99px;padding:5px 10px;cursor:pointer;background:#fff;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .chip:hover{border-color:var(--navy)} .chip .chip-l{font-weight:700;font-size:10px;border-radius:99px;padding:0 6px;color:#fff}
+  .chip.grp-A{border-color:#2f6f57;background:#eef5f1} .chip.grp-A .chip-l{background:#2f6f57}
+  .chip.grp-B{border-color:#b5761c;background:#f8efdc} .chip.grp-B .chip-l{background:#b5761c}
+  .chip.grp-C{border-color:#2d5f86;background:#e9f0f7} .chip.grp-C .chip-l{background:#2d5f86}
+  .mgg-name{display:flex;align-items:center;gap:8px;margin:4px 0} .mgg-name label{font-size:11.5px;color:var(--ink-soft);min-width:74px}
+  .mgg-name input{flex:1;max-width:360px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-weight:600}
+  .mgg-name input:focus{outline:none;border-color:var(--navy)}
+  .rf-file{color:var(--faint);font-family:var(--mono);font-size:10.5px;margin-top:2px}
+  .link.tiny{font-size:11.5px;color:var(--ink-soft)}
+  .mgg-vals{font-family:var(--mono);font-size:12px;color:var(--ink-soft);margin:6px 0;line-height:1.7}
+  .mgg-name input{font-family:var(--sans)}
+  .dup-list{max-height:300px;overflow:auto;border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px}
+  .dup-grp{border-bottom:1px solid var(--line-soft);padding:6px 4px}
+  .dup-grp:last-child{border-bottom:none}
+  .dup-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 6px;font-family:var(--mono)}
+  .dup-tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:99px;padding:1px 7px;font-family:var(--sans)}
+  .dup-row.keep .dup-tag{background:var(--ok-bg);color:var(--ok)} .dup-row.drop .dup-tag{background:#f6e5e5;color:#a83a3a}
+  .dup-row.drop .dup-vals{color:var(--ink-soft);text-decoration:line-through;text-decoration-color:var(--line)}
+  .dup-rn{color:var(--faint);min-width:52px} .dup-vals{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ban-list{border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px;max-height:220px;overflow:auto}
+  .ban-row{display:flex;gap:10px;align-items:baseline;padding:5px 8px;font-size:12.5px;border-bottom:1px solid var(--line-soft)}
+  .ban-row:last-child{border-bottom:none}
+  .ban-rn{color:var(--faint);font-family:var(--mono);font-size:11px;min-width:52px}
+  .ban-txt{font-family:var(--mono);color:var(--ink-soft)}
+  .tidy-names{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+  .tidy-chip{font-size:12px;border:1px solid var(--line-soft);border-radius:99px;padding:4px 11px;color:var(--ink-soft);background:#fff}
+  .tidy-chip.more{color:var(--faint)}
+  .tidy-list{border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px;max-height:280px;overflow:auto}
+  .tidy-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-bottom:1px solid var(--line-soft)}
+  .tidy-row:last-child{border-bottom:none}
+  .tidy-nm{flex:1;font-size:13px} .tidy-ct{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+  .tidy-link{margin:2px 0 6px}
+  .col-alsotidy{font-size:12.5px;color:var(--ink-soft);margin:10px 0 4px;line-height:1.6}
+  .col-peek{margin-top:8px}
+  .adm-list{border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px}
+  .adm-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .adm-row:last-child{border-bottom:none}
+  .adm-tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:99px;padding:2px 8px;white-space:nowrap}
+  .adm-tag.unknown{background:#f6e5e5;color:#a83a3a} .adm-tag.is_state,.adm-tag.is_lga{background:var(--warn-bg);color:var(--warn)}
+  .adm-val{flex:1;font-family:var(--mono);font-size:12.5px}
+  .adm-fix{border:1px solid var(--navy);color:var(--navy);background:#fff;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+  .adm-fix:hover{background:var(--navy);color:#fff}
+  .adm-note{font-size:11.5px;color:var(--ink-soft)}
+  .adm-keep{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 9px;font:inherit;font-size:12px;color:var(--ink-soft);cursor:pointer}
+  .adm-keep.on{border-color:var(--ok);color:var(--ok)}
+  /* ---------- Mobile (phones): each page optimised for narrow screens ---------- */
+  @media (max-width:720px){
+    .app{flex-direction:column;height:auto;min-height:100vh}
+    /* rail becomes a slim top bar: brand + horizontal step chips */
+    .rail{width:auto;flex:none;flex-direction:column;padding:10px 12px 8px;
+      border-right:none;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+    .brand{padding:0 2px 8px}
+    .steps{display:flex;gap:6px;overflow-x:auto;margin:0;padding:2px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .steps::-webkit-scrollbar{display:none}
+    .steps li{flex:0 0 auto;padding:6px 10px;border-left:none;border-radius:99px;background:#fff;
+      border:1px solid var(--line);font-size:12px;white-space:nowrap;gap:6px}
+    .steps li.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .steps li.active .n{border-color:#fff;color:#fff}
+    .steps li .n{width:17px;height:17px;flex:0 0 17px;font-size:9.5px}
+    .railfoot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:none;padding:6px 2px 0;margin:0}
+    .railfoot #rf-sector,.railfoot #rf-file,.railfoot .hint{display:none}   /* hide descriptive text on mobile */
+    .setgear{display:inline-block;margin:0;font-size:12px;padding:6px 10px}
+    .main{min-height:0}
+    .screen{padding:16px 14px}
+    .screen.on{animation:none}              /* avoid horizontal jank on small screens */
+    h1{font-size:19px}
+    /* cards & content go full width */
+    .card,.rcard,.matchtable,.missing,.aitoggle,.netperm,.np-note,.cleanbox,.connectbox{max-width:100%!important}
+    .rcard{margin:12px 0 0;padding:18px 16px}
+    .card{padding:16px 14px}
+    .center{max-width:100%;margin:20px auto 0}
+    /* two-button decisions stack vertically, full width, thumb-friendly */
+    .rc-decide{grid-template-columns:1fr;gap:10px}
+    .big{min-height:52px}
+    .navrow{flex-wrap:wrap}
+    /* one-column grids */
+    .sectors{grid-template-columns:1fr}
+    .colgrid,.tk-grid{grid-template-columns:1fr}
+    /* match-names table: stack each row into a block */
+    .mh{display:none}
+    .mrow{grid-template-columns:1fr;gap:4px;padding:12px 12px;border-bottom:1px solid var(--line-soft)}
+    /* review changes / spotcheck rows: stack */
+    .rowh{display:none}
+    .row{grid-template-columns:1fr;gap:4px;padding:10px 12px}
+    .permrow{grid-template-columns:1fr;gap:6px}
+    /* merge chips & inputs full width */
+    .mgg-name input,.mg-name input,.sim-name input{max-width:100%}
+    .mgg-members{gap:6px}
+    /* progress modal fits screen */
+    .cleanbox,.connectbox{padding:22px 18px;width:100%}
+    /* toolkit + wide tables scroll horizontally instead of overflowing */
+    .tk-table,.preview-wrap{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+    .modal{padding:10px}
+    .modal-card{max-height:92vh;padding:18px 16px}
+    /* admin / dup / tidy lists: comfortable tap targets */
+    .adm-row,.dup-row,.tidy-row,.ban-row{flex-wrap:wrap}
+    .adm-fix,.adm-keep{min-height:36px}
+    /* review progress header wraps */
+    .rv-top{flex-wrap:wrap;gap:8px}
+    .rv-progress{min-width:80px}
+    /* inputs don't trigger iOS zoom (>=16px) */
+    input,select,textarea{font-size:16px}
+  }
+  @media (max-width:380px){
+    .screen{padding:12px 10px}
+    h1{font-size:18px}
+    .big b{font-size:14px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none"><path d="M12 6h16M12 34h16M14 6c0 7 12 10 12 14s-12 7-12 14M26 6c0 7-12 10-12 14s12 7 12 14" stroke="#8fb4dc" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <div><b>1864 PREP</b><span>wizard</span></div>
+    </div>
+    <ol class="steps" id="steps">
+      <li data-s="0"><span class="n"><span>1</span></span> Sign in</li>
+      <li data-s="1"><span class="n"><span>2</span></span> Sector</li>
+      <li data-s="3"><span class="n"><span>3</span></span> Upload</li>
+      <li data-s="4"><span class="n"><span>4</span></span> Match names</li>
+      <li data-s="5"><span class="n"><span>5</span></span> Review</li>
+      <li data-s="7"><span class="n"><span>6</span></span> Export</li>
+    </ol>
+    <div class="railfoot">Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
+      <span class="hint">More</span>
+      <button class="setgear" onclick="go(8)">🧰 Data Toolkit</button>
+      <button class="setgear" onclick="openSettings()">⚙ Settings</button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <!-- 0 sign in -->
+    <section class="screen on" data-screen="0">
+      <div class="center"><h1>Sign in to 1864 Prep</h1>
+        <p class="lead" style="text-align:center;margin:6px auto 16px">Prepare any agency's records for the Open Network.</p>
+        <div class="field"><label>Work email</label><input value="data.officer@agency.gov.ng"></div>
+        <div class="field"><label>Password</label><input type="password" value="••••••••••"></div>
+        <button class="btn" style="width:100%;margin-top:6px" onclick="go(1)">Sign in</button></div>
+    </section>
+
+    <!-- 1 sector -->
+    <section class="screen" data-screen="1">
+      <p class="eyebrow">Step 2</p><h1>Which sector is this dataset from?</h1>
+      <p class="lead">Each sector has its own columns. Pick one and we'll show the fields it usually has, so you can tell us which apply to your data.</p>
+      <div class="sectors" id="sectors"></div>
+    </section>
+
+    
+    <!-- 3 upload -->
+    <section class="screen" data-screen="3">
+      <p class="eyebrow">Step 4</p><h1>Upload your file</h1>
+      <p class="lead">Drop in a messy file. CSV, Excel, JSON or PDF. It's read and cleaned right here.</p>
+      <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
+      <div class="drop" onclick="document.getElementById('realfile').click()">
+        <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
+        <p style="color:var(--ink-soft);margin:0;font-size:13px">.csv · .xlsx · .json · .pdf, cleaned by the engine</p>
+      </div>
+      <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="doUpload()">Continue with sample data</a> to walk through the flow.</p>
+    </section>
+
+    <!-- 4 match names -->
+    <section class="screen" data-screen="4">
+      <p class="eyebrow">Step 5 · unify column names</p><h1>Match your columns to the standard names</h1>
+      <p class="lead">We found these headers in your file and suggested where each belongs. Confirm or change any, this is just aligning <em>names</em>, so a question means the same thing across agencies. Cleaning the values comes next.</p>
+      <div class="matchtable" id="matchtable">
+        <div class="mh"><span>Your column (as uploaded)</span><span></span><span>Standard field</span><span>Suggestion</span></div>
+        <div id="matchrows"></div>
+      </div>
+      <div class="missing" id="missing" style="display:none"></div>
+      <div class="aitoggle">
+        <div class="txt"><b>Clean with AI assistance?</b><span id="ainote">Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.</span></div>
+        <span class="sp"></span>
+        <label class="switch"><input type="checkbox" id="aiswitch" onchange="toggleAI(this.checked)"><span class="track"></span><span class="knob"></span></label>
+      </div>
+      <div class="actbar"><button class="btn" onclick="startCleaning()">Looks right, clean my data →</button>
+        <span class="cnt" style="font-size:12.5px;color:var(--ink-soft)"><b id="matchn" style="font-family:var(--mono);color:var(--navy)">0</b> columns matched</span></div>
+    </section>
+
+    <!-- 5 review -->
+    <section class="screen" data-screen="5">
+      <div class="rv-top">
+        <button class="btn ghost sm" id="backbtn" onclick="rvBack()">← Back</button>
+        <span class="rv-pos" id="rvpos">Column 1 of 1</span>
+        <div class="rv-progress"><i id="rvbar"></i></div>
+        <span class="rv-count" id="rvcount"></span>
+      </div>
+      <div id="reviewcard"></div>
+    </section>
+
+    <!-- 6 needs your attention (worklist) -->
+    <section class="screen" data-screen="6">
+      <p class="eyebrow">Step 7</p><h1>Needs your attention</h1>
+      <p class="lead">A few things need your call. Nothing was changed automatically.</p>
+      <div id="worklist"></div>
+      <div style="display:flex;gap:12px;margin-top:18px">
+        <button class="btn" onclick="go(7)">Continue to export →</button>
+        <button class="btn ghost" onclick="go(5)">← Back to review</button>
+      </div>
+    </section>
+
+    <!-- 7 export -->
+    <section class="screen" data-screen="7">
+      <p class="eyebrow">Step 8</p><h1>Approved and standardised</h1>
+      <p class="lead">Only what you approved gets applied. Your file stays on your computer.</p>
+      <div class="kpis" id="expkpis"></div>
+      <div style="display:flex;gap:12px;margin-top:12px">
+        <button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button>
+      </div>
+      <div id="expout" style="margin-top:14px"></div>
+
+      <div class="aitoggle" style="max-width:860px;margin-top:24px">
+        <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.</span></div>
+        <span class="sp"></span>
+        <label class="switch net"><input type="checkbox" id="netswitch" onchange="toggleNet(this.checked)"><span class="track"></span><span class="knob"></span></label>
+      </div>
+
+      <div id="netpanel" style="display:none">
+        <div class="netperm">
+          <div class="np-bar"><b>Choose which columns can be asked about</b><span class="sp" style="flex:1"></span>
+            <button class="btn ghost sm" onclick="permAll('off')">None</button>
+            <button class="btn ghost sm" onclick="permAll('confirm')">Confirm all</button></div>
+          <div id="permlist"></div>
+          <div class="np-foot"><span id="permsummary"></span><span class="sp"></span>
+            <button class="btn" id="publishbtn" onclick="publishNet()">Publish to network</button></div>
+        </div>
+        <p class="np-note">🔒 Your data never moves. The network carries a <b>question</b> and a <b>verified answer</b>; the record is read in place on this computer and only the answer is sent. Nothing is shared until you publish, and you can revoke any column at any time.</p>
+      </div>
+    </section>
+
+    <div class="gate" id="gate" style="display:none !important">
+      <span class="msg" id="gatemsg"></span><span class="sp"></span>
+      <button class="btn ghost sm" onclick="acceptRemaining()">Accept all remaining</button>
+      <button class="btn" id="finish" disabled onclick="go(7)">Approve &amp; export</button>
+    </div>
+
+    <!-- 8 data toolkit (standalone) -->
+    <section class="screen" data-screen="8">
+      <p class="eyebrow">Data Toolkit</p><h1>Data Toolkit</h1>
+      <p class="lead">Handy one-off tools. Pick one, upload, preview, download.</p>
+      <div id="toolkit"></div>
+    </section>
+
+    <!-- cleaning / connect overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- settings modal -->
+    <div class="modal" id="settings">
+      <div class="modal-card">
+        <div class="modal-top"><h2>Settings</h2><button class="modal-x" onclick="closeSettings()">✕</button></div>
+        <p class="modal-note">🔒 Your records never leave this computer. These settings only control optional features. Everything is off by default.</p>
+
+        <div class="set-sec">
+          <div class="set-h">Region</div>
+          <p class="set-sub">Sets phone, date and place rules. The engine is generic; a region is just a pack of local conventions.</p>
+          <select id="set-region" class="set-input"></select>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h">AI assistance <span class="set-tag">optional · off by default</span></div>
+          <p class="set-sub">For the hard, meaning-based cases only (e.g. a place not in the list, or synonyms). AI only ever sees column headers and a small sample of values, never full records, and only <b>suggests</b>; its suggestions land in “Needs your attention”, never applied automatically.</p>
+          <label class="set-toggle"><input type="checkbox" id="set-ai" onchange="onAIToggle(this.checked)"> Use AI for hard cases</label>
+          <div id="set-ai-panel" style="display:none">
+            <div class="set-row"><span>Provider</span>
+              <select id="set-provider" class="set-input" onchange="onProviderChange()">
+                <option value="ollama">Local model (Ollama), stays on this computer</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="google">Google (Gemini)</option>
+                <option value="mistral">Mistral</option>
+                <option value="groq">Groq</option>
+              </select>
+            </div>
+            <div class="set-row"><span id="set-key-label">Local server URL</span>
+              <input id="set-key" class="set-input" placeholder="http://localhost:11434">
+            </div>
+            <p class="set-sub" id="set-ai-priv">A local model keeps everything on your machine. Cloud providers need your own API key and send the headers + sample to that provider.</p>
+          </div>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h">Help improve the tool <span class="set-tag">optional · off by default</span></div>
+          <p class="set-sub">If you switch this on, only your confirmed <b>correction pairs</b> (e.g. “Kastina → Katsina”) are shared to improve a common dictionary that ships in future updates. <b>Your actual records are never shared.</b> You can turn this off anytime.</p>
+          <label class="set-toggle"><input type="checkbox" id="set-contrib"> Contribute my corrections (never my records)</label>
+        </div>
+
+        <div class="modal-foot">
+          <button class="btn" onclick="saveSettings()">Save settings</button>
+          <button class="btn ghost" onclick="closeSettings()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700);}
+
+const DEFS={
+ nin:'National Identification Number, the 11-digit national ID.',bvn:'Bank Verification Number, the 11-digit banking ID.',tin:'Tax Identification Number.',rc_number:'Company (RC) registration number from CAC.',bn_number:'Business-name registration number.',
+ enrollee_id:'Unique member/enrollee number in your scheme.',farmer_id:'Unique number identifying each farmer.',household_id:'Unique number identifying each household.',student_id:'Unique number identifying each student.',account_number:'Bank or wallet account number.',hmo_code:'Code identifying the HMO/provider.',certificate_no:'Certificate number (e.g. birth certificate).',parcel_id:'Unique land parcel/plot identifier.',c_of_o_number:'Certificate of Occupancy number.',plate_number:'Vehicle number plate.',vin_chassis:'Vehicle chassis / VIN number.',license_number:"Driver's licence number.",
+ phone:'A contact mobile number.',nok_phone:"Next of kin's phone number.",email:'An email address.',first_name:'Given / first name.',last_name:'Family name / surname.',surname:'Family name / surname.',full_name:'Full name of the person.',sex:'Sex / gender.',date_of_birth:'Date of birth.',head_dob:'Date of birth of the household head.',
+ state:'State (of the 36 + FCT).',state_of_residence:'State where the person currently lives.',state_of_origin:'State the person is originally from.',place_of_birth:'Place / state of birth.',lga:'Local Government Area.',ward:'Ward within the LGA.',address:'Street / residential address.',
+ marital_status:'Marital status (single, married…).',blood_group:'Blood group (A+, O−…).',genotype:'Genotype (AA, AS…).',plan_type:'Health plan / package.',primary_diagnosis:'Recorded primary diagnosis.',crop_type:'Main crop grown.',farm_size_ha:'Farm size in hectares.',gps_lat:'GPS latitude.',gps_long:'GPS longitude.',redemption_status:'Whether inputs were redeemed (yes/no).',poverty_score:'Poverty / vulnerability score.',transfer_amount:'Amount transferred per payment.',payment_status:'Whether payment was made (yes/no).',bank_name:'Name of the bank.',balance:'Account balance.',annual_turnover:'Reported annual turnover.',amount_paid:'Amount paid.',area_sqm:'Area in square metres.',valuation:'Assessed monetary value.',exam_score:'Examination score.',attendance_pct:'Attendance percentage.',scholarship_status:'Whether on scholarship (yes/no).',registration_date:'Date of registration.',enrolment_date:'Date of enrolment.',business_name:'Registered business name.',disability_status:'Whether the person has a disability (yes/no).',weight_at_birth_kg:'Weight at birth, in kg.',year_of_make:'Year the vehicle was made.'
+};
+const ALSO={nin:'National ID, NIN No',phone:'GSM, Mobile, Ph No',date_of_birth:'DOB, Birth Date',lga:'Local Govt, L.G.A',first_name:'Given Name, FName',last_name:'Surname, LName',sex:'Gender',email:'E-mail, Mail',account_number:'Acct No, A/C',state:'State Name',full_name:'Name'};
+const humanize=n=>n.replace(/_/g,' ');
+const defOf=n=>DEFS[n]||('The '+humanize(n)+' for each record.');
+
+const LABELS={
+ nin:'NIN (National ID)',bvn:'BVN (Bank ID)',tin:'TIN (Tax ID)',rc_number:'RC number (CAC)',bn_number:'BN number',hmo_code:'HMO code',
+ enrollee_id:'Enrollee / member ID',farmer_id:'Farmer ID',household_id:'Household ID',student_id:'Student ID',head_nin:'Household head, NIN',
+ title:'Title (Mr / Mrs / …)',first_name:'First name',middle_name:'Middle name',last_name:'Surname',surname:'Surname',full_name:'Full name',
+ head_name:'Household head, name',owner_name:'Owner name',account_name:'Account name',taxpayer_name:'Taxpayer name',child_name:'Child name',
+ mother_name:"Mother's name",father_name:"Father's name",director_name:'Director name',guardian_name:'Guardian name',next_of_kin:'Next of kin',
+ caseworker:'Caseworker',extension_officer:'Extension officer',registrar:'Registrar',informant_name:'Informant name',enrolled_by:'Enrolled by (officer)',
+ sex:'Sex / gender',sex_of_head:'Household head, sex',date_of_birth:'Date of birth',head_dob:'Household head, date of birth',age:'Age',
+ marital_status:'Marital status',nationality:'Nationality',religion:'Religion',ethnicity:'Ethnicity / tribe',
+ disability_status:'Has a disability?',disability:'Has a disability?',disability_in_hh:'Disability in household?',
+ phone:'Phone number',alternate_phone:'Alternate phone',whatsapp_number:'WhatsApp number',nok_phone:'Next of kin, phone',
+ guardian_phone:'Guardian phone',informant_phone:'Informant phone',director_phone:'Director phone',
+ email:'Email address',address:'Home address',residential_address:'Residential address',town:'Town / city',ward:'Ward',
+ lga:'LGA (Local Govt)',state:'State',state_of_residence:'State of residence',state_of_origin:'State of origin',
+ place_of_birth:'Place of birth',facility_state:'Facility state',
+ nok_relationship:'Next of kin, relationship',bank_name:'Bank name',account_number:'Account number',
+ registration_date:'Registration date',registration_channel:'How they registered',record_status:'Record status',remarks:'Remarks / notes',
+ enrolment_date:'Enrolment date',expiry_date:'Expiry date',opening_date:'Account opening date',filing_date:'Filing date',
+ last_visit_date:'Last visit date',last_payment_date:'Last payment date',
+ blood_group:'Blood group',genotype:'Genotype',plan_type:'Health plan / package',scheme:'Scheme',primary_diagnosis:'Primary diagnosis',
+ provider_facility:'Provider / facility',premium_amount:'Premium amount',payment_status:'Payment made?',dependants_count:'Number of dependants',
+ occupation:'Occupation',employer:'Employer',
+ cooperative:'Cooperative',crop_type:'Main crop',secondary_crop:'Secondary crop',farm_size_ha:'Farm size (hectares)',
+ gps_lat:'GPS latitude',gps_long:'GPS longitude',input_package:'Input package',redemption_status:'Inputs redeemed?',season:'Season',
+ expected_yield_kg:'Expected yield (kg)',soil_type:'Soil type',irrigation:'Irrigated?',land_tenure:'Land tenure',
+ household_size:'Household size',children_count:'Number of children',elderly_count:'Number of elderly',poverty_score:'Poverty score',
+ vulnerability_tier:'Vulnerability tier',programme:'Programme',transfer_amount:'Transfer amount',payment_frequency:'Payment frequency',
+ housing_type:'Housing type',water_source:'Water source',toilet_type:'Toilet type',income_source:'Main income source',verification_status:'Verification status',
+ account_type:'Account type',kyc_tier:'KYC tier',branch:'Branch',balance:'Account balance',account_status:'Account status',
+ taxpayer_type:'Taxpayer type',business_sector:'Business sector',business_name:'Business name',annual_turnover:'Annual turnover',
+ assessed_tax:'Assessed tax',amount_paid:'Amount paid',balance_due:'Balance due',tax_office:'Tax office',
+ plate_number:'Number plate',vin_chassis:'Chassis / VIN',engine_number:'Engine number',owner_nin:"Owner's NIN",vehicle_make:'Vehicle make',
+ vehicle_model:'Vehicle model',vehicle_type:'Vehicle type',year_of_make:'Year of make',color:'Colour',license_number:'Licence number',
+ insurance_status:'Insured?',road_worthiness:'Road-worthy?',
+ parcel_id:'Parcel / plot ID',title_type:'Title type',land_use:'Land use',area_sqm:'Area (sqm)',valuation:'Valuation',
+ c_of_o_number:'C-of-O number',title_status:'Title status',
+ certificate_no:'Certificate number',mother_nin:"Mother's NIN",father_nin:"Father's NIN",weight_at_birth_kg:'Weight at birth (kg)',
+ entity_type:'Entity type',entity_status:'Entity status',share_capital:'Share capital',director_nin:"Director's NIN",
+ school_name:'School name',class_level:'Class / level',exam_score:'Exam score',average_grade:'Average grade',subject_stream:'Subject stream',
+ scholarship_status:'On scholarship?',sponsor:'Sponsor',attendance_pct:'Attendance (%)'
+};
+const ACR={nin:'NIN',bvn:'BVN',tin:'TIN',lga:'LGA',gps:'GPS',hmo:'HMO',nok:'NOK',vin:'VIN',rc:'RC',id:'ID',dob:'DOB',bn:'BN',sqm:'sqm',kg:'kg',ha:'ha'};
+function labelOf(key){ if(LABELS[key])return LABELS[key];
+  return key.split('_').map((w,i)=>ACR[w]?ACR[w]:(i===0?w.charAt(0).toUpperCase()+w.slice(1):w)).join(' '); }
+
+const B={
+ idnin:['nin:identifier'], idbvn:['bvn:identifier'],
+ person:['title:categorical','first_name:name','middle_name:name','last_name:name','sex:gender','date_of_birth:date','marital_status:categorical','nationality:categorical','religion:categorical','ethnicity:categorical','disability_status:boolean'],
+ contact:['phone:phone','alternate_phone:phone','whatsapp_number:phone','email:email','address:free_text','town:categorical','lga:geo','ward:categorical'],
+ nok:['next_of_kin:name','nok_relationship:categorical','nok_phone:phone'],
+ bank:['bank_name:categorical','account_number:identifier','account_name:name'],
+ meta:['registration_date:date','registration_channel:categorical','enrolled_by:name','record_status:categorical','remarks:free_text']
+};
+function S(){ const seen=new Map(); [].concat.apply([],[].slice.call(arguments)).forEach(c=>{const k=c.split(':')[0]; if(!seen.has(k))seen.set(k,c);}); return [...seen.values()]; }
+
+const SECTORS=[
+ {key:'health',name:'Health / NHIA',ic:'\u2795',desc:'Enrollees, providers, claims',cols:S(['enrollee_id:identifier','hmo_code:identifier','scheme:categorical','plan_type:categorical'],B.idnin,B.person,B.contact,['state_of_residence:geo','facility_state:geo'],B.nok,['blood_group:categorical','genotype:categorical','primary_diagnosis:categorical','provider_facility:categorical','enrolment_date:date','expiry_date:date','premium_amount:numeric','payment_status:boolean','last_visit_date:date','dependants_count:numeric','occupation:categorical','employer:free_text'],B.bank,B.meta)},
+ {key:'agric',name:'Agriculture',ic:'\ud83c\udf3e',desc:'Farmers, inputs, subsidies',cols:S(['farmer_id:identifier'],B.idnin,B.idbvn,B.person,B.contact,['state:geo','cooperative:categorical','crop_type:categorical','secondary_crop:categorical','farm_size_ha:numeric','gps_lat:numeric','gps_long:numeric','input_package:categorical','redemption_status:boolean','season:categorical','expected_yield_kg:numeric','extension_officer:name','soil_type:categorical','irrigation:boolean','land_tenure:categorical'],B.bank,B.meta)},
+ {key:'social',name:'Social protection',ic:'\ud83c\udfe0',desc:'Cash transfer, safety nets',cols:S(['household_id:identifier','head_nin:identifier','head_name:name','sex_of_head:gender','head_dob:date'],B.contact,['state:geo','household_size:numeric','children_count:numeric','elderly_count:numeric','poverty_score:numeric','vulnerability_tier:categorical','programme:categorical','transfer_amount:numeric','payment_frequency:categorical','payment_status:boolean','last_payment_date:date','caseworker:name','disability_in_hh:boolean','housing_type:categorical','water_source:categorical','toilet_type:categorical','income_source:categorical','verification_status:categorical','gps_lat:numeric','enrolment_date:date'],B.bank,B.meta)},
+ {key:'finance',name:'Financial inclusion',ic:'\ud83c\udfe6',desc:'Accounts, wallets, KYC',cols:S(B.idnin,B.idbvn,B.person,B.contact,['state:geo','account_type:categorical','kyc_tier:categorical','branch:categorical','opening_date:date','balance:numeric','account_status:boolean','occupation:categorical'],B.bank,B.meta)},
+ {key:'tax',name:'Tax / revenue',ic:'\ud83e\uddfe',desc:'Taxpayers, assessments',cols:S(['tin:identifier','rc_number:identifier','taxpayer_name:name','business_name:free_text','taxpayer_type:categorical','business_sector:categorical'],B.contact,['state:geo','annual_turnover:numeric','assessed_tax:numeric','amount_paid:numeric','balance_due:numeric','payment_status:boolean','filing_date:date','tax_office:categorical'],B.meta)},
+ {key:'transport',name:'Transport / vehicles',ic:'\ud83d\ude97',desc:'Registration, licensing',cols:S(['plate_number:identifier','vin_chassis:identifier','engine_number:identifier','owner_name:name','owner_nin:identifier'],['phone:phone','email:email','address:free_text','lga:geo','state:geo'],['vehicle_make:categorical','vehicle_model:categorical','vehicle_type:categorical','year_of_make:numeric','color:categorical','registration_date:date','expiry_date:date','license_number:identifier','insurance_status:boolean','road_worthiness:boolean'],B.meta)},
+ {key:'land',name:'Land / housing',ic:'\ud83d\uddfa\ufe0f',desc:'Parcels, titles, valuation',cols:S(['parcel_id:identifier','owner_name:name','owner_nin:identifier','title_type:categorical','land_use:categorical','area_sqm:numeric'],['address:free_text','lga:geo','state:geo','phone:phone','email:email'],['gps_lat:numeric','gps_long:numeric','valuation:numeric','registration_date:date','c_of_o_number:identifier','title_status:categorical'],B.meta)},
+ {key:'civil',name:'Civil registration',ic:'\ud83d\udcdc',desc:'Births, deaths',cols:S(['certificate_no:identifier','child_name:name','sex:gender','date_of_birth:date','place_of_birth:geo','weight_at_birth_kg:numeric','mother_name:name','mother_nin:identifier','father_name:name','father_nin:identifier'],['state:geo','lga:geo','registration_date:date','registrar:name','informant_name:name','informant_phone:phone'],B.meta)},
+ {key:'business',name:'Business registration',ic:'\ud83c\udfe2',desc:'CAC entities, directors',cols:S(['rc_number:identifier','bn_number:identifier','business_name:free_text','entity_type:categorical','business_sector:categorical','entity_status:categorical','share_capital:numeric','tin:identifier'],['state:geo','lga:geo','address:free_text','phone:phone','email:email'],['director_name:name','director_nin:identifier','director_phone:phone','registration_date:date'],B.meta)},
+ {key:'education',name:'Education',ic:'\ud83c\udf93',desc:'Students, scholarships',cols:S(['student_id:identifier'],B.idnin,['title:categorical','first_name:name','middle_name:name','last_name:name','sex:gender','date_of_birth:date','disability:boolean'],['phone:phone','email:email','address:free_text','lga:geo','state_of_origin:geo'],['school_name:categorical','class_level:categorical','exam_score:numeric','average_grade:categorical','subject_stream:categorical','scholarship_status:boolean','sponsor:categorical','guardian_name:name','guardian_phone:phone','enrolment_date:date','attendance_pct:numeric'],B.meta)}
+];
+const TYPEMETA={identifier:['format',0.97],name:['format',0.86],gender:['format',0.98],date:['format',0.9],phone:['format',0.97],email:['format',0.96],numeric:['format',0.97],boolean:['format',0.98],geo:['model',0.8],categorical:['induced',0.82],free_text:['format',0.72]};
+const PERFECT={identifier:'Kept exactly as recorded (format only, no digits invented).',phone:'+234XXXXXXXXXX (E.164).',email:'lower-case, valid address.',date:'ISO date YYYY-MM-DD.',numeric:'clean number (no symbols/separators).',boolean:'Yes / No.',gender:'Male / Female.',name:'Title Case name (spelling untouched).',geo:'one of the 37 official states.',categorical:'a confirmed category set discovered from the data.',free_text:'trimmed, single-spaced text.'};
+const R={identifier:[['REC-00481','00481'],['REC-77120','77120'],['id:9931','9931'],['  40222 ','40222']],phone:[['08031234567','+2348031234567'],['0806 111 2222','+2348061112222'],['234701 555 9000','+2347015559000']],email:[['ADA@X.IO','ada@x.io'],['  Tunde@Mail.COM','tunde@mail.com']],date:[['6/1/2025','2025-06-01'],['01/06/2025','2025-06-01'],['2025/6/1','2025-06-01']],numeric:[['$1,200.50','1200.5'],['N45,000','45000'],['2 300','2300']],boolean:[['yes','Yes'],['NO','No'],['Y','Yes']],gender:[['M','Male'],['f','Female'],['FEMALE','Female']],name:[['ADA LOVELACE','Ada Lovelace'],['alan turing','Alan Turing'],['  grace hopper ','Grace Hopper']],geo:[['Port Harcourt','RIVERS'],['Kastina','KATSINA'],['ibadan','OYO'],['Gwarzo','?']],categorical:[['basic','Basic'],['BASIC','Basic'],['premuim','Premium'],['ENT','Enterprise']],free_text:[['  needs  followup ','needs followup'],['N/A','']]};
+
+/* messy header variants for the unify step */
+const ALIAS={phone:['Ph No','PHONE NUMBER','gsm','Mobile No'],nok_phone:['NOK Phone','kin phone'],informant_phone:['Informant Tel'],guardian_phone:['Guardian GSM'],director_phone:['Dir. Phone'],nin:['NIN No','National ID','nin_number'],head_nin:['Head NIN'],owner_nin:['Owner National ID'],mother_nin:['Mother NIN'],director_nin:['Dir NIN'],date_of_birth:['DOB','D.O.B','Birth Date'],head_dob:['Head DOB'],first_name:['FirstName','Given Name'],last_name:['Surname','LastName'],surname:['Surname'],full_name:['Full Name','NAME'],email:['E-mail','Email Address'],state:['STATE','State '],state_of_residence:['State of Residence'],state_of_origin:['State of Origin'],lga:['L.G.A','Local Govt'],sex:['Gender','SEX'],sex_of_head:['Head Sex']};
+function messy(std,i){
+  if(ALIAS[std]) return ALIAS[std][i%ALIAS[std].length];
+  const t=std.replace(/_/g,' ');
+  const mode=i%3;
+  if(mode===0) return t.replace(/\b\w/g,c=>c.toUpperCase());   // Title Case
+  if(mode===1) return t.toUpperCase();                          // UPPER
+  return std;                                                   // as-is
+}
+
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null;
+
+function go(n){
+  cur=n;
+  $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
+  $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n);li.classList.toggle('done',s<n&&s<=reached);});
+  $('#gate').style.display=n===5?'flex':'none';
+  if(n===4)renderMatch();
+  if(n===5){renderReview();updateGate();}
+  if(n===6)renderWorklist();
+  if(n===7)renderExport();
+  if(n===8)renderToolkit();
+}
+$$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
+
+/* sectors */
+$('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('')
+  +`<div class="sector general" onclick="pickGeneral()"><div class="ic">📂</div><h3>General / other</h3><p>Any dataset, my columns aren't listed. The engine detects everything from the file itself.</p><div class="cc">skip to upload</div></div>`;
+function pickSector(i){
+  SECTOR=SECTORS[i];
+  SELECTED=new Set(SECTOR.cols.map((c,j)=>j));   // sample walkthrough uses all
+  $('#rf-sector').textContent=SECTOR.name;
+  reached=Math.max(reached,3); go(3);            // straight to upload; engine detects columns
+}
+function pickGeneral(){
+  SECTOR={name:"General / other", desc:"", ic:"📂", cols:[]};
+  SELECTED=new Set();
+  $('#rf-sector').textContent=SECTOR.name;
+  reached=Math.max(reached,3); go(3);   // straight to upload; no preset columns to choose
+}
+
+/* choose columns, incremental so a wide file never clogs */
+let VIS_N=8;
+function moreCols(){ VIS_N+=8; renderColumns(); }
+function renderColumns(){
+  $('#seltotal').textContent=SECTOR.cols.length;
+  const q=(($('#colsearch')||{}).value||'').toLowerCase();
+  const all=SECTOR.cols.map((spec,j)=>({j,n:spec.split(':')[0]}));
+  const filtered=q?all.filter(o=>o.n.toLowerCase().includes(q)):all;
+  const show=filtered.slice(0,VIS_N);
+  $('#colgrid').innerHTML=show.map(o=>{const n=o.n;
+    const also=ALSO[n]?`<span class="alt">might be called: ${esc(ALSO[n])}</span>`:'';
+    return `<label class="colchk ${SELECTED.has(o.j)?'on':''}" onclick="toggleCol(${o.j},event)"><input type="checkbox" ${SELECTED.has(o.j)?'checked':''}>
+      <span class="ci"><span class="nm">${esc(n)}</span><span class="def">${esc(defOf(n))}</span>${also}</span></label>`;}).join('');
+  const rem=filtered.length-show.length;
+  const more=$('#colmore');
+  if(more) more.innerHTML = rem>0 ? `<button class="btn ghost sm" onclick="moreCols()">Show ${Math.min(8,rem)} more · ${rem} left</button>` : (filtered.length>8?`<span class="colmore-done">all ${filtered.length} shown</span>`:'');
+  $('#selcount').textContent=SELECTED.size;
+}
+function toggleCol(j,e){e.preventDefault();if(SELECTED.has(j))SELECTED.delete(j);else SELECTED.add(j);renderColumns();}
+function selectAll(v){SELECTED=v?new Set(SECTOR.cols.map((c,j)=>j)):new Set();renderColumns();}
+
+/* upload -> build messy raw headers from selected columns */
+function doUpload(){
+  if(!SECTOR || !SECTOR.cols || !SECTOR.cols.length){ SECTOR=SECTORS[0]; SELECTED=new Set(SECTOR.cols.map((c,j)=>j).filter(j=>j%7!==5)); }
+  const chosen=[...SELECTED].sort((a,b)=>a-b);
+  RAWS=[];
+  const dropIdx=chosen[Math.min(3,chosen.length-1)];      // one selected col missing from file
+  const needPick=chosen.length>6?chosen[5]:-1;            // one ambiguous suggestion
+  const mediumIdx=chosen.length>1?chosen[1]:-1;
+  chosen.forEach((j,k)=>{
+    if(j===dropIdx) return;
+    const std=SECTOR.cols[j].split(':')[0];
+    const raw=messy(std,k);
+    let conf=0.95, suggested=std;
+    if(j===needPick){conf=0.5;suggested='';}
+    else if(j===mediumIdx){conf=0.78;}
+    else if(raw===std){conf=0.99;}
+    RAWS.push({raw,suggested,conf,chosen:suggested});
+  });
+  // a couple of extra unrecognised headers the file happens to contain
+  RAWS.push({raw:'col_47',suggested:'',conf:0.2,chosen:'__ignore'});
+  RAWS.push({raw:'remarks_old',suggested:'',conf:0.3,chosen:'__ignore'});
+  window.__missingStd = dropIdx!=null ? SECTOR.cols[dropIdx].split(':')[0] : null;
+  reached=Math.max(reached,4); go(4);
+}
+
+/* match names */
+function stdOptions(sel){
+  const opts=[...SELECTED].sort((a,b)=>a-b).map(j=>{const n=SECTOR.cols[j].split(':')[0];return `<option value="${n}" ${n===sel?'selected':''}>${labelOf(n)}</option>`;}).join('');
+  return `<option value="__ignore" ${sel==='__ignore'?'selected':''}>(ignore this column)</option>`+opts;
+}
+function renderMatch(){
+  $('#matchrows').innerHTML=RAWS.map((r,i)=>{
+    const band=r.conf>=0.9?'hi':(r.conf>=0.6?'md':'lo');
+    const lab=r.chosen==='__ignore'?'ignored':(r.chosen===''?'pick one':(r.conf>=0.9?'confident':'check'));
+    const need=(r.chosen===''||r.chosen==null);
+    return `<div class="mrow ${r.chosen==='__ignore'?'ignore':''} ${need?'needpick':''}">
+      <span class="raw">${esc(r.raw)}</span><span class="arr">→</span>
+      <select onchange="setMatch(${i},this.value)">${stdOptions(r.chosen)}</select>
+      <span class="cf ${band}">${lab}</span></div>`;}).join('');
+  const matched=RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').length;
+  $('#matchn').textContent=matched;
+  if(window.__missingStd){$('#missing').style.display='block';
+    $('#missing').innerHTML=`Heads up: the standard field <b>${esc(labelOf(window.__missingStd))}</b> wasn't found in your file. That's fine, it'll simply be left empty. Add it later if you have it.`;}
+  else $('#missing').style.display='none';
+}
+function setMatch(i,v){RAWS[i].chosen=v;renderMatch();}
+
+/* cleaning overlay -> review */
+function toggleAI(on){USE_AI=on;
+  $('#ainote').textContent = on
+    ? 'On, adds an AI model for the hard cases (unusual headers, place names, free text). You\u2019ll connect a model first; only column names and sample values are shared, never full records.'
+    : 'Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.';
+}
+function startCleaning(){
+  const matched=[...new Set(RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').map(r=>r.chosen))];
+  FIELDS=matched.map((name,i)=>{
+    const spec=SECTOR.cols.find(c=>c.split(':')[0]===name)||`${name}:free_text`;
+    const type=spec.split(':')[1];const [method,base]=TYPEMETA[type];
+    const jit=(((i*53+name.length*7)%17)-8)/100;const conf=Math.max(0.55,Math.min(0.99,+(base+jit).toFixed(2)));
+    const status=conf>=0.9?'auto':(conf>=0.72?'review':'flagged');
+    const nChanged=type==='identifier'?((i*31)%40):20+((i*37)%140);
+    return {id:i,name,type,method,conf,nChanged,status,rows:null,outliers:null,decision:null};
+  });
+  idx=0; reached=Math.max(reached,5);
+  if(USE_AI && !AI_CONNECTED){ showConnect(); return; }
+  runClean();
+}
+function showConnect(){
+  const ov=$('#overlay');ov.classList.add('on');
+  ov.innerHTML=`<div class="connectbox">
+    <div class="ai">🔌</div><h3>Connect an AI model</h3>
+    <p>AI runs outside the built-in engine. Choose where it runs. Only column names and a few sample values are shared, never full records. The built-in engine still does everything it can locally first.</p>
+    <div class="prov">
+      <button onclick="confirmConnect('local')">Local / on-prem model</button>
+      <button onclick="confirmConnect('cloud')">Connect cloud account</button>
+    </div>
+    <button class="btn ghost sm" onclick="cancelConnect()">Cancel, use built-in only</button>
+  </div>`;
+}
+function cancelConnect(){ USE_AI=false; $('#aiswitch').checked=false; toggleAI(false); AI_CONNECTED=false; runClean(); }
+function confirmConnect(kind){ AI_CONNECTED=true; toast(kind==='local'?'Local model connected':'Cloud model connected'); runClean(); }
+function runClean(){
+  const ov=$('#overlay');ov.classList.add('on');
+  const title=USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine';
+  const sub=USE_AI?'The engine cleans locally; the AI model helps only with the tricky columns.':'Standardising values with built-in rules. Your file stays on this computer.';
+  let stages=['Reading & aligning columns','Applying format rules (IDs, dates, phones)','Matching names & places (fuzzy + phonetic)'];
+  if(USE_AI) stages.push('AI: understanding unusual columns & places');
+  stages=stages.concat(['Discovering category sets','Detecting outliers & flagging what needs you']);
+  ov.innerHTML=`<div class="cleanbox"><div class="spin"></div><h3>${title}</h3><p>${sub}</p>
+    <div class="cbar"><i id="cfill"></i></div>
+    <div class="cladder">${stages.map((s,i)=>`<div class="r pending" id="cs${i}"><span>${s}</span><b>…</b></div>`).join('')}</div></div>`;
+  let p=0;const fill=$('#cfill');const n=stages.length;
+  const t=setInterval(()=>{p+=Math.random()*9+5;
+    const st=Math.min(n-1,Math.floor(p/(100/n)));
+    for(let k=0;k<=st;k++){const el=$('#cs'+k);if(el){el.classList.remove('pending');el.querySelector('b').textContent='done';}}
+    fill.style.width=Math.min(100,p)+'%';
+    if(p>=100){clearInterval(t);setTimeout(()=>{ov.classList.remove('on');go(5);},350);}
+  },80);
+}
+
+/* ------- sequential review (same interaction as before) ------- */
+const TYPES=Object.keys(TYPEMETA);
+const OUT={
+ numeric:[['9,999,999','far above the typical range for this column'],['-1','negative value where one is not expected']],
+ date:[['1899-12-31','implausibly old date'],['2090-01-01','date is in the future']],
+ categorical:[['Ozterz','appears only once, likely a typo or a stray new category']],
+ identifier:[['12','much shorter than the other IDs in this column']],
+ phone:[['000','too short to be a valid number']],
+ geo:[['Republic of Benin','reads like a country, not one of the 37 states']]
+};
+function makeOutliers(f){
+ if(f.outliers)return f.outliers; f.outliers=[];
+ const tmpl=OUT[f.type];
+ if(tmpl && (f.type==='numeric'||f.type==='date'||f.type==='geo'||f.id%2===0)){
+   const k=(f.type==='numeric'||f.type==='date')?tmpl.length:1;
+   for(let i=0;i<k;i++){const [v,why]=tmpl[i];f.outliers.push({oid:f.id*97+i,value:v,why,decision:null});}
+ }
+ return f.outliers;
+}
+function makeRows(f){if(f.rows)return f.rows;const tmpl=R[f.type]||R.free_text;const k=Math.max(3,Math.min(9,Math.round(f.nChanged/22)+3));f.rows=[];for(let i=0;i<k;i++){const [b,a]=tmpl[i%tmpl.length];f.rows.push({rid:1000+f.id*17+i,before:b,after:a,uncertain:a==='?',decision:null});}return f.rows;}
+const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',datetime:'date & time',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',organization:'organisations',place:'places',categorical:'categories',free_text:'free text',latitude:'latitude',longitude:'longitude',geopoint:'map coordinates',indicator:'0/1 marker',empty:'empty column',coordinate:'coordinates'};
+function typeWord(t){ return TYPEWORD[t]||(t?String(t).replace(/_/g,' '):'text'); }
+function numericSummary(f){
+  // Describe what actually happened, drawn from a bank and matched to the change.
+  const rows=f.rows||[]; const n=f.nChanged;
+  let sawSep=false, sawSym=false, sawTrailZero=false, sawSpace=false;
+  rows.forEach(r=>{ const b=String(r.before==null?'':r.before), a=String(r.after==null?'':r.after);
+    if(/[,\u00a0\u202f]/.test(b)) sawSep=true;
+    if(/[^0-9.,\-\s]/.test(b)) sawSym=true;
+    if(/\.\d*0$|\.0$/.test(b.trim()) && !/[^0-9.\-]/.test(b.trim())) sawTrailZero=true;
+    if(b!==b.trim()||/\s{2,}/.test(b)||/\s/.test(b)&&!/[a-z]/i.test(b)) sawSpace=true;
+  });
+  const did=[];
+  if(sawSym) did.push('removed currency and other symbols');
+  if(sawSep) did.push('removed thousands separators');
+  if(sawSpace) did.push('removed spaces');
+  if(sawTrailZero) did.push('dropped trailing zeros (7.0 is the same number as 7)');
+  const bank = did.length ? did.join(', ') : 'standardised the number formatting';
+  return 'Tidied '+n+' number'+(n===1?'':'s')+': '+bank+'. The value stays the same.';
+}
+function summarise(f){
+  const n=f.nChanged;
+  if(n===0) return 'Nothing to change, this column already looks clean.';
+  switch(f.type){
+    case 'phone': return 'Reformatted '+n+' phone numbers to a single standard.';
+    case 'email': return 'Lower-cased and tidied '+n+' email addresses.';
+    case 'date': return 'Converted '+n+' dates to YYYY-MM-DD, using the date order read from the whole column.';
+    case 'datetime': return 'Converted '+n+' timestamps to YYYY-MM-DD HH:MM:SS. The date order is kept as written.';
+    case 'latitude': case 'longitude': case 'coordinate': return 'Checked '+n+' coordinates: kept the decimals, flagged anything out of range.';
+    case 'gender': return 'Standardised '+n+' entries to Male / Female.';
+    case 'boolean': return 'Standardised '+n+' entries to Yes / No.';
+    case 'numeric': return numericSummary(f);
+    case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left as written.';
+    case 'geo': return 'Matched '+n+' entries to the correct region.';
+    case 'categorical': { const distinct=(f.rows||[]).length||1;
+      return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different words and different numbers stay separate. '+distinct+' spelling'+(distinct===1?'':'s')+' standardised across '+n+' row'+(n===1?'':'s')+'.'; }
+    case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
+    case 'free_text': return 'Tidied spacing and stray characters on '+n+' entries. The wording is left as written.';
+    default: return 'Tidied formatting on '+n+' entries (spacing and stray characters).';
+  }
+}
+function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(r=>[r.before,r.after]); }
+
+function isCosmetic(f){
+  const rows=f.rows||[]; if(!rows.length) return false;
+  const norm=s=>String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' ');
+  return rows.every(r=>norm(r.before)===norm(r.after));   // spacing/case only, meaning unchanged
+}
+let CARDS=[];
+function buildCards(){
+  CARDS=[];
+  if(SKIPPED && SKIPPED.length){ CARDS.push({kind:'banner', rows:SKIPPED.slice(0,20), headerRow:HEADER_ROW}); }
+  const simByCol={}; ((WORKLIST&&WORKLIST.similar)||[]).forEach(s=>{
+    simByCol[s.column]=(s.groups||[]).map(g=>({members:(g.members||[]).filter(Boolean),representative:g.representative,confidence:g.confidence}))
+      .filter(g=>g.members.length>=2 && g.confidence!=='low');
+  });
+  const cosmetic=[];
+  FIELDS.forEach(f=>{
+    const groups=simByCol[f.name]||[];
+    if(!(f.nChanged>0 || groups.length)) return;
+    if(f.nChanged>0 && !groups.length && isCosmetic(f)){ cosmetic.push(f); return; }  // batch these
+    CARDS.push({kind:'column', field:f, groups, applyClean:true,
+      assign:groups.map(g=>g.members.map(()=>'A')),
+      gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
+      gmerge:groups.map(()=>true), split:groups.map(()=>false)});
+  });
+  if(cosmetic.length){ const at=(SKIPPED&&SKIPPED.length)?1:0; CARDS.splice(at,0,{kind:'tidies', fields:cosmetic, expanded:false}); }
+  ((WORKLIST&&WORKLIST.admin)||[]).forEach(a=>{ if(a.items&&a.items.length) CARDS.push({kind:'admin', col:a.column, level:a.level, items:a.items.map(it=>({...it, decision:null}))}); });
+  const dupTotal=(WORKLIST&&WORKLIST.duplicates_total)||((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
+  if(dupTotal>0) CARDS.push({kind:'dupes', count:dupTotal, groups:((WORKLIST&&WORKLIST.duplicates)||[])});
+  CARDS.push({kind:'done'});
+}
+function curField(){ const c=CARDS[idx]; return c&&c.field; }
+function renderReview(){
+  if(!CARDS.length) buildCards();
+  if(!CARDS.length) return;
+  if(idx>CARDS.length-1) idx=CARDS.length-1;
+  const N=CARDS.length, c=CARDS[idx];
+  const stepN=Math.min(idx+1,N-1), total=Math.max(1,N-1);
+  $('#rvpos').textContent = c.kind==='done' ? 'Review complete' : ('Step '+stepN+' of '+total);
+  $('#rvbar').style.width=(100*idx/Math.max(1,N-1))+'%';
+  $('#rvcount').textContent = c.kind==='done' ? 'all done' : (idx+' of '+total+' done');
+  $('#backbtn').disabled=idx===0;
+  let html='';
+  if(c.kind==='banner') html=cardBanner(c);
+  else if(c.kind==='tidies') html=cardTidies(c);
+  else if(c.kind==='admin') html=cardAdmin(c);
+  else if(c.kind==='column') html=cardColumn(c);
+  else if(c.kind==='dupes') html=cardDupes(c);
+  else html=cardDone();
+  $('#reviewcard').innerHTML=html;
+  if(c.kind==='column' && (c.field.rows||[]).length) renderChanges('');
+}
+function tidyPeek(a){ const box=a.parentElement.querySelector('.col-peek'); const open=box.style.display==='none';
+  box.style.display=open?'block':'none'; a.textContent=open?'hide':'see'; if(open) renderChanges(''); }
+function seeChangesHTML(nChg){
+  return '<details class="rc-see"><summary>see '+nChg+' formatting change'+(nChg>1?'s':'')+'</summary>'+
+    '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)"><div class="rc-changes" id="chglist"></div></details>';
+}
+function typeRow(f){
+  return '<div class="rc-sub">read as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">change</a></div>'+
+    '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>';
+}
+function cardColumn(c){
+  const f=c.field, nChg=(f.rows||[]).length, hasGroups=c.groups.length>0;
+  let h='<div class="card rcard"><div class="rc-name">'+esc(labelOf(f.name))+'</div>'+typeRow(f);
+  if(!hasGroups){
+    h+='<div class="rc-summary">'+summarise(f)+'</div>'+(nChg?seeChangesHTML(nChg):'')+
+      '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardDecide(\'accept\')"><b>✓ Clean it</b><span>apply this</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'reject\')"><b>✗ Keep original</b><span>leave unchanged</span></button>'+
+      '</div></div>';
+    return h;
+  }
+  if(nChg){
+    c.applyClean = true;   // safe formatting applies on save; no competing toggle here
+    h+='<div class="col-alsotidy">Also tidying formatting on '+nChg+' entr'+(nChg===1?'y':'ies')+
+       ' (spacing, case). This does not change meaning. <a class="link tiny" onclick="tidyPeek(this)">see</a>'+
+       '<div class="col-peek" style="display:none"><div class="rc-changes" id="chglist"></div></div></div>';
+  }
+  h+='<div class="col-groups-h">Possible duplicates</div>';
+  c.groups.forEach((g,gi)=>{ h+=groupBlock(c,g,gi); });
+  h+='<div class="rc-decide"><button class="big ok wide" onclick="commitColumn()"><b>Save &amp; continue →</b><span>apply your choices for this column</span></button></div></div>';
+  return h;
+}
+function summariseShort(f){ const n=f.nChanged; switch(f.type){
+  case 'phone':return 'Reformat '+n+' numbers'; case 'email':return 'Tidy '+n+' emails';
+  case 'date':return 'Standardise '+n+' dates'; case 'datetime':return 'Standardise '+n+' timestamps';
+  case 'gender':return 'Standardise '+n; case 'boolean':return 'Standardise '+n;
+  case 'numeric':return 'Clean '+n+' numbers'; case 'name':return 'Fix caps on '+n+' names';
+  case 'geo':return 'Match '+n+' to states'; case 'categorical':return 'Tidy '+n+' entries';
+  case 'latitude': case 'longitude': case 'coordinate': return 'Check '+n+' coordinates';
+  case 'identifier':return 'Tidy '+n+' IDs'; default:return 'Fix spacing on '+n+' entries'; } }
+function groupBlock(c,g,gi){
+  const merging=c.gmerge[gi], splitting=c.split[gi];
+  let b='<div class="mgg"><div class="mgg-top"><span class="mg-badge '+(g.confidence||'')+'">'+(g.confidence||'')+'</span>'+
+    '<span class="sp" style="flex:1"></span>'+
+    '<label class="switch2 sm"><input type="checkbox" '+(merging?'checked':'')+' onchange="toggleGMerge('+gi+')"><span class="tk"></span></label>'+
+    '<span class="mgg-lbl">'+(merging?'merge':'keep')+'</span></div>';
+  if(!merging){ return b+'<div class="mgg-vals">'+g.members.map(esc).join('  ·  ')+'</div></div>'; }
+  if(!splitting){
+    b+='<div class="mgg-name"><input value="'+esc(c.gnames[gi].A||g.members[0]||'')+'" oninput="setGName('+gi+',\'A\',this.value)"></div>';
+    b+='<div class="mgg-vals">'+g.members.map(esc).join('  ·  ')+'</div>';
+    b+='<a class="link tiny" onclick="startSplit('+gi+')">not all the same? split</a>';
+  } else {
+    b+='<div class="mgg-hint">Tap a value to move it to another set.</div><div class="mgg-members">'+
+      g.members.map((m,mi)=>{const L=c.assign[gi][mi];
+        return '<button class="chip grp-'+L+'" onclick="cycleChip('+gi+','+mi+')">'+esc(m)+' <span class="chip-l">'+L+'</span></button>';}).join('')+'</div>';
+    [...new Set(c.assign[gi])].sort().forEach(L=>{ const cnt=c.assign[gi].filter(x=>x===L).length;
+      b+='<div class="mgg-name"><label>Set '+L+' ('+cnt+')</label><input value="'+esc(c.gnames[gi][L]||'')+'" oninput="setGName('+gi+',\''+L+'\',this.value)"></div>'; });
+  }
+  return b+'</div>';
+}
+function startSplit(gi){ CARDS[idx].split[gi]=true; renderReview(); }
+function toggleApplyClean(){ CARDS[idx].applyClean=!CARDS[idx].applyClean; }
+function toggleGMerge(gi){ const c=CARDS[idx]; c.gmerge[gi]=!c.gmerge[gi]; renderReview(); }
+function cycleChip(gi,mi){ const c=CARDS[idx]; const L=c.assign[gi][mi]; const nx=L==='A'?'B':(L==='B'?'C':'A');
+  c.assign[gi][mi]=nx; if(!(nx in c.gnames[gi])||!c.gnames[gi][nx]) c.gnames[gi][nx]=''; renderReview(); }
+function setGName(gi,L,v){ CARDS[idx].gnames[gi][L]=v; }
+function commitColumn(){ const c=CARDS[idx], f=c.field;
+  f.decision = (f.nChanged>0 && !c.applyClean) ? 'reject' : 'accept';
+  let merged=0;
+  c.groups.forEach((g,gi)=>{ if(!c.gmerge[gi]) return; const byL={};
+    g.members.forEach((m,mi)=>{ const L=c.assign[gi][mi]; (byL[L]=byL[L]||[]).push(m); });
+    Object.keys(byL).forEach(L=>{ const members=byL[L]; if(members.length>=2){
+      const into=(c.gnames[gi][L]||members[0]); WL_MERGES.push({column:f.name,into,members}); merged++; }});
+  });
+  c.decision='done'; if(merged) toast('Recorded '+merged+' merge'+(merged>1?'s':'')+' for this column'); advanceCard();
+}
+function cardTidies(c){
+  const N=c.fields.length;
+  const listing = c.expanded
+    ? '<div class="tidy-list">'+c.fields.map((f,i)=>{
+        const acc = f.decision!=='reject';
+        return '<div class="tidy-row"><label class="switch2 sm"><input type="checkbox" '+(acc?'checked':'')+' onchange="tidyToggle('+i+')"><span class="tk"></span></label>'+
+          '<span class="tidy-nm">'+esc(labelOf(f.name))+'</span><span class="tidy-ct">'+f.nChanged+' row'+(f.nChanged===1?'':'s')+'</span></div>';
+      }).join('')+'</div>'
+    : '<div class="tidy-names">'+c.fields.slice(0,14).map(f=>'<span class="tidy-chip">'+esc(labelOf(f.name))+'</span>').join('')+(N>14?'<span class="tidy-chip more">+'+(N-14)+' more</span>':'')+'</div>';
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Formatting-only tidies</div>'+
+    '<div class="rc-sub"><b>'+N+'</b> column'+(N===1?'':'s')+' had only spacing or letter-case tidied. This standardises how values look. It does not change your data\'s meaning.</div>'+
+    listing+
+    '<div class="tidy-link"><a class="link" onclick="tidyExpand()">'+(c.expanded?'hide list':'review individually')+'</a></div>'+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="tidyAll(true)"><b>✓ Accept all</b><span>apply these tidies</span></button>'+
+      '<button class="big no" onclick="tidyAll(false)"><b>Keep original</b><span>leave them as written</span></button>'+
+    '</div></div>';
+}
+function tidyExpand(){ const c=CARDS[idx]; c.expanded=!c.expanded; renderReview(); }
+function tidyToggle(i){ const c=CARDS[idx]; const f=c.fields[i]; f.decision = (f.decision==='reject')?'accept':'reject'; renderReview(); }
+function tidyAll(accept){ const c=CARDS[idx]; c.fields.forEach(f=>f.decision=accept?'accept':'reject'); c.decision='done'; advanceCard(); }
+function cardAdmin(c){
+  const lvl=c.level==='state'?'State':'LGA';
+  const rows=c.items.map((it,i)=>{
+    const tag = it.kind==='is_state'?'wrong level': (it.kind==='is_lga'?'wrong level':'not found');
+    const right = it.suggestion
+      ? '<button class="adm-fix" onclick="admFix('+i+')">'+(it.decision==='fix'?'✓ ':'')+'use "'+esc(it.suggestion)+'"</button>'
+      : '<span class="adm-note">'+esc(it.note||'')+'</span>';
+    return '<div class="adm-row"><span class="adm-tag '+it.kind+'">'+tag+'</span>'+
+      '<span class="adm-val">'+esc(it.value)+'</span>'+right+
+      '<button class="adm-keep '+(it.decision==='keep'?'on':'')+'" onclick="admKeep('+i+')">keep</button></div>';
+  }).join('');
+  return '<div class="card rcard">'+
+    '<div class="rc-name">'+esc(labelOf(c.col))+': check '+c.items.length+' value'+(c.items.length===1?'':'s')+'</div>'+
+    '<div class="rc-sub">These don\'t match the official list of Nigerian '+lvl+'s. Fix a typo, or keep it as written. Nothing changes unless you choose a fix.</div>'+
+    '<div class="adm-list">'+rows+'</div>'+
+    '<div class="rc-decide"><button class="big ok wide" onclick="advanceCard()"><b>Save &amp; continue →</b><span>apply the fixes you picked</span></button></div>'+
+    '</div>';
+}
+function admFix(i){ const c=CARDS[idx]; const it=c.items[i]; it.decision=(it.decision==='fix')?null:'fix';
+  if(it.decision==='fix'){ WL_MERGES.push({column:c.col, into:it.suggestion, members:[it.value]}); }
+  else { WL_MERGES=WL_MERGES.filter(m=>!(m.column===c.col && m.members&&m.members[0]===it.value)); }
+  renderReview();
+}
+function admKeep(i){ const c=CARDS[idx]; const it=c.items[i]; it.decision=(it.decision==='keep')?null:'keep';
+  WL_MERGES=WL_MERGES.filter(m=>!(m.column===c.col && m.members&&m.members[0]===it.value));
+  renderReview();
+}
+function cardBanner(c){
+  const n=c.rows.length;
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Skipped '+n+' row'+(n>1?'s':'')+' before your table</div>'+
+    '<div class="rc-sub">These looked like a title or caption, not data. Your table starts at row '+(c.headerRow||'?')+'. Check they are not real records.</div>'+
+    '<div class="ban-list">'+c.rows.map((t,i)=>'<div class="ban-row"><span class="ban-rn">row '+(i+1)+'</span><span class="ban-txt">'+esc(t||'(blank)')+'</span></div>').join('')+'</div>'+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardDecide(\'skip\')"><b>✓ Skip them</b><span>they are a caption</span></button>'+
+      '<button class="big no" onclick="bannerKeep()"><b>These are data</b><span>do not cut them</span></button>'+
+    '</div></div>';
+}
+function bannerKeep(){ toast('Noted. Re-upload the file with the caption rows removed, or tell us the header row, full restore is coming.'); cardDecide('skip'); }
+function cardDupes(c){
+  const groups=c.groups||[]; const shown=groups.length;
+  let list='';
+  if(shown){
+    list='<div class="dup-list">'+groups.slice(0,50).map(g=>{
+      const rows=(g.row_previews||[]).map((rp,i)=>'<div class="dup-row '+(i===0?'keep':'drop')+'"><span class="dup-tag">'+(i===0?'keep':'remove')+'</span><span class="dup-rn">row '+(rp.row+1)+'</span><span class="dup-vals">'+esc(rp.text||'')+'</span></div>').join('');
+      return '<div class="dup-grp">'+rows+'</div>';
+    }).join('')+'</div>';
+  }
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Duplicate rows</div>'+
+    '<div class="rc-sub">Found <b>'+c.count+'</b> row'+(c.count>1?'s':'')+' that repeat another row'+
+      (c.count>shown && shown? ', showing the first '+shown+' set'+(shown>1?'s':''):'')+'. "Remove" keeps the first of each set.</div>'+
+    list+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="cardDupesYes()"><b>Remove duplicates</b><span>keep the first of each</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep all</b><span>change nothing</span></button>'+
+    '</div></div>';
+}
+function cardDone(){
+  return '<div class="card rcard rc-doneCard">'+
+    '<div class="rc-name">All reviewed 🎉</div>'+
+    '<div class="rc-sub">Your choices are ready. Nothing changes until you produce the file.</div>'+
+    '<div class="rc-decide"><button class="big ok wide" onclick="go(7)"><b>Produce cleaned file →</b><span>apply and download</span></button></div>'+
+    '</div>';
+}
+function advanceCard(){ if(idx<CARDS.length-1){ idx++; setTimeout(renderReview,140); } else renderReview(); }
+function cardDecide(d){ const c=CARDS[idx]; c.decision=d;
+  if(c.kind==='column') c.field.decision=(d==='accept')?'accept':'reject';
+  advanceCard();
+}
+function cardDupesYes(){ const c=CARDS[idx]; c.decision='remove'; WL_REMOVE_DUPES=true; toast('Will remove duplicate rows'); advanceCard(); }
+function renderChanges(q){
+  const f=curField(); if(!f)return; const box=document.getElementById('chglist'); if(!box) return;
+  const rows=f.rows||[]; const ql=(q||'').toLowerCase();
+  const groups={};
+  rows.forEach(r=>{ const a=(r.after==null?'':String(r.after)); (groups[a]=groups[a]||[]).push(r); });
+  const order=Object.keys(groups).sort((x,y)=>groups[y].length-groups[x].length);
+  let html='';
+  order.forEach(after=>{
+    const all=groups[after];
+    const members=all.filter(r=>!ql || String(r.before).toLowerCase().includes(ql) || after.toLowerCase().includes(ql));
+    if(!members.length) return;
+    html+='<div class="chg-group"><div class="chg-head">→ <b>'+(esc(after)||'∅')+'</b> <span class="chg-n">'+all.length+' value'+(all.length>1?'s':'')+'</span></div>';
+    members.slice(0,300).forEach(r=>{
+      const before=(r.before==null?'':String(r.before));
+      const norm=s=>s.replace(/\s+/g,' ').trim();
+      const spacingOnly=norm(before).toLowerCase()===norm(after).toLowerCase();
+      if(spacingOnly) html+='<div class="chg-line"><span class="b same">'+(esc(before)||'∅')+'</span> <span class="chg-tag">spacing</span></div>';
+      else html+='<div class="chg-line"><span class="b">'+(esc(before)||'∅')+'</span></div>';
+    });
+    if(members.length>300) html+='<div class="chg-line" style="color:var(--faint)">…and '+(members.length-300)+' more</div>';
+    html+='</div>';
+  });
+  box.innerHTML=html||'<div class="chg-empty">no matching changes</div>';
+}
+function setDecision(d){ cardDecide(d); }
+function rvBack(){ if(idx>0){ idx--; renderReview(); } }
+function toggleType(){ const el=$('#typepick'); el.style.display=el.style.display==='none'?'block':'none'; }
+function setType(v){ const f=curField(); if(!f)return; f.type=v; f.method=(TYPEMETA[v]||['format',0.9])[0]; f.rows=null; f.outliers=null; renderReview(); }
+function acceptRemaining(){ FIELDS.forEach(f=>{ if(!f.decision) f.decision='accept'; }); renderReview(); toast('Accepted all remaining columns'); }
+function updateGate(){ const N=FIELDS.length, reviewed=FIELDS.filter(f=>f.decision).length, left=N-reviewed;
+  $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' column'+(left>1?'s':'')+' still to review' : 'All '+N+' columns reviewed.';
+  $('#finish').disabled = left>0; }
+
+function wlSet(key,choice){ WLDECISIONS[key]=choice; if(key.indexOf('dup:')===0 && /remove/.test(choice)) WL_REMOVE_DUPES=true; renderWorklist(); toast('Choice recorded'); }
+function wlRecleanCol(name){ const i=FIELDS.findIndex(f=>f.name===name); if(i>=0){ idx=i; FIELDS[i].decision=null; go(5); toast('Pick a different type, or accept the cleaning'); } }
+function wlSetAll(name){ const v=prompt('Set every value in "'+name+'" to:'); if(v){ WL_SETALL[name]=v; wlSet('col:'+name,'set all to "'+v+'"'); } }
+function wlFixFlagged(col){ const v=prompt('Set the flagged values in "'+col+'" to:'); if(v){ WL_SETALL[col]=v; wlSet('flag:'+col,'set to "'+v+'"'); } }
+function renderWorklist(){
+  const box=$('#worklist'); if(!box) return;
+  const wl=WORKLIST||{flagged:[],duplicates:[],similar:[]};
+  const rejected=FIELDS.filter(f=>f.decision==='reject');
+  let h='';
+
+  h+='<div class="wl-sec"><div class="wl-h">Columns you kept as original ('+rejected.length+')</div>';
+  if(!rejected.length) h+='<div class="wl-empty">None, you applied cleaning to every column.</div>';
+  rejected.forEach(f=>{ const k='col:'+f.name,d=WLDECISIONS[k];
+    h+='<div class="wl-item"><div class="wl-t"><b>'+esc(f.name)+'</b><span class="wl-type">'+f.type+'</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+      '<div class="wl-acts"><button onclick="wlRecleanCol(\''+f.name+'\')">Try a different clean</button>'+
+      '<button onclick="wlSetAll(\''+f.name+'\')">Set all to…</button>'+
+      '<button class="leave" onclick="wlSet(\'col:'+f.name+'\',\'left as-is\')">Leave as-is</button></div></div>'; });
+  h+='</div>';
+
+  const fl=wl.flagged||[];
+  h+='<div class="wl-sec"><div class="wl-h">Values flagged for review ('+fl.reduce((a,c)=>a+c.values.length,0)+')</div>';
+  if(!fl.length) h+='<div class="wl-empty">None flagged.</div>';
+  fl.forEach(col=>{ const k='flag:'+col.column,d=WLDECISIONS[k];
+    h+='<div class="wl-item"><div class="wl-t"><b>'+esc(col.column)+'</b><span class="wl-type">'+col.values.length+' flagged</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+      '<div class="wl-vals">'+col.values.slice(0,12).map(v=>'<span class="wl-val" title="'+esc(v.reason||'')+'">'+(esc(v.value)||'∅')+'</span>').join('')+(col.values.length>12?' <span class="wl-more">+'+(col.values.length-12)+' more</span>':'')+'</div>'+
+      '<div class="wl-acts"><button onclick="wlFixFlagged(\''+col.column+'\')">Set these to a correct value…</button>'+
+      '<button class="leave" onclick="wlSet(\'flag:'+col.column+'\',\'left for later\')">Leave for later</button></div></div>'; });
+  h+='</div>';
+
+  const dp=wl.duplicates||[];
+  h+='<div class="wl-sec"><div class="wl-h">Possible duplicate rows ('+dp.length+')</div>';
+  if(!dp.length) h+='<div class="wl-empty">No duplicate rows found.</div>';
+  dp.forEach((g,i)=>{ const k='dup:'+i,d=WLDECISIONS[k];
+    h+='<div class="wl-item"><div class="wl-t">'+(g.kind==='exact'?'Exact match':'Near match ('+Math.round(g.similarity*100)+'%)')+', rows '+g.rows.join(', ')+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+      '<div class="wl-vals"><span class="wl-val">'+esc(g.preview)+'</span></div>'+
+      '<div class="wl-acts"><button onclick="wlSet(\'dup:'+i+'\',\'remove duplicates (keep first)\')">Remove duplicates</button>'+
+      '<button class="leave" onclick="wlSet(\'dup:'+i+'\',\'kept both\')">Keep both</button></div></div>'; });
+  h+='</div>';
+
+  const sm=wl.similar||[];
+  h+='<div class="wl-sec"><div class="wl-h">Similar entries that might be the same ('+sm.reduce((a,c)=>a+c.groups.length,0)+')</div>';
+  if(!sm.length) h+='<div class="wl-empty">No similar groups suggested.</div>';
+  else h+='<div class="wl-empty" style="margin-bottom:6px">Tick the ones that are the same, edit the single name, then combine. Untick any that don\'t belong.</div>';
+  sm.forEach((col,ci)=>{ col.groups.forEach((g,gi)=>{ const k='sim:'+col.column+':'+gi,d=WLDECISIONS[k];
+    const conf=g.confidence==='high'?'very likely the same':(g.confidence==='medium'?'possibly the same':'maybe related');
+    h+='<div class="wl-item"><div class="wl-t"><b>'+esc(col.column)+'</b> <span class="wl-badge '+g.confidence+'">'+conf+'</span>'+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>';
+    h+='<div class="sim-members">'+g.members.map((m,mi)=>'<label class="sim-mem"><input type="checkbox" id="simchk_'+ci+'_'+gi+'_'+mi+'" checked> <span>'+(esc(m)||'∅')+'</span></label>').join('')+'</div>';
+    h+='<div class="sim-name"><span>Combine into</span><input id="simname_'+ci+'_'+gi+'" value="'+esc(g.representative)+'"></div>';
+    h+='<div class="wl-acts"><button onclick="wlCombine(\''+col.column+'\','+ci+','+gi+')">Combine selected</button>'+
+      '<button class="leave" onclick="wlSet(\''+k+'\',\'kept separate\')">Keep separate</button></div></div>'; }); });
+  h+='</div>';
+
+  const rc=wl.repeated_columns||[];
+  if(rc.length){
+    h+='<div class="wl-sec"><div class="wl-h">Repeated columns ('+rc.length+')</div>';
+    h+='<div class="wl-empty" style="margin-bottom:6px">These look like the same field appearing more than once (same name). Review whether to keep one.</div>';
+    rc.forEach((g,i)=>{ const k='rep:'+i,d=WLDECISIONS[k];
+      h+='<div class="wl-item"><div class="wl-t">'+esc(g.reason)+(d?'<span class="wl-done">✓ '+esc(d)+'</span>':'')+'</div>'+
+        '<div class="wl-vals">'+g.columns.map(c=>'<span class="wl-val">'+esc(c)+'</span>').join('')+'</div>'+
+        '<div class="wl-acts"><button onclick="wlSet(\'rep:'+i+'\',\'keep first only\')">Keep first only</button>'+
+        '<button class="leave" onclick="wlSet(\'rep:'+i+'\',\'kept all\')">Keep all</button></div></div>'; });
+    h+='</div>';
+  }
+
+  const decided=Object.keys(WLDECISIONS).length;
+  h+='<div class="wl-foot">'+decided+' item'+(decided===1?'':'s')+' decided. Choices are recorded and applied on export; anything you leave stays exactly as recorded.</div>';
+  box.innerHTML=h;
+}
+function wlCombine(col,ci,gi){
+  const nameEl=document.getElementById('simname_'+ci+'_'+gi);
+  const name=(nameEl&&nameEl.value||'').trim();
+  if(!name){ toast('Type the single name to combine into'); return; }
+  const g=WORKLIST.similar[ci].groups[gi];
+  let n=0; g.members.forEach((m,mi)=>{ const el=document.getElementById('simchk_'+ci+'_'+gi+'_'+mi); if(el&&el.checked) n++; });
+  if(n<2){ toast('Tick at least two entries to combine'); return; }
+  const chosen=g.members.filter((m,mi)=>{ const el=document.getElementById('simchk_'+ci+'_'+gi+'_'+mi); return el&&el.checked; });
+  WL_MERGES.push({column:col, into:name, members:chosen});
+  wlSet('sim:'+col+':'+gi, 'combined '+n+' into "'+name+'"');
+}
+async function doExport(){
+  const out=$('#expout');
+  if(!SESSION_ID){ out.innerHTML='<div class="wl-empty">Export applies to an uploaded file. Upload real data (not the sample walk-through) to produce a cleaned file.</div>'; return; }
+  const decisions={
+    reject: FIELDS.filter(f=>f.decision==='reject').map(f=>f.name),
+    setall: WL_SETALL,
+    merges: WL_MERGES,
+    remove_duplicates: WL_REMOVE_DUPES
+  };
+  makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
+  try{
+    const fd=new FormData(); fd.append('session_id',SESSION_ID); fd.append('decisions',JSON.stringify(decisions));
+    const res=await fetch('/api/export',{method:'POST',body:fd});
+    const d=await res.json();
+    if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
+    let html='<div class="tk-summary"><b>'+d.rows_out+'</b> rows · <b>'+d.cols_out+'</b> columns · <b>'+d.changes_total+'</b> changes applied</div>';
+    html+='<div class="tk-dl"><span>Download cleaned data:</span>'+
+      '<button class="btn sm" onclick="expDL(\''+d.result_id+'\',\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'csv\')">CSV</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></div>';
+    html+='<div class="tk-dl"><span>Change log:</span>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\')">Excel</button></div>';
+    if(d.audit&&d.audit.length){
+      html+='<div class="tk-tablewrap" style="margin-top:10px"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>rows</th></tr></thead><tbody>'+
+        d.audit.map(a=>'<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+esc(String(a.count))+'</td></tr>').join('')+'</tbody></table></div>';
+    }
+    out.innerHTML=html;
+  }catch(err){ out.innerHTML='<div class="wl-empty">Could not produce the file: '+esc(err.message)+'</div>'; }
+}
+function expDL(id,fmt){ window.open('/api/tool/download/'+id+'?fmt='+fmt,'_blank'); }
+function renderExport(){
+  let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
+  $('#expkpis').innerHTML=[['#2f6f57',acc,'columns cleaned & applied'],['#a83a3a',rej,'columns kept as-is'],['#b5761c',outl,'values flagged for follow-up'],['#1d3a53',FIELDS.length,'columns reviewed']]
+    .map(x=>'<div class="kpi"><div class="n" style="color:'+x[0]+'">'+x[1]+'</div><div class="l">'+x[2]+'</div></div>').join('');
+  FIELDS.forEach(f=>{ if(!(f.name in PERM)) PERM[f.name]='off'; });   // consent-first: default off
+  renderPerm();
+}
+const SENSITIVE=new Set(['identifier']);
+function toggleNet(on){ $('#netpanel').style.display=on?'block':'none';
+  $('#netnote').textContent = on
+    ? 'On, pick the columns other agencies may ask about. Only a verified answer is returned; the record never leaves this computer.'
+    : 'Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.';
+}
+function renderPerm(){
+  const box=$('#permlist'); if(!box) return;
+  box.innerHTML=FIELDS.map(f=>{
+    const lvl=PERM[f.name]||'off'; const sens=SENSITIVE.has(f.type);
+    return '<div class="permrow '+(sens?'sensitive':'')+'"><span class="pl">'+esc(labelOf(f.name))+'<span class="pt">'+f.type+'</span></span>'+
+      '<span class="seg">'+
+        '<button class="'+(lvl==='off'?'on':'')+'" onclick="setPerm(\''+f.name+'\',\'off\')">Not shared</button>'+
+        '<button class="'+(lvl==='confirm'?'on':'')+'" onclick="setPerm(\''+f.name+'\',\'confirm\')">Confirm (yes/no)</button>'+
+        '<button class="'+(lvl==='value'?'on':'')+'" onclick="setPerm(\''+f.name+'\',\'value\')">Share value</button>'+
+      '</span></div>';}).join('');
+  const conf=FIELDS.filter(f=>PERM[f.name]==='confirm').length, val=FIELDS.filter(f=>PERM[f.name]==='value').length;
+  $('#permsummary').innerHTML='<b>'+(conf+val)+'</b> of '+FIELDS.length+' columns answerable'+(val?' · '+val+' return a value':'');
+  $('#publishbtn').disabled=(conf+val)===0;
+}
+function setPerm(name,lvl){ PERM[name]=lvl; renderPerm(); }
+function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSITIVE.has(f.type))?'off':lvl; }); renderPerm();
+  if(lvl==='confirm') toast('Sensitive ID columns left off, switch them on individually if needed'); }
+function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
+
+let SETTINGS={region:'ng',ai:false,provider:'ollama',key:'',contrib:false};
+async function openSettings(){
+  const m=$('#settings'); m.classList.add('on');
+  const sel=$('#set-region');
+  if(sel && !sel.dataset.loaded){
+    try{ const r=await fetch('/api/regions'); const d=await r.json();
+      sel.innerHTML=d.regions.map(x=>'<option value="'+x.key+'">'+esc(x.name)+'</option>').join('');
+      SETTINGS.region=SETTINGS.region||d.active; sel.dataset.loaded='1';
+    }catch(e){ sel.innerHTML='<option value="generic">Generic / international</option><option value="ng">Nigeria</option>'; }
+  }
+  $('#set-region').value=SETTINGS.region;
+  $('#set-ai').checked=SETTINGS.ai; onAIToggle(SETTINGS.ai);
+  $('#set-provider').value=SETTINGS.provider; onProviderChange();
+  $('#set-key').value=SETTINGS.key; $('#set-contrib').checked=SETTINGS.contrib;
+}
+function closeSettings(){ $('#settings').classList.remove('on'); }
+function onAIToggle(on){ $('#set-ai-panel').style.display=on?'block':'none'; }
+function onProviderChange(){
+  const p=$('#set-provider').value, local=(p==='ollama');
+  $('#set-key-label').textContent=local?'Local server URL':'API key';
+  $('#set-key').placeholder=local?'http://localhost:11434':'paste your '+p+' API key';
+  $('#set-ai-priv').innerHTML=local
+    ? 'A local model keeps everything on your machine, nothing is sent to any company.'
+    : 'Uses your own '+p+' API key. Only column headers and a small sample of values are sent to '+p+', never full records.';
+}
+function saveSettings(){
+  SETTINGS={region:$('#set-region').value, ai:$('#set-ai').checked, provider:$('#set-provider').value,
+            key:$('#set-key').value, contrib:$('#set-contrib').checked};
+  closeSettings();
+  toast('Settings saved · region: '+SETTINGS.region+(SETTINGS.ai?' · AI on':''));
+}
+let TK_TOOLS=null, TK_CUR=null, TK_RESULT=null;
+async function renderToolkit(){
+  const box=$('#toolkit'); if(!box) return;
+  TK_CUR=null; TK_RESULT=null;
+  if(!TK_TOOLS){
+    try{ TK_TOOLS=(await (await fetch('/api/tools')).json()).tools; }
+    catch(e){ box.innerHTML='<div class="wl-empty">Toolkit needs the live engine (run on the server or desktop app).</div>'; return; }
+  }
+  box.innerHTML='<div class="tk-grid">'+TK_TOOLS.map(t=>
+    '<div class="tk-card" onclick="openTool(\''+t.id+'\')"><div class="tk-name">'+esc(t.name)+'</div>'+
+    '<div class="tk-desc">'+esc(t.desc)+'</div><div class="tk-kind">'+(t.kind==='report'?'report':'dataset')+'</div></div>').join('')+'</div>';
+}
+function openTool(id){
+  TK_CUR=TK_TOOLS.find(t=>t.id===id); TK_RESULT=null;
+  const multi=(id==='match'||id==='compare'||id==='combine');
+  const box=$('#toolkit');
+  box.innerHTML='<button class="btn ghost sm" onclick="renderToolkit()">← All tools</button>'+
+    '<h2 style="margin:12px 0 4px">'+esc(TK_CUR.name)+'</h2><p class="lead">'+esc(TK_CUR.desc)+'</p>'+
+    '<div class="tk-panel"><label class="tk-file">'+
+      '<input type="file" id="tk-input" '+(multi?'multiple ':'')+'accept=".csv,.tsv,.txt,.xlsx,.xls,.json,.pdf" onchange="tkPick()">'+
+      '<span id="tk-filelabel">'+(multi?'Choose two or more files to match…':'Choose a file…')+'</span></label>'+
+      (multi?'<div class="tk-row"><span>Join</span><select id="tk-how"><option value="outer">Keep everyone (outer)</option><option value="inner">Only matches (inner)</option></select></div>':'')+
+      '<button class="btn" id="tk-run" disabled onclick="runTool()">Run &amp; preview</button>'+
+    '</div><div id="tk-out"></div>';
+}
+function tkPick(){ const inp=$('#tk-input'); const n=inp.files.length;
+  $('#tk-filelabel').textContent=n?(n+' file'+(n>1?'s':'')+' selected'):'Choose a file…';
+  $('#tk-run').disabled=(n===0 || (['match','compare','combine'].includes(TK_CUR.id)&&n<2)); }
+async function runTool(){
+  const inp=$('#tk-input'); if(!inp.files.length) return;
+  const out=$('#tk-out');
+  let bytes=0; for(const f of inp.files) bytes+=f.size;
+  const stages=["Uploading…","Reading the file(s)…","Running "+TK_CUR.name.toLowerCase()+"…","Building your result…"];
+  const prog=makeProgress(out, estimateMs(bytes), stages, "Running "+esc(TK_CUR.name)+"…", "");
+  const fd=new FormData();
+  for(const f of inp.files) fd.append('files', f);
+  fd.append('region', (typeof SETTINGS!=='undefined'&&SETTINGS.region)||'ng');
+  const how=$('#tk-how'); if(how) fd.append('how', how.value);
+  try{
+    const res=await fetch('/api/tool/'+TK_CUR.id,{method:'POST',body:fd});
+    const d=await res.json();
+    if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
+    prog.finish(); await new Promise(r=>setTimeout(r,350));
+    TK_RESULT=d;
+    const sm=Object.entries(d.summary).map(([k,v])=>'<b>'+esc(v)+'</b> '+esc(k.replace(/_/g,' '))).join(' · ');
+    let html='<div class="tk-summary">'+sm+'</div>';
+    if(d.rows_total===0){ html+='<div class="wl-empty">Nothing found, your data looks clean for this check.</div>'; }
+    else{
+      html+='<div class="tk-tablewrap"><table class="tk-table"><thead><tr>'+d.columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
+        d.preview.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x==null?'':String(x))+'</td>').join('')+'</tr>').join('')+
+        '</tbody></table></div>'+(d.rows_total>d.preview.length?'<div class="tk-more">showing '+d.preview.length+' of '+d.rows_total+' rows</div>':'');
+    }
+    html+='<div class="tk-dl"><span>Download:</span>'+
+      '<button class="btn sm" onclick="tkDownload(\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="tkDownload(\'csv\')">CSV</button>'+
+      '<button class="btn sm ghost" onclick="tkDownload(\'docx\')">Word</button></div>';
+    out.innerHTML=html;
+  }catch(err){ prog.fail(); out.innerHTML='<div class="wl-empty">Could not run: '+esc(err.message)+'</div>'; }
+}
+function tkDownload(fmt){ if(!TK_RESULT) return; window.open('/api/tool/download/'+TK_RESULT.result_id+'?fmt='+fmt,'_blank'); }
+function makeProgressManual(el, title, sub){
+  el.innerHTML=`<div class="cleanbox">
+    <h3>${title}</h3><p>${sub||''}</p>
+    <div class="progress"><i id="pgbar"></i></div>
+    <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta"></span></div>
+    <div class="prog-stage" id="pgstage">starting…</div></div>`;
+  const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
+        eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
+  let t0=Date.now(), prevT=t0, prevF=0, rate=0;
+  return {
+    set(frac,stage){ frac=Math.max(0,Math.min(0.99,frac)); const p=Math.round(frac*100);
+      bar.style.width=p+'%'; pct.textContent=p+'%'; if(stage) stg.textContent=stage;
+      const now=Date.now();
+      if(frac>prevF){ const inst=(frac-prevF)/Math.max(0.001,(now-prevT)/1000);
+        rate = rate? (0.5*rate+0.5*inst) : inst; prevT=now; prevF=frac; }
+      if(rate>0 && frac>0.05 && frac<0.98){ const remain=(1-frac)/rate;
+        eta.textContent = remain>90 ? ('a few minutes left') : (remain>2 ? ('about '+Math.ceil(remain)+' sec left') : 'wrapping up');
+      } else if(frac>=0.98){ eta.textContent='wrapping up'; }
+      else { eta.textContent='working…'; }
+    },
+    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; }
+  };
+}
+function makeProgress(el, estMs, stages, title, sub){
+  el.innerHTML=`<div class="cleanbox">
+    <h3>${title}</h3><p>${sub||''}</p>
+    <div class="progress"><i id="pgbar"></i></div>
+    <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta">estimating…</span></div>
+    <div class="prog-stage" id="pgstage">${stages[0]}</div></div>`;
+  const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
+        eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
+  const start=Date.now(); let done=false, raf;
+  function tick(){
+    if(done) return;
+    const elapsed=Date.now()-start;
+    const p=Math.min(0.92, elapsed/estMs);           // hold at 92% until the real finish
+    const shown=Math.round(p*100);
+    bar.style.width=shown+'%'; pct.textContent=shown+'%';
+    const remain=Math.max(0, estMs-elapsed);
+    eta.textContent = remain>1500 ? ('about '+Math.ceil(remain/1000)+' sec left')
+                     : (elapsed<estMs ? 'a few seconds left' : 'almost done…');
+    stg.textContent=stages[Math.min(stages.length-1, Math.floor(p*stages.length))];
+    raf=requestAnimationFrame(tick);
+  }
+  tick();
+  return {
+    finish(){ done=true; cancelAnimationFrame(raf); bar.style.width='100%';
+      pct.textContent='100%'; eta.textContent='done'; stg.textContent=stages[stages.length-1]; },
+    fail(){ done=true; cancelAnimationFrame(raf); }
+  };
+}
+function estimateMs(bytes){ return Math.round(1800 + Math.min(22000, (bytes/1048576)*1500)); }
+
+async function onRealFile(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const ov=$('#overlay'); ov.classList.add('on');
+  const prog=makeProgressManual(ov, "Reading &amp; cleaning your file…",
+    "Reading <b>"+esc(file.name)+"</b> on this computer. Nothing is uploaded in the desktop app.");
+  try{
+    const fd=new FormData(); fd.append('file', file); fd.append('region', SETTINGS.region||'ng');
+    const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
+    if(!res.ok || !res.body) throw new Error('stream '+res.status);
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='', payload=null, errMsg=null;
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let nl; while((nl=buf.indexOf('\n'))>=0){
+        const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
+        let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
+        if(msg.t==='progress'){ const frac=(msg.pct!=null)?msg.pct:((msg.done||0)/(msg.total||1)); prog.set(frac, msg.stage); }
+        else if(msg.t==='result'){ payload=msg.payload; }
+        else if(msg.t==='error'){ errMsg=msg.error; }
+      }
+    }
+    if(errMsg) throw new Error(errMsg);
+    if(!payload) throw new Error('no result');
+    buildFieldsFromAPI(payload, file.name);
+    reached=Math.max(reached,5);
+    prog.finish();
+    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 400);
+  }catch(err){
+    ov.classList.remove('on');
+    toast('Could not clean that file: '+err.message);
+  }
+}
+function buildFieldsFromAPI(data, filename){
+  const ov=data.overview||[];
+  FIELDS=ov.map((c,i)=>{
+    const type=(c.read_as && c.read_as!==',')?c.read_as:'free_text';
+    const src=(c.changes && c.changes.length)?c.changes:(c.examples||[]);
+    const rows=src.map((ex,j)=>({rid:1000+i*13+j,before:ex.before,after:ex.after,uncertain:false,decision:null}));
+    return {id:i,name:c.column,type,method:'format',conf:0.9,nChanged:c.n_changed,
+            status:(c.n_flagged>0)?'flagged':((c.n_changed>0)?'review':'auto'),
+            rows:rows,outliers:[],decision:null,_real:true};
+  });
+  idx=0;
+  WORKLIST=data.worklist||null; WLDECISIONS={};
+  CARDS=[];
+  SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
+  SKIPPED=(data.skipped_rows||[]); HEADER_ROW=data.header_row||null;
+  buildCards();
+  SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
+  if(data.ingest){ const m=/(\d+)\s*rows\s*x\s*(\d+)\s*cols/i.exec(data.ingest); const ext=(data.ingest.split('|')[0]||'').trim();
+    const rf=$('#rf-file'); if(rf) rf.textContent = m ? (m[1]+'×'+m[2]+' · '+ext) : data.ingest; }
+}
+go(0);
+</script>
+</body>
+</html>
