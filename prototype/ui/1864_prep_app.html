@@ -351,6 +351,14 @@
   .ban-row:last-child{border-bottom:none}
   .ban-rn{color:var(--faint);font-family:var(--mono);font-size:11px;min-width:52px}
   .ban-txt{font-family:var(--mono);color:var(--ink-soft)}
+  .tidy-names{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+  .tidy-chip{font-size:12px;border:1px solid var(--line-soft);border-radius:99px;padding:4px 11px;color:var(--ink-soft);background:#fff}
+  .tidy-chip.more{color:var(--faint)}
+  .tidy-list{border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px;max-height:280px;overflow:auto}
+  .tidy-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-bottom:1px solid var(--line-soft)}
+  .tidy-row:last-child{border-bottom:none}
+  .tidy-nm{flex:1;font-size:13px} .tidy-ct{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+  .tidy-link{margin:2px 0 6px}
 </style>
 </head>
 <body>
@@ -812,21 +820,40 @@ function makeOutliers(f){
 function makeRows(f){if(f.rows)return f.rows;const tmpl=R[f.type]||R.free_text;const k=Math.max(3,Math.min(9,Math.round(f.nChanged/22)+3));f.rows=[];for(let i=0;i<k;i++){const [b,a]=tmpl[i%tmpl.length];f.rows.push({rid:1000+f.id*17+i,before:b,after:a,uncertain:a==='?',decision:null});}return f.rows;}
 const TYPEWORD={identifier:'ID numbers',phone:'phone numbers',email:'email addresses',date:'dates',datetime:'date & time',numeric:'numbers',boolean:'yes/no values',gender:'sex / gender',name:'names',geo:'state / place names',organization:'organisations',place:'places',categorical:'categories',free_text:'free text',latitude:'latitude',longitude:'longitude',geopoint:'map coordinates',indicator:'0/1 marker',empty:'empty column',coordinate:'coordinates'};
 function typeWord(t){ return TYPEWORD[t]||(t?String(t).replace(/_/g,' '):'text'); }
+function numericSummary(f){
+  // Describe what actually happened, drawn from a bank and matched to the change.
+  const rows=f.rows||[]; const n=f.nChanged;
+  let sawSep=false, sawSym=false, sawTrailZero=false, sawSpace=false;
+  rows.forEach(r=>{ const b=String(r.before==null?'':r.before), a=String(r.after==null?'':r.after);
+    if(/[,\u00a0\u202f]/.test(b)) sawSep=true;
+    if(/[^0-9.,\-\s]/.test(b)) sawSym=true;
+    if(/\.\d*0$|\.0$/.test(b.trim()) && !/[^0-9.\-]/.test(b.trim())) sawTrailZero=true;
+    if(b!==b.trim()||/\s{2,}/.test(b)||/\s/.test(b)&&!/[a-z]/i.test(b)) sawSpace=true;
+  });
+  const did=[];
+  if(sawSym) did.push('removed currency and other symbols');
+  if(sawSep) did.push('removed thousands separators');
+  if(sawSpace) did.push('removed spaces');
+  if(sawTrailZero) did.push('dropped trailing zeros (7.0 is the same number as 7)');
+  const bank = did.length ? did.join(', ') : 'standardised the number formatting';
+  return 'Tidied '+n+' number'+(n===1?'':'s')+': '+bank+'. The value stays the same.';
+}
 function summarise(f){
   const n=f.nChanged;
   if(n===0) return 'Nothing to change, this column already looks clean.';
   switch(f.type){
-    case 'phone': return 'Reformatted '+n+' phone numbers to the +234 standard.';
+    case 'phone': return 'Reformatted '+n+' phone numbers to a single standard.';
     case 'email': return 'Lower-cased and tidied '+n+' email addresses.';
-    case 'date': return 'Converted '+n+' dates to YYYY-MM-DD.';
+    case 'date': return 'Converted '+n+' dates to YYYY-MM-DD, using the date order read from the whole column.';
     case 'datetime': return 'Converted '+n+' timestamps to YYYY-MM-DD HH:MM:SS. The date order is kept as written.';
     case 'latitude': case 'longitude': case 'coordinate': return 'Checked '+n+' coordinates: kept the decimals, flagged anything out of range.';
     case 'gender': return 'Standardised '+n+' entries to Male / Female.';
     case 'boolean': return 'Standardised '+n+' entries to Yes / No.';
-    case 'numeric': return 'Cleaned '+n+' numbers (removed symbols like the naira sign and commas).';
+    case 'numeric': return numericSummary(f);
     case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left as written.';
-    case 'geo': return 'Matched '+n+' entries to the correct state.';
-    case 'categorical': return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different words and different numbers stay separate. '+n+' entries tidied.';
+    case 'geo': return 'Matched '+n+' entries to the correct region.';
+    case 'categorical': { const distinct=(f.rows||[]).length||1;
+      return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different words and different numbers stay separate. '+distinct+' spelling'+(distinct===1?'':'s')+' standardised across '+n+' row'+(n===1?'':'s')+'.'; }
     case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
     case 'free_text': return 'Tidied spacing and stray characters on '+n+' entries. The wording is left as written.';
     default: return 'Tidied formatting on '+n+' entries (spacing and stray characters).';
@@ -834,6 +861,11 @@ function summarise(f){
 }
 function examples(f){ return makeRows(f).filter(r=>!r.uncertain).slice(0,4).map(r=>[r.before,r.after]); }
 
+function isCosmetic(f){
+  const rows=f.rows||[]; if(!rows.length) return false;
+  const norm=s=>String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' ');
+  return rows.every(r=>norm(r.before)===norm(r.after));   // spacing/case only, meaning unchanged
+}
 let CARDS=[];
 function buildCards(){
   CARDS=[];
@@ -842,15 +874,17 @@ function buildCards(){
     simByCol[s.column]=(s.groups||[]).map(g=>({members:(g.members||[]).filter(Boolean),representative:g.representative,confidence:g.confidence}))
       .filter(g=>g.members.length>=2 && g.confidence!=='low');
   });
+  const cosmetic=[];
   FIELDS.forEach(f=>{
     const groups=simByCol[f.name]||[];
-    if(f.nChanged>0 || groups.length){
-      CARDS.push({kind:'column', field:f, groups, applyClean:true,
-        assign:groups.map(g=>g.members.map(()=>'A')),
-        gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
-        gmerge:groups.map(()=>true), split:groups.map(()=>false)});
-    }
+    if(!(f.nChanged>0 || groups.length)) return;
+    if(f.nChanged>0 && !groups.length && isCosmetic(f)){ cosmetic.push(f); return; }  // batch these
+    CARDS.push({kind:'column', field:f, groups, applyClean:true,
+      assign:groups.map(g=>g.members.map(()=>'A')),
+      gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
+      gmerge:groups.map(()=>true), split:groups.map(()=>false)});
   });
+  if(cosmetic.length){ const at=(SKIPPED&&SKIPPED.length)?1:0; CARDS.splice(at,0,{kind:'tidies', fields:cosmetic, expanded:false}); }
   const dupTotal=(WORKLIST&&WORKLIST.duplicates_total)||((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
   if(dupTotal>0) CARDS.push({kind:'dupes', count:dupTotal, groups:((WORKLIST&&WORKLIST.duplicates)||[])});
   CARDS.push({kind:'done'});
@@ -868,6 +902,7 @@ function renderReview(){
   $('#backbtn').disabled=idx===0;
   let html='';
   if(c.kind==='banner') html=cardBanner(c);
+  else if(c.kind==='tidies') html=cardTidies(c);
   else if(c.kind==='column') html=cardColumn(c);
   else if(c.kind==='dupes') html=cardDupes(c);
   else html=cardDone();
@@ -946,6 +981,28 @@ function commitColumn(){ const c=CARDS[idx], f=c.field;
   });
   c.decision='done'; if(merged) toast('Recorded '+merged+' merge'+(merged>1?'s':'')+' for this column'); advanceCard();
 }
+function cardTidies(c){
+  const N=c.fields.length;
+  const listing = c.expanded
+    ? '<div class="tidy-list">'+c.fields.map((f,i)=>{
+        const acc = f.decision!=='reject';
+        return '<div class="tidy-row"><label class="switch2 sm"><input type="checkbox" '+(acc?'checked':'')+' onchange="tidyToggle('+i+')"><span class="tk"></span></label>'+
+          '<span class="tidy-nm">'+esc(labelOf(f.name))+'</span><span class="tidy-ct">'+f.nChanged+' row'+(f.nChanged===1?'':'s')+'</span></div>';
+      }).join('')+'</div>'
+    : '<div class="tidy-names">'+c.fields.slice(0,14).map(f=>'<span class="tidy-chip">'+esc(labelOf(f.name))+'</span>').join('')+(N>14?'<span class="tidy-chip more">+'+(N-14)+' more</span>':'')+'</div>';
+  return '<div class="card rcard">'+
+    '<div class="rc-name">Formatting-only tidies</div>'+
+    '<div class="rc-sub"><b>'+N+'</b> column'+(N===1?'':'s')+' had only spacing or letter-case tidied. This standardises how values look. It does not change your data\'s meaning.</div>'+
+    listing+
+    '<div class="tidy-link"><a class="link" onclick="tidyExpand()">'+(c.expanded?'hide list':'review individually')+'</a></div>'+
+    '<div class="rc-decide">'+
+      '<button class="big ok" onclick="tidyAll(true)"><b>✓ Accept all</b><span>apply these tidies</span></button>'+
+      '<button class="big no" onclick="tidyAll(false)"><b>Keep original</b><span>leave them as written</span></button>'+
+    '</div></div>';
+}
+function tidyExpand(){ const c=CARDS[idx]; c.expanded=!c.expanded; renderReview(); }
+function tidyToggle(i){ const c=CARDS[idx]; const f=c.fields[i]; f.decision = (f.decision==='reject')?'accept':'reject'; renderReview(); }
+function tidyAll(accept){ const c=CARDS[idx]; c.fields.forEach(f=>f.decision=accept?'accept':'reject'); c.decision='done'; advanceCard(); }
 function cardBanner(c){
   const n=c.rows.length;
   return '<div class="card rcard">'+

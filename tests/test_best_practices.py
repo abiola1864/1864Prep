@@ -61,6 +61,32 @@ def test_hyphenated_and_particle_names():
     assert n.apply_value("MUSA IBRAHIM")[0] == "Musa Ibrahim"
 
 
+
+def test_column_level_date_order_inference():
+    from engine.profile import infer_date_order
+    assert infer_date_order(["12.28.2020","06.30.2020","11.22.2019","03.14.2021"]*4)[0] == "MDY"
+    assert infer_date_order(["28.12.2020","30.06.2020","22.11.2019","14.03.2021"]*4)[0] == "DMY"
+    assert infer_date_order(["2020-12-28","2021-01-15"]*4)[0] == "YMD"
+    # all components <=12 -> ambiguous (ask the user), not a wrong guess
+    assert infer_date_order(["05.03.2021","01.02.2020"]*4)[0] is None
+    # one stray typo must not flip a clearly day-first column
+    assert infer_date_order(["28.12.2020","30.06.2020","22.11.2019"]*10 + ["13.28.2020"])[0] == "DMY"
+
+
+
+def test_column_level_decimal_convention():
+    from engine.profile import infer_decimal_convention
+    assert infer_decimal_convention(["42.959","43.245","12.5","900"]*4)[0] == "dot"
+    assert infer_decimal_convention(["1.234,56","2.500,00","12,5","7,80"]*4)[0] == "comma"
+    # dot-decimal value must survive under dot convention
+    x = get_transform("numeric", decimal="dot")
+    assert x.apply_value("42.959")[0] == "42.959"
+    # European value under comma convention
+    y = get_transform("numeric", decimal="comma")
+    assert y.apply_value("1.234,56")[0] == "1234.56"
+    assert y.apply_value("12,5")[0] == "12.5"
+
+
 if __name__ == "__main__":
     fns=[v for k,v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns: fn(); print("ok:", fn.__name__)

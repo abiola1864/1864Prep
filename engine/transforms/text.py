@@ -111,7 +111,7 @@ class NumericTransform(Transform):
     name = "numeric"
 
     @staticmethod
-    def _parse(s: str):
+    def _parse(s: str, convention: str = "dot"):
         st = s.strip()
         neg = (st.startswith("(") and st.endswith(")")) or st.startswith("-") or st.startswith("\u2212")
         pct = st.endswith("%")
@@ -124,16 +124,25 @@ class NumericTransform(Transform):
                 t = t.replace(".", "").replace(",", ".")
             else:                                  # 1,200.50 -> thousands comma
                 t = t.replace(",", "")
-        elif has_c:
-            parts = t.split(",")
-            if len(parts) == 2 and len(parts[1]) in (1, 2):
-                t = parts[0] + "." + parts[1]     # 12,5 -> 12.5 (decimal comma)
-            else:
-                t = t.replace(",", "")            # 1,200 / 1,200,000 -> thousands
-        elif has_d:
-            if t.count(".") > 1:                  # 1.234.567 -> thousands dots
-                t = t.replace(".", "")
-            # single dot stays a decimal point
+        elif convention == "comma":               # European column: comma is the decimal
+            if has_c:
+                if t.count(",") > 1:
+                    t = t.replace(",", "")        # 1,234,567 -> thousands commas
+                else:
+                    t = t.replace(".", "").replace(",", ".")  # 1.234,56 handled above; 12,5 -> 12.5
+            elif has_d:
+                t = t.replace(".", "")            # dot is thousands here: 1.234 -> 1234
+        else:                                      # dot convention (default)
+            if has_c:
+                parts = t.split(",")
+                if len(parts) == 2 and len(parts[1]) in (1, 2):
+                    t = parts[0] + "." + parts[1] # 12,5 -> 12.5 (decimal comma)
+                else:
+                    t = t.replace(",", "")        # 1,200 / 1,200,000 -> thousands
+            elif has_d:
+                if t.count(".") > 1:              # 1.234.567 -> thousands dots
+                    t = t.replace(".", "")
+                # single dot stays a decimal point
         try:
             val = float(t)
         except ValueError:
@@ -146,7 +155,8 @@ class NumericTransform(Transform):
             return "", True, "empty numeric"
         if not any(ch.isdigit() for ch in s):
             return value, True, "not numeric (no digits)"
-        amount, neg, pct = self._parse(s)
+        convention = self.params.get("decimal", "dot")
+        amount, neg, pct = self._parse(s, convention)
         if amount is None:
             return value, True, "not numeric"
         out = str(int(amount)) if float(amount).is_integer() else repr(amount)

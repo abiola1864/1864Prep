@@ -221,7 +221,10 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
 
     # numeric MEASURE with decimals (e.g. hectares, amounts) -> numeric, before id.
     if numeric_rate >= 0.85 and decimal_rate >= 0.3:
-        return ColumnProfile(name, "numeric", numeric_rate, "numeric", evidence=ev)
+        conv, conv_ev = infer_decimal_convention(vals)
+        ev["decimal_convention"] = conv
+        return ColumnProfile(name, "numeric", numeric_rate, "numeric",
+                             params={"decimal": conv}, evidence=ev)
 
     # identifier: alphanumeric-only (excludes dates & decimals), has digits,
     # high cardinality, fairly uniform digit length.
@@ -238,7 +241,11 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
                                  params={"length": mode_len}, evidence=ev)
 
     if date_rate >= 0.8:
-        return ColumnProfile(name, "date", date_rate, "date_iso", evidence=ev)
+        order, order_ev = infer_date_order(vals)
+        ev["date_order"] = order or "ambiguous"
+        ev["date_order_evidence"] = order_ev
+        params = {"date_order": order} if order else {}
+        return ColumnProfile(name, "date", date_rate, "date_iso", params=params, evidence=ev)
 
     # geographic: distinct values resolve against state names OR known places
     if gazetteers:
@@ -255,7 +262,10 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
 
     # numeric measure (integers)
     if numeric_rate >= 0.85:
-        return ColumnProfile(name, "numeric", numeric_rate, "numeric", evidence=ev)
+        conv, conv_ev = infer_decimal_convention(vals)
+        ev["decimal_convention"] = conv
+        return ColumnProfile(name, "numeric", numeric_rate, "numeric",
+                             params={"decimal": conv}, evidence=ev)
 
     # person name: 1-3 alphabetic tokens, high cardinality (checked before
     # categorical so real name columns aren't mistaken for small vocabularies).
@@ -346,6 +356,81 @@ _TYPE_TO_TRANSFORM = {
 }
 
 
+def infer_decimal_convention(values, min_share: float = 0.51) -> tuple[str, dict]:
+    """Decide a column's decimal convention from the whole column.
+
+    Defaults to 'dot' (dot = decimal, comma = thousands) which fits most English
+    and Nigerian data, so 42.959 stays 42.959. Switches to 'comma' (European:
+    comma = decimal, dot = thousands) only with positive evidence:
+      * values carrying BOTH separators where the comma is the rightmost, or
+      * comma-only values where a majority use comma + 1-2 trailing digits (12,5)
+    Returns ('dot' | 'comma', evidence).
+    """
+    import re as _r
+    dot_dec = comma_dec = 0
+    comma_2 = comma_3 = comma_only = 0
+    for v in values:
+        s = _r.sub(r"[^0-9.,]", "", str(v))
+        if not s:
+            continue
+        has_c, has_d = "," in s, "." in s
+        if has_c and has_d:
+            if s.rfind(",") > s.rfind("."):
+                comma_dec += 1
+            else:
+                dot_dec += 1
+        elif has_c:
+            comma_only += 1
+            tail = s.split(",")[-1]
+            if len(tail) in (1, 2):
+                comma_2 += 1
+            elif len(tail) == 3:
+                comma_3 += 1
+    if comma_dec + dot_dec > 0:
+        conv = "comma" if comma_dec > dot_dec else "dot"
+        return conv, {"both_sep": comma_dec + dot_dec, "comma_decimal": comma_dec, "dot_decimal": dot_dec}
+    if comma_only > 0 and comma_2 / comma_only >= min_share and comma_2 >= 3:
+        return "comma", {"comma_only": comma_only, "comma_2digit": comma_2}
+    return "dot", {"default": True}
+
+
+def infer_date_order(values, min_share: float = 0.51) -> tuple[str | None, dict]:
+    """Decide day/month order for a whole column by MAJORITY (>=51%), so one
+    stray/typo value cannot flip the format.
+
+    For 3-part numeric dates (d1 SEP d2 SEP d3):
+      * 4-digit first component in the majority  -> 'YMD'
+      * else assume year last; whichever of the first/middle component exceeds 12
+        in a majority of rows is the DAY:
+          - first  > 12 majority -> 'DMY' (day first)
+          - middle > 12 majority -> 'MDY' (month first, day in the middle)
+      * neither reaches the majority -> None (genuinely ambiguous; ask the user)
+    Returns (order or None, evidence).
+    """
+    import re as _r
+    pat = _r.compile(r"^\s*(\d{1,4})[./-](\d{1,2})[./-](\d{1,4})\s*$")
+    parts = []
+    for v in values:
+        m = pat.match(str(v).strip())
+        if m:
+            a, b, c = (int(x) for x in m.groups())
+            parts.append((a, b, len(m.group(1)) == 4, len(m.group(3)) == 4))
+    n = len(parts)
+    if n == 0:
+        return None, {"dateable": 0}
+    first_year = sum(1 for p in parts if p[2]) / n
+    if first_year >= min_share:
+        return "YMD", {"dateable": n, "reason": "4-digit year first", "share": round(first_year, 2)}
+    d1_gt12 = sum(1 for p in parts if p[0] > 12) / n
+    d2_gt12 = sum(1 for p in parts if p[1] > 12) / n
+    if d1_gt12 >= min_share:
+        return "DMY", {"dateable": n, "first_gt12": round(d1_gt12, 2)}
+    if d2_gt12 >= min_share:
+        return "MDY", {"dateable": n, "middle_gt12": round(d2_gt12, 2)}
+    return None, {"dateable": n, "ambiguous": True,
+                  "first_gt12": round(d1_gt12, 2), "middle_gt12": round(d2_gt12, 2)}
+
+
 def profile_to_plan(profiles: list[ColumnProfile], plan_name: str = "auto",
                     gazetteer_refs: dict | None = None) -> dict:
     """Build a proposed cleaning plan from column profiles. Works on ANY file:
@@ -364,7 +449,8 @@ def profile_to_plan(profiles: list[ColumnProfile], plan_name: str = "auto",
             ref = gazetteer_refs.get(gaz)
             transform, params = ("resolve", {"reference": ref} if ref else {})
         else:
-            transform, params = _TYPE_TO_TRANSFORM.get(p.semantic_type, (None, {}))
+            transform, base_params = _TYPE_TO_TRANSFORM.get(p.semantic_type, (None, {}))
+            params = {**base_params, **(p.params or {})}   # carry inferred params (e.g. date_order)
         mappings.append({
             "source_column": p.column,
             "target_field": p.column,
