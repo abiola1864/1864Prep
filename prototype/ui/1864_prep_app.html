@@ -372,6 +372,69 @@
   .adm-note{font-size:11.5px;color:var(--ink-soft)}
   .adm-keep{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 9px;font:inherit;font-size:12px;color:var(--ink-soft);cursor:pointer}
   .adm-keep.on{border-color:var(--ok);color:var(--ok)}
+  /* ---------- Mobile (phones): each page optimised for narrow screens ---------- */
+  @media (max-width:720px){
+    .app{flex-direction:column;height:auto;min-height:100vh}
+    /* rail becomes a slim top bar: brand + horizontal step chips */
+    .rail{width:auto;flex:none;flex-direction:column;padding:10px 12px 8px;
+      border-right:none;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+    .brand{padding:0 2px 8px}
+    .steps{display:flex;gap:6px;overflow-x:auto;margin:0;padding:2px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .steps::-webkit-scrollbar{display:none}
+    .steps li{flex:0 0 auto;padding:6px 10px;border-left:none;border-radius:99px;background:#fff;
+      border:1px solid var(--line);font-size:12px;white-space:nowrap;gap:6px}
+    .steps li.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+    .steps li.active .n{border-color:#fff;color:#fff}
+    .steps li .n{width:17px;height:17px;flex:0 0 17px;font-size:9.5px}
+    .railfoot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:none;padding:6px 2px 0;margin:0}
+    .railfoot #rf-sector,.railfoot #rf-file,.railfoot .hint{display:none}   /* hide descriptive text on mobile */
+    .setgear{display:inline-block;margin:0;font-size:12px;padding:6px 10px}
+    .main{min-height:0}
+    .screen{padding:16px 14px}
+    .screen.on{animation:none}              /* avoid horizontal jank on small screens */
+    h1{font-size:19px}
+    /* cards & content go full width */
+    .card,.rcard,.matchtable,.missing,.aitoggle,.netperm,.np-note,.cleanbox,.connectbox{max-width:100%!important}
+    .rcard{margin:12px 0 0;padding:18px 16px}
+    .card{padding:16px 14px}
+    .center{max-width:100%;margin:20px auto 0}
+    /* two-button decisions stack vertically, full width, thumb-friendly */
+    .rc-decide{grid-template-columns:1fr;gap:10px}
+    .big{min-height:52px}
+    .navrow{flex-wrap:wrap}
+    /* one-column grids */
+    .sectors{grid-template-columns:1fr}
+    .colgrid,.tk-grid{grid-template-columns:1fr}
+    /* match-names table: stack each row into a block */
+    .mh{display:none}
+    .mrow{grid-template-columns:1fr;gap:4px;padding:12px 12px;border-bottom:1px solid var(--line-soft)}
+    /* review changes / spotcheck rows: stack */
+    .rowh{display:none}
+    .row{grid-template-columns:1fr;gap:4px;padding:10px 12px}
+    .permrow{grid-template-columns:1fr;gap:6px}
+    /* merge chips & inputs full width */
+    .mgg-name input,.mg-name input,.sim-name input{max-width:100%}
+    .mgg-members{gap:6px}
+    /* progress modal fits screen */
+    .cleanbox,.connectbox{padding:22px 18px;width:100%}
+    /* toolkit + wide tables scroll horizontally instead of overflowing */
+    .tk-table,.preview-wrap{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+    .modal{padding:10px}
+    .modal-card{max-height:92vh;padding:18px 16px}
+    /* admin / dup / tidy lists: comfortable tap targets */
+    .adm-row,.dup-row,.tidy-row,.ban-row{flex-wrap:wrap}
+    .adm-fix,.adm-keep{min-height:36px}
+    /* review progress header wraps */
+    .rv-top{flex-wrap:wrap;gap:8px}
+    .rv-progress{min-width:80px}
+    /* inputs don't trigger iOS zoom (>=16px) */
+    input,select,textarea{font-size:16px}
+  }
+  @media (max-width:380px){
+    .screen{padding:12px 10px}
+    h1{font-size:18px}
+    .big b{font-size:14px}
+  }
 </style>
 </head>
 <body>
