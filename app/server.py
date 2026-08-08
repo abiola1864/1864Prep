@@ -336,6 +336,8 @@ async def api_tool(name: str, files: list[UploadFile] = File(...),
             res, summ = tk.anonymise(dfs[0])
         elif name == "quick_clean":
             res, summ = tk.quick_clean(dfs[0])
+        elif name == "guess_gender":
+            res, summ = tk.guess_gender(dfs[0], how)
         else:
             return JSONResponse(status_code=404, content={"error": f"unknown tool '{name}'"})
     except Exception as e:

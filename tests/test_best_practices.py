@@ -87,6 +87,32 @@ def test_column_level_decimal_convention():
     assert y.apply_value("12,5")[0] == "12.5"
 
 
+
+def test_different_numbers_never_merge():
+    from engine.induce import _canonical_key
+    from engine.dedupe import cluster_similar
+    assert _canonical_key("-1") != _canonical_key("1")     # sentinel vs value
+    assert _canonical_key("7.0") == _canonical_key("7")    # same number
+    for g in cluster_similar(["-1", "1", "1", "-1"] * 3):
+        vals = set(g["members"])
+        assert not ({"-1", "1"} <= vals), "different numbers must not group"
+
+
+def test_bom_stripped_from_headers():
+    from engine.ingest import _dedupe_headers
+    assert _dedupe_headers(["\ufeffrecord_id", " name "]) == ["record_id", "name"]
+
+
+
+def test_account_and_age_typing():
+    import pandas as pd
+    from engine.profile import profile_column
+    acct = ["1234567890","0001234567","ABC123","1234567890","ABC123","0001234567"]*4
+    assert profile_column(pd.Series(acct), "bank_account").semantic_type == "identifier"  # not phone
+    age = ["121","forty","-4","7","0","42","33","19","55","8","67","forty"]*3
+    assert profile_column(pd.Series(age), "age_years").semantic_type == "numeric"           # not categorical
+
+
 if __name__ == "__main__":
     fns=[v for k,v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns: fn(); print("ok:", fn.__name__)

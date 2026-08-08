@@ -265,3 +265,38 @@ TOOLS.update({
     "anonymise": ("Anonymise / mask", "Hash IDs, phones, emails and names for safe sharing.", "dataset"),
     "quick_clean": ("Quick clean (whole file)", "One-click: clean every column automatically and download.", "dataset"),
 })
+
+
+def guess_gender(df: pd.DataFrame, how: dict | None = None):
+    """Add a clearly-labelled gender ESTIMATE from a name column (opt-in).
+    Never overwrites data; adds '<col>_gender_estimate' + confidence. Unisex or
+    unknown names are left blank. Requires the optional names-dataset package.
+    """
+    how = how or {}
+    from .names import available, name_gender
+    if not available():
+        return df, {"note": "names-dataset not installed; run: pip install names-dataset"}
+    col = how.get("column")
+    if not col:
+        # pick the most name-like text column
+        from .names import looks_like_person_names
+        cands = [(c, looks_like_person_names(df[c].tolist())) for c in df.columns if df[c].dtype == object]
+        col = max(cands, key=lambda x: x[1])[0] if cands else None
+    if not col or col not in df.columns:
+        return df, {"note": "no name column found"}
+    out = df.copy()
+    est, conf = [], []
+    for v in out[col].tolist():
+        g, p = name_gender(v)
+        est.append(g or "")
+        conf.append(p if g else "")
+    out[f"{col}_gender_estimate"] = est
+    out[f"{col}_gender_confidence"] = conf
+    filled = sum(1 for g in est if g)
+    return out, {"column": col, "filled": filled, "total": len(est),
+                 "note": "Estimate from first name (probabilistic). Blank = unisex/unknown. Not a fact."}
+
+
+TOOLS.update({
+    "guess_gender": ("Estimate gender from name", "Adds a labelled gender estimate from a name column (opt-in; works for Nigerian names). Never overwrites data.", "dataset"),
+})

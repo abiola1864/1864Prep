@@ -147,6 +147,10 @@ def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False
         distinct = [v for v, _ in counts.most_common(_MAX)]
 
     def _blocked(a, b):
+        from .induce import _as_number
+        na, nb = _as_number(a), _as_number(b)
+        if na is not None and nb is not None and na != nb:
+            return True                                   # -1 and 1 are different numbers
         if domain:
             try:
                 from .domains import same_entity

@@ -204,7 +204,8 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     if lower_distinct <= _BOOL and d <= 4:
         return ColumnProfile(name, "boolean", 0.95, "boolean", evidence=ev)
 
-    if phone_rate >= 0.7:
+    letter_share = _rate(vals, lambda s: any(ch.isalpha() for ch in s))
+    if phone_rate >= 0.7 and letter_share < 0.1:      # phones never contain letters
         return ColumnProfile(name, "phone", phone_rate, "phone_ng", evidence=ev)
 
     # leading-zero digit strings are codes (IDs, ZIP, account nos), never measures:
@@ -218,6 +219,12 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
             ev["leading_zeros"] = True
             return ColumnProfile(name, "identifier", 0.9, "fixed_id",
                                  params={"length": mode_len}, evidence=ev)
+
+    # mixed digit + alphanumeric codes (e.g. account nos "1234567890" alongside
+    # "ABC123") are identifiers, never phones or measures.
+    if letter_share >= 0.15 and alnum_rate >= 0.85 and numeric_rate < 0.85 and date_rate < 0.5:
+        ev["alphanumeric_codes"] = round(letter_share, 2)
+        return ColumnProfile(name, "identifier", 0.8, "fixed_id", evidence=ev)
 
     # numeric MEASURE with decimals (e.g. hectares, amounts) -> numeric, before id.
     if numeric_rate >= 0.85 and decimal_rate >= 0.3:
@@ -259,6 +266,22 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
                 ev["geo_match"] = {geo_name: round(hit_rate, 2)}
                 return ColumnProfile(name, "geo", hit_rate, "resolve",
                                      params={"gazetteer": geo_name}, evidence=ev)
+
+    # spread numeric measure with some junk (e.g. age with 'forty'/'-4'/sentinels):
+    # if numbers dominate and the numeric values are varied, treat as numeric and
+    # let the pipeline flag the non-numeric values rather than call it a category.
+    def _isnum(s):
+        try:
+            float(str(s).replace(",", "")); return True
+        except ValueError:
+            return False
+    num_distinct = len({v for v in vals if _isnum(v)})
+    if numeric_rate >= 0.55 and num_distinct >= 6 and decimal_rate < 0.3:
+        conv, _cev = infer_decimal_convention(vals)
+        ev["decimal_convention"] = conv
+        ev["mixed_numeric"] = True
+        return ColumnProfile(name, "numeric", numeric_rate, "numeric",
+                             params={"decimal": conv}, evidence=ev)
 
     # numeric measure (integers)
     if numeric_rate >= 0.85:

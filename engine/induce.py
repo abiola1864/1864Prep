@@ -30,10 +30,25 @@ def _numbers(s: str) -> tuple:
     return tuple(int(n) for n in _NUM.findall(s))
 
 
+def _as_number(s: str):
+    """Return the float value if the whole string is a signed/decimal number,
+    else None. Used so '-1' and '1' are different categories, while '7.0' == '7'."""
+    t = str(s).strip().replace(",", "")
+    try:
+        import re as _r
+        return float(t) if _r.fullmatch(r"[-+]?\d+(?:\.\d+)?", t) else None
+    except Exception:
+        return None
+
+
 def _canonical_key(s: str) -> str:
     """Meaning-preserving key: same key == genuinely the same category.
-    Lower-case, '&'/'and' unified, punctuation dropped, words sorted, numbers
+    Pure numbers key on their VALUE (so -1 != 1, but 7.0 == 7). Otherwise
+    lower-case, '&'/'and' unified, punctuation dropped, words sorted, numbers
     kept verbatim so ranges never collapse together."""
+    num = _as_number(s)
+    if num is not None:
+        return "num:" + repr(num)
     s = str(s).strip().lower()
     s = _AMP.sub(" and ", s)
     s = _PUNCT.sub(" ", s)

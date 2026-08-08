@@ -200,8 +200,10 @@ def read_pdf(path: Path) -> tuple[pd.DataFrame, IngestReport]:
 
 
 def _dedupe_headers(header: list[str]) -> list[str]:
+    _zw = str.maketrans("", "", "\ufeff\u200b\u200c\u200d\u2060")
     seen, out = {}, []
     for h in header:
+        h = str(h).translate(_zw).replace("\xa0", " ").strip()   # drop BOM/zero-width, trim
         if h in seen:
             seen[h] += 1
             out.append(f"{h}_{seen[h]}")
