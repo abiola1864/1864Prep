@@ -34,6 +34,7 @@ Most cleaners handle the obvious. These are the quieter problems that usually ge
 - **It handles the mess you can't see.** Invisible characters, non-breaking spaces, byte-order marks, and garbled encoding (the `Ã©` that should be `é`) are the silent reason spreadsheets fail to join or match. The tool cleans them everywhere, automatically.
 - **It finds the real table inside a messy file.** Files that open with a title, a source line, logos, or blank rows before the data begins are read correctly — the true header is found, and you're shown exactly what sat above it, never dropped without your knowledge.
 - **It recognises real-world things, not just text.** People, places, organisations, money, dates, regions, currencies — the tool identifies what a column actually contains and can standardise entries to their proper form, using established reference data and optional name/entity models. It works the same on a health roll, an agriculture registry, or a global index.
+- **It checks values against the known-correct set, and flags what doesn't belong.** For a column whose universe is known — administrative regions, currencies, standard categories — the tool doesn't just tidy formatting; it validates each value against the full official list. A near-miss is offered as a one-tap correction (a mistyped place name is matched to the right one). A value entered at the wrong level (a state where a local area was expected) is flagged as a level mismatch. And a value that isn't in the list at all (a city or community entered where an official area should be) is flagged for you to check. You confirm each one; nothing is changed silently.
 - **It's honest about time and uncertainty.** Progress reflects the real work happening column by column and never claims "almost done" when it isn't. When something is genuinely ambiguous, it asks instead of guessing.
 
 ## What it can't do yet (straight, not undersold)
@@ -75,6 +76,7 @@ file -> ingest -> profile (type inference) -> plan -> run_plan -> review -> expo
 - `profile.py` — semantic type inference with column-context passes: `infer_date_order` (51% majority), `infer_decimal_convention` (dot vs comma), leading-zero and alphanumeric-code detection, optional ML / NER rescue.
 - `transforms/` — 23 registered transforms (numeric, dates / datetimes with impossible-date flagging, phones, emails, names with hyphen / O' / Mc handling, booleans, gender, coordinates, units, sentinels, range checks, categorical induction, resolve).
 - `domains/` — package-based entity resolution: `country_converter` for countries, `pycountry` for currencies and 5,046 world subdivisions, small JSON for survey categoricals (sex, relationship-to-head, disability, payment channel, ID type). Powers merge-safety via `same_entity`.
+- `ng_admin.py` — validation against the complete official set of Nigerian administrative units (36 states + FCT, 774 LGAs, from an MIT-licensed dataset). Typo-tolerant resolution (`rapidfuzz`, full-string ratio so short names don't false-match), plus level-mismatch and unknown-value flags surfaced as a review card.
 - `dedupe.py` / `induce.py` — graded similarity clustering and meaning-preserving category induction; different numbers and different canonical entities never merge.
 - `nlp/` — optional spaCy NER for column typing (person / org / place / money / date).
 - `names.py` — optional `names-dataset` layer for name recognition and probabilistic gender estimation.
@@ -82,7 +84,7 @@ file -> ingest -> profile (type inference) -> plan -> run_plan -> review -> expo
 
 ### Reliability
 
-~78 tests across 13 suites, including a `test_best_practices.py` battery that locks in the hard cases (unicode / zero-width, mojibake, leading-zero codes, impossible dates, hyphenated names, decimal-convention and date-order inference, "-1 != 1", BOM headers, account / age typing).
+~78 tests across 14 suites, including a `test_best_practices.py` battery that locks in the hard cases (unicode / zero-width, mojibake, leading-zero codes, impossible dates, hyphenated names, decimal-convention and date-order inference, "-1 != 1", BOM headers, account / age typing, and Nigerian state / LGA resolution with wrong-level flags).
 
 ```bash
 for t in tests/*.py; do python "$t"; done
@@ -149,6 +151,7 @@ The tool stands on established, well-maintained libraries rather than bespoke pe
 
 The non-obvious choices, and why they matter:
 
+- **Validate against the known universe, don't just clean.** For any column with a finite correct set (administrative regions, currencies, standard categories), the engine resolves each value against the full official list: near-misses become one-tap corrections, wrong-level entries and values outside the set are flagged for review. This turns cleaning into a data-quality check, and it's the same mechanism across every closed-set column, not a per-column special case.
 - **Reference-first, embeddings-assist.** For deciding whether two entries are the *same real-world thing*, we match against authoritative reference data before reaching for similarity or embeddings. A neural model places near-identical-looking labels close together and merges things that shouldn't merge; a reference source keeps genuinely distinct entries distinct. Embeddings are reserved for the genuinely fuzzy free-text tail, not for facts a reference already settles.
 - **Column-context inference before per-value cleaning.** Some formats are undecidable from a single value but obvious across the column. We do a pre-pass that infers date order (51% majority, so one typo can't flip it) and decimal convention (dot vs comma) from the whole column, then clean every value consistently. This is what prevents both the month/day swap and the `42.959 -> 42959` corruption.
 - **Value identity over string shape.** Numbers are compared by value, not by digits: `-1` and `1` are different (one is a sentinel), while `7.0` and `7` are the same. This single rule stops a whole class of silent category corruption.
