@@ -40,6 +40,38 @@ def _save(upload: UploadFile) -> Path:
 
 
 
+
+def _admin_checks(df, profs):
+    """For columns detected as Nigerian State or LGA, validate every value against
+    the full official set: typo suggestions, wrong-level and unknown (city) flags."""
+    from engine.domains import detect_domain
+    from engine import ng_admin as NG
+    out = []
+    for p in profs:
+        if p.semantic_type not in ("geo", "categorical", "name", "free_text"):
+            continue
+        col = df[p.column]
+        dom = detect_domain(col.tolist(), p.column)
+        if dom not in ("ng_state", "ng_lga"):
+            continue
+        level = "state" if dom == "ng_state" else "lga"
+        items, seen = [], set()
+        for i, v in enumerate(col.tolist()):
+            s = str(v).strip()
+            if not s or s in seen:
+                continue
+            r = NG.validate_state_value(s) if level == "state" else NG.validate_lga_value(s)
+            if r["kind"] in ("unknown", "is_state", "is_lga"):
+                seen.add(s)
+                items.append({"row": i, "value": s, "kind": r["kind"],
+                              "suggestion": r.get("suggestion"), "note": r.get("note", "")})
+            if len(items) >= 50:
+                break
+        if items:
+            out.append({"column": p.column, "level": level, "items": items})
+    return out
+
+
 def _dup_payload(df):
     """Duplicate groups with per-row previews + the true total of removable rows."""
     from engine.dedupe import near_duplicate_rows
@@ -118,6 +150,7 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
         import uuid as _uuid
         sid = _uuid.uuid4().hex[:12]
         _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
+        admin_flags = _admin_checks(df, profs)
         return {
             "ingest": rep.summary(),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
@@ -125,7 +158,7 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
             "session_id": sid,
             "overview": column_overview(df, cleaned, types, flags),
             "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
-            "worklist": {"flagged": flagged, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
+            "worklist": {"flagged": flagged, "admin": admin_flags, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
                          "repeated_columns": duplicate_columns(df)},
         }
     except Exception as e:  # never 500 silently in a demo
@@ -171,6 +204,7 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     flagged.append({"column": c["source_column"],
                                     "values": [{"row": x["row"], "value": x["value"], "reason": x["reason"]} for x in fl[:50]]})
             yield json.dumps({"t": "progress", "pct": 0.86, "stage": "Checking for duplicate rows"}) + "\n"
+            admin_flags = _admin_checks(df, profs)
             _dup_groups = near_duplicate_rows(df)
             _dup_total = sum(len(g["rows"]) - 1 for g in _dup_groups)
             dups, _dup_total = _dup_payload(df)
@@ -200,7 +234,7 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                 "session_id": sid,
                 "overview": column_overview(df, cleaned, types, flags),
                 "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
-                "worklist": {"flagged": flagged, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
+                "worklist": {"flagged": flagged, "admin": admin_flags, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
                              "repeated_columns": duplicate_columns(df)},
             }
             yield json.dumps({"t": "result", "payload": payload}) + "\n"

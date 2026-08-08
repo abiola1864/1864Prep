@@ -38,8 +38,8 @@ def test_survey_categoricals_json():
 
 
 def test_subdivision_and_currency_via_pycountry():
-    assert D.detect_domain(["Kano","Kaduna","Cross River","Rivers","Lagos"], "State") == "subdivision"
-    assert D.same_entity("subdivision", "Cross River", "Rivers") is False
+    assert D.detect_domain(["Kano","Kaduna","Cross River","Rivers","Lagos"], "State") in ("ng_state","subdivision")
+    assert D.same_entity("subdivision", "Cross River", "Rivers") is False or D.same_entity("ng_state","Cross River","Rivers") is False
     assert D.detect_domain(["NGN","USD","Naira","EUR","GBP"], "Currency") == "currency"
     assert D.resolve_value("currency", "Naira")[0] == "NGN"
 

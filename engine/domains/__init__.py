@@ -135,7 +135,7 @@ def _json_lookup(domain: str, value: str) -> str | None:
 
 
 def list_domains() -> list[str]:
-    return ["country", "currency", "subdivision", *_json_domains().keys()]
+    return ["ng_lga", "ng_state", "country", "currency", "subdivision", *_json_domains().keys()]
 
 
 def _identity(domain: str, value: str) -> str | None:
@@ -145,6 +145,9 @@ def _identity(domain: str, value: str) -> str | None:
         return _currency_code(value)
     if domain == "subdivision":
         return _subdiv_id(value)
+    if domain in ("ng_state", "ng_lga"):
+        from . import _ng_ident
+        return _ng_ident(domain, value)
     return _json_lookup(domain, value)
 
 
@@ -159,14 +162,15 @@ def detect_domain(values, header: str = "") -> str | None:
             "subdivision": ["state", "province", "region", "county", "lga", "district"],
             "relationship_to_head": ["relationship", "relation"],
             "disability_status": ["disability", "impairment"],
-            "payment_channel": ["payment", "channel"]}
+            "payment_channel": ["payment", "channel"],
+            "ng_state": ["state", "state of origin"], "ng_lga": ["lga", "local government", "l.g.a"]}
 
     def rate(dom):
         return sum(1 for v in sample if _identity(dom, v) is not None) / len(sample)
 
     # specific domains first; country (greedy fuzzy) is the fallback
-    order = ["subdivision", "currency", "sex", "relationship_to_head", "disability_status",
-             "payment_channel", "id_type", "country"]
+    order = ["ng_lga", "ng_state", "subdivision", "currency", "sex", "relationship_to_head",
+             "disability_status", "payment_channel", "id_type", "country"]
     order = [d for d in order if d in list_domains()]
     for dom in order:
         thr = 0.4 if any(k in h for k in hint.get(dom, [])) else 0.6
@@ -186,6 +190,9 @@ def resolve_value(domain: str, value: str) -> tuple[str, bool]:
     if domain == "subdivision":
         name = _subdiv_name(_subdiv_id(value) or "")
         return (name, name != str(value).strip()) if name else (value, False)
+    if domain in ("ng_state", "ng_lga"):
+        c = _ng_ident(domain, value)
+        return (c, c != str(value).strip()) if c else (value, False)
     canon = _json_lookup(domain, value)
     if canon is None:
         return value, False
@@ -194,6 +201,15 @@ def resolve_value(domain: str, value: str) -> tuple[str, bool]:
 
 def canonical_of(domain: str, value: str) -> str | None:
     return _identity(domain, value)
+
+
+def _ng_ident(domain, value):
+    try:
+        from ..ng_admin import resolve_state, resolve_lga
+        c = resolve_state(value) if domain == "ng_state" else resolve_lga(value)
+        return c
+    except Exception:
+        return None
 
 
 def same_entity(domain: str, a: str, b: str) -> bool | None:

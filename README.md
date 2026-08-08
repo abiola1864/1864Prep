@@ -9,7 +9,7 @@ Two promises it keeps:
 1. **Your data never leaves the computer.** The engine runs locally. The hosted demo uses synthetic data only; the desktop build keeps everything on-device.
 2. **Nothing that changes meaning happens without your consent.** Every change is a proposal you accept or reject. The value is never silently rewritten.
 
-*Non-technical reader? The first half of this page — What it does, The hard parts, What it can't do yet — is written for you, no jargon. The technical overview comes after the divider.*
+*Non-technical reader? The first half of this page — What it does, Where it goes further, What it can't do yet — is written for you, no jargon. The technical overview comes after the divider.*
 
 ---
 
@@ -23,19 +23,18 @@ Two promises it keeps:
 - **Exports clean data + an audit trail.** CSV, Excel, or Word, plus a change log of every accepted decision.
 - **Ships a Data Toolkit** for one-off jobs: find duplicates, find outliers, match two files, validate, summarise, compare, combine, anonymise, quick-clean, and estimate gender from a name.
 
-## The hard parts (the ones people assume can't be done offline)
+## Where it goes further than most tools
 
-These are the problems that usually need a data engineer, a cloud service, or manual grind. 1864 Prep does them locally, and it's tested against real dirty files.
+Most cleaners handle the obvious. These are the quieter problems that usually get missed, silently corrupt data, or cost hours of manual work — and 1864 Prep handles them locally, tested against real dirty files.
 
-- **"Niger" is not "Nigeria."** String similarity happily merges them, and so do most tools. 1864 Prep routes country names through a reference resolver (ISO / UN / World Bank naming), so **Congo Dem. Rep. != Congo Rep., Korea variants, China / Hong Kong / Macao / Taiwan, Sudan / South Sudan** all stay distinct — while true variants (`naija`, `DRC`, `USA`) still resolve. Same for look-alike states (**Cross River != Rivers**) across 5,046 world subdivisions.
-- **The decimal-point trap.** `42.959` must not become `42959`. Off-the-shelf parsers guess a dot with three trailing digits is a thousands separator and corrupt percentages and rates. The engine reads the **whole column** to decide the convention: dot-decimal columns keep `42.959`, and genuinely European columns read `1.234,56 -> 1234.56` — decided from context, not per value.
-- **Date order from context, not guessing.** `12.28.2020` — is the month first or the day? You can't know from one value. The engine scans the column and, by a **51% majority**, decides the layout (so a single typo can't flip it), then applies it consistently. `28 > 12` in the middle means day-in-the-middle for the whole column.
-- **Leading zeros survive.** `007`, ZIP `01234`, account numbers — these are codes, not the numbers 7 or 1234. They stay identifiers, so the zeros are never dropped.
-- **Different numbers never merge.** `-1` and `1` look one edit apart, but one is a sentinel. They are kept separate; `7.0` and `7` are treated as the same number.
-- **Banner and caption rows.** Files that start with a title, a source line, or blank rows before the real table are detected — the true header is found, and you're shown exactly what was skipped, never dropped silently.
-- **Invisible corruption.** Zero-width characters, non-breaking spaces, byte-order marks in headers, and mojibake (`Ã©cole -> école`) are cleaned everywhere — the stuff that silently breaks joins and matching.
-- **Nigerian names.** Most name libraries are Western and mis-handle Yoruba / Igbo / Hausa names. 1864 Prep uses a large offline global names dataset that covers them well, and offers a **labelled, probabilistic** gender estimate (Ngozi -> Female, Emeka -> Male) that returns *unknown* for genuinely unisex names (Oluwaseun) and never overwrites your data.
-- **Honest progress.** No fake "almost done." The progress bar streams real per-column work and only reaches 100% when the file is actually ready.
+- **It reads the whole column before deciding, not one value at a time.** Many formats are impossible to read from a single cell but obvious across the column. `12.05.2021` alone could be May or December; the tool looks at the column, sees where a value passes 12, and locks the layout for every row — so one typo can't flip it. The same idea decides whether a dot means a decimal or a thousands separator, so a rate like `42.959` is never turned into `42959`.
+- **It tells the difference between a value and a code.** `007`, `01234`, an account number — these only look like numbers. Treating them as numbers drops the leading zeros and destroys the code. The tool keeps them intact, and never confuses a code column with a phone or a measurement.
+- **It knows which changes are safe and which change meaning.** Trimming spaces or fixing capitalisation is standardising *how a value looks*; merging two entries is changing *what it means*. The tool separates the two, breezes through the harmless ones in a single step, and only asks you about the ones that matter.
+- **It refuses to invent data.** Impossible dates, out-of-range ages, refusal codes like `999` or `-1` are flagged for you, not quietly "corrected." A lone odd value is treated as a possible typo, not an excuse to reinterpret a whole column. And two values that merely look similar are only merged when they genuinely mean the same thing — different numbers, different entries, and near-but-distinct labels are kept apart.
+- **It handles the mess you can't see.** Invisible characters, non-breaking spaces, byte-order marks, and garbled encoding (the `Ã©` that should be `é`) are the silent reason spreadsheets fail to join or match. The tool cleans them everywhere, automatically.
+- **It finds the real table inside a messy file.** Files that open with a title, a source line, logos, or blank rows before the data begins are read correctly — the true header is found, and you're shown exactly what sat above it, never dropped without your knowledge.
+- **It recognises real-world things, not just text.** People, places, organisations, money, dates, regions, currencies — the tool identifies what a column actually contains and can standardise entries to their proper form, using established reference data and optional name/entity models. It works the same on a health roll, an agriculture registry, or a global index.
+- **It's honest about time and uncertainty.** Progress reflects the real work happening column by column and never claims "almost done" when it isn't. When something is genuinely ambiguous, it asks instead of guessing.
 
 ## What it can't do yet (straight, not undersold)
 
@@ -51,7 +50,7 @@ Clean, sequential, calm. One decision per screen, two choices where possible. A 
 
 ---
 
-> **Everything above this line is written for everyone — funders, partners, and non-technical readers.** It's the complete picture of what the tool does, the hard problems it solves, and what it can't do yet. The sections below are for engineers and technical reviewers.
+> **Everything above this line is written for everyone — funders, partners, and non-technical readers.** It's the complete picture of what the tool does, what it does well, and what it can't do yet. The sections below are for engineers and technical reviewers.
 
 ---
 
@@ -150,7 +149,7 @@ The tool stands on established, well-maintained libraries rather than bespoke pe
 
 The non-obvious choices, and why they matter:
 
-- **Gazetteer-first, embeddings-assist.** For entity identity we resolve against reference data (countries, world regions, currencies) *before* reaching for similarity or embeddings. A neural model places "Niger" and "Nigeria" close together and makes the same mistake string matching does; a reference list makes them provably distinct. Embeddings are reserved for the genuinely fuzzy tail, not for facts a list already knows.
+- **Reference-first, embeddings-assist.** For deciding whether two entries are the *same real-world thing*, we match against authoritative reference data before reaching for similarity or embeddings. A neural model places near-identical-looking labels close together and merges things that shouldn't merge; a reference source keeps genuinely distinct entries distinct. Embeddings are reserved for the genuinely fuzzy free-text tail, not for facts a reference already settles.
 - **Column-context inference before per-value cleaning.** Some formats are undecidable from a single value but obvious across the column. We do a pre-pass that infers date order (51% majority, so one typo can't flip it) and decimal convention (dot vs comma) from the whole column, then clean every value consistently. This is what prevents both the month/day swap and the `42.959 -> 42959` corruption.
 - **Value identity over string shape.** Numbers are compared by value, not by digits: `-1` and `1` are different (one is a sentinel), while `7.0` and `7` are the same. This single rule stops a whole class of silent category corruption.
 - **Meaning-preserving category induction.** Categories merge only when they are genuinely the same (case, spacing, `&` vs `and`, word order) — never across different words or different numbers. Ranges like `1-5` and `6-10` never collapse.

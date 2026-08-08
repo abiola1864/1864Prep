@@ -359,6 +359,19 @@
   .tidy-row:last-child{border-bottom:none}
   .tidy-nm{flex:1;font-size:13px} .tidy-ct{font-size:11.5px;color:var(--faint);font-family:var(--mono)}
   .tidy-link{margin:2px 0 6px}
+  .col-alsotidy{font-size:12.5px;color:var(--ink-soft);margin:10px 0 4px;line-height:1.6}
+  .col-peek{margin-top:8px}
+  .adm-list{border:1px solid var(--line-soft);border-radius:12px;margin:10px 0;padding:4px}
+  .adm-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .adm-row:last-child{border-bottom:none}
+  .adm-tag{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;border-radius:99px;padding:2px 8px;white-space:nowrap}
+  .adm-tag.unknown{background:#f6e5e5;color:#a83a3a} .adm-tag.is_state,.adm-tag.is_lga{background:var(--warn-bg);color:var(--warn)}
+  .adm-val{flex:1;font-family:var(--mono);font-size:12.5px}
+  .adm-fix{border:1px solid var(--navy);color:var(--navy);background:#fff;border-radius:8px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+  .adm-fix:hover{background:var(--navy);color:#fff}
+  .adm-note{font-size:11.5px;color:var(--ink-soft)}
+  .adm-keep{border:1px solid var(--line);background:#fff;border-radius:8px;padding:4px 9px;font:inherit;font-size:12px;color:var(--ink-soft);cursor:pointer}
+  .adm-keep.on{border-color:var(--ok);color:var(--ok)}
 </style>
 </head>
 <body>
@@ -885,6 +898,7 @@ function buildCards(){
       gmerge:groups.map(()=>true), split:groups.map(()=>false)});
   });
   if(cosmetic.length){ const at=(SKIPPED&&SKIPPED.length)?1:0; CARDS.splice(at,0,{kind:'tidies', fields:cosmetic, expanded:false}); }
+  ((WORKLIST&&WORKLIST.admin)||[]).forEach(a=>{ if(a.items&&a.items.length) CARDS.push({kind:'admin', col:a.column, level:a.level, items:a.items.map(it=>({...it, decision:null}))}); });
   const dupTotal=(WORKLIST&&WORKLIST.duplicates_total)||((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
   if(dupTotal>0) CARDS.push({kind:'dupes', count:dupTotal, groups:((WORKLIST&&WORKLIST.duplicates)||[])});
   CARDS.push({kind:'done'});
@@ -903,12 +917,15 @@ function renderReview(){
   let html='';
   if(c.kind==='banner') html=cardBanner(c);
   else if(c.kind==='tidies') html=cardTidies(c);
+  else if(c.kind==='admin') html=cardAdmin(c);
   else if(c.kind==='column') html=cardColumn(c);
   else if(c.kind==='dupes') html=cardDupes(c);
   else html=cardDone();
   $('#reviewcard').innerHTML=html;
   if(c.kind==='column' && (c.field.rows||[]).length) renderChanges('');
 }
+function tidyPeek(a){ const box=a.parentElement.querySelector('.col-peek'); const open=box.style.display==='none';
+  box.style.display=open?'block':'none'; a.textContent=open?'hide':'see'; if(open) renderChanges(''); }
 function seeChangesHTML(nChg){
   return '<details class="rc-see"><summary>see '+nChg+' formatting change'+(nChg>1?'s':'')+'</summary>'+
     '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)"><div class="rc-changes" id="chglist"></div></details>';
@@ -929,8 +946,10 @@ function cardColumn(c){
     return h;
   }
   if(nChg){
-    h+='<div class="col-clean"><label class="switch2"><input type="checkbox" '+(c.applyClean?'checked':'')+' onchange="toggleApplyClean()"><span class="tk"></span></label>'+
-      '<div class="col-clean-txt"><b>Tidy formatting</b><span>'+esc(summariseShort(f))+'</span></div></div>'+seeChangesHTML(nChg);
+    c.applyClean = true;   // safe formatting applies on save; no competing toggle here
+    h+='<div class="col-alsotidy">Also tidying formatting on '+nChg+' entr'+(nChg===1?'y':'ies')+
+       ' (spacing, case). This does not change meaning. <a class="link tiny" onclick="tidyPeek(this)">see</a>'+
+       '<div class="col-peek" style="display:none"><div class="rc-changes" id="chglist"></div></div></div>';
   }
   h+='<div class="col-groups-h">Possible duplicates</div>';
   c.groups.forEach((g,gi)=>{ h+=groupBlock(c,g,gi); });
@@ -1003,6 +1022,33 @@ function cardTidies(c){
 function tidyExpand(){ const c=CARDS[idx]; c.expanded=!c.expanded; renderReview(); }
 function tidyToggle(i){ const c=CARDS[idx]; const f=c.fields[i]; f.decision = (f.decision==='reject')?'accept':'reject'; renderReview(); }
 function tidyAll(accept){ const c=CARDS[idx]; c.fields.forEach(f=>f.decision=accept?'accept':'reject'); c.decision='done'; advanceCard(); }
+function cardAdmin(c){
+  const lvl=c.level==='state'?'State':'LGA';
+  const rows=c.items.map((it,i)=>{
+    const tag = it.kind==='is_state'?'wrong level': (it.kind==='is_lga'?'wrong level':'not found');
+    const right = it.suggestion
+      ? '<button class="adm-fix" onclick="admFix('+i+')">'+(it.decision==='fix'?'✓ ':'')+'use "'+esc(it.suggestion)+'"</button>'
+      : '<span class="adm-note">'+esc(it.note||'')+'</span>';
+    return '<div class="adm-row"><span class="adm-tag '+it.kind+'">'+tag+'</span>'+
+      '<span class="adm-val">'+esc(it.value)+'</span>'+right+
+      '<button class="adm-keep '+(it.decision==='keep'?'on':'')+'" onclick="admKeep('+i+')">keep</button></div>';
+  }).join('');
+  return '<div class="card rcard">'+
+    '<div class="rc-name">'+esc(labelOf(c.col))+': check '+c.items.length+' value'+(c.items.length===1?'':'s')+'</div>'+
+    '<div class="rc-sub">These don\'t match the official list of Nigerian '+lvl+'s. Fix a typo, or keep it as written. Nothing changes unless you choose a fix.</div>'+
+    '<div class="adm-list">'+rows+'</div>'+
+    '<div class="rc-decide"><button class="big ok wide" onclick="advanceCard()"><b>Save &amp; continue →</b><span>apply the fixes you picked</span></button></div>'+
+    '</div>';
+}
+function admFix(i){ const c=CARDS[idx]; const it=c.items[i]; it.decision=(it.decision==='fix')?null:'fix';
+  if(it.decision==='fix'){ WL_MERGES.push({column:c.col, into:it.suggestion, members:[it.value]}); }
+  else { WL_MERGES=WL_MERGES.filter(m=>!(m.column===c.col && m.members&&m.members[0]===it.value)); }
+  renderReview();
+}
+function admKeep(i){ const c=CARDS[idx]; const it=c.items[i]; it.decision=(it.decision==='keep')?null:'keep';
+  WL_MERGES=WL_MERGES.filter(m=>!(m.column===c.col && m.members&&m.members[0]===it.value));
+  renderReview();
+}
 function cardBanner(c){
   const n=c.rows.length;
   return '<div class="card rcard">'+
