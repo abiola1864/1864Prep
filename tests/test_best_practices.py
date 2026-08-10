@@ -113,6 +113,30 @@ def test_account_and_age_typing():
     assert profile_column(pd.Series(age), "age_years").semantic_type == "numeric"           # not categorical
 
 
+
+def test_excel_serial_headers_and_fractional_serials():
+    from engine.ingest import _fix_serial_header
+    from engine import get_transform
+    assert _fix_serial_header("44562") == "2022-01-01"
+    assert _fix_serial_header("ABC") == "ABC" and _fix_serial_header("12345") == "12345"
+    assert get_transform("date_iso").apply_value("44562.5")[0] == "2022-01-01"
+
+
+def test_serial_column_only_dates_with_hint():
+    import pandas as pd
+    from engine.profile import profile_column
+    s = ["44197", "44562", "44927", "45292", "45658", "44835"]
+    assert profile_column(pd.Series(s), "created_date").semantic_type == "date"
+    assert profile_column(pd.Series(s), "member_code").semantic_type == "identifier"
+
+
+def test_export_safety_strips_breaking_chars():
+    import pandas as pd
+    from engine.exporters import _export_safe
+    out = _export_safe(pd.DataFrame({"t": ["a\nb", "c\rd", "e\ufffdf"]}))
+    assert list(out["t"]) == ["a b", "cd", "ef"]
+
+
 if __name__ == "__main__":
     fns=[v for k,v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns: fn(); print("ok:", fn.__name__)

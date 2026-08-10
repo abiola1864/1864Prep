@@ -184,6 +184,50 @@ def run_benchmark():
         "fails":[],
         "note":"With the lexical fallback, synonym similarity is expectedly low; installing a neural model ([semantic]) raises it. This row reports reality, not a target."})
 
+    # ---------------- 10. Excel date serials ----------------
+    from engine.ingest import _fix_serial_header
+    from engine import get_transform as _gt
+    _dser = _gt("date_iso")
+    serial_cases = [
+        ("header 44562", _fix_serial_header("44562"), "2022-01-01"),
+        ("header ABC (not a serial)", _fix_serial_header("ABC"), "ABC"),
+        ("value 44197", _dser.apply_value("44197")[0], "2021-01-01"),
+        ("value 44562.5 (fractional)", _dser.apply_value("44562.5")[0], "2022-01-01"),
+    ]
+    sfails = [(a, exp, got) for a, got, exp in serial_cases if got != exp]
+    sacc = 1 - len(sfails) / len(serial_cases)
+    RESULTS.append({"group":"Excel date serials","desc":"Excel often leaks dates as 5-digit numbers, in cells and even as column headers. These are turned back into real dates.",
+        "metrics":[("Accuracy", sacc)], "n":len(serial_cases), "status":_status(sacc), "fails":sfails,
+        "note":"A whole column of serials is only read as dates when the column name hints a date, so real ID/code columns are never corrupted."})
+
+    # ---------------- 11. Robust file reading (encoding) ----------------
+    import tempfile as _tf, os as _os
+    from engine.ingest import read_any as _ra
+    enc_fails = []
+    try:
+        raw = b"\xff\xfe" + "name,age\nJo\u00e3o,30\nRen\u00e9,40\n".encode("utf-16-le")
+        p = _tf.mktemp(suffix=".csv"); open(p, "wb").write(raw)
+        df_e, rep_e = _ra(p); _os.unlink(p)
+        if not (len(df_e) == 2 and str(df_e.iloc[0, 0]) == "Jo\u00e3o"):
+            enc_fails.append(("UTF-16 file with accents", "Jo\u00e3o / 2 rows", f"{df_e.iloc[0,0]} / {len(df_e)} rows"))
+    except Exception as e:
+        enc_fails.append(("UTF-16 file", "reads cleanly", f"error: {e}"))
+    epass = 1.0 if not enc_fails else 0.0
+    RESULTS.append({"group":"Robust file reading","desc":"Reads files whatever their encoding: detects byte-order marks (UTF-16, UTF-8-BOM) and falls back safely so a mangled export still loads.",
+        "metrics":[("Pass", "yes" if epass else "no")], "n":1, "status":_status(epass), "fails":enc_fails,
+        "note":"Accented characters survive; invalid bytes are removed rather than crashing the read."})
+
+    # ---------------- 12. Export safety ----------------
+    from engine.exporters import _export_safe as _es
+    import pandas as _pd
+    _eo = _es(_pd.DataFrame({"t": ["a\nb", "c\rd", "e\ufffdf", "fine"]}))
+    exp_expected = ["a b", "cd", "ef", "fine"]
+    xfails = [(inp, e, g) for inp, e, g in zip(["a\\nb","c\\rd","e\\ufffdf","fine"], exp_expected, list(_eo["t"])) if e != g]
+    xacc = 1 - len(xfails) / len(exp_expected)
+    RESULTS.append({"group":"Export safety","desc":"Cleans values so the file opens correctly in the next tool: removes in-field line breaks and stray control characters that break CSV and spreadsheet readers.",
+        "metrics":[("Accuracy", xacc)], "n":len(exp_expected), "status":_status(xacc), "fails":xfails,
+        "note":"Only breakage is removed; the meaning of every value is preserved."})
+
     # make JSON-safe: metrics tuples -> lists, fails tuples -> lists
     for R in RESULTS:
         R["metrics"] = [[k, v] for k, v in R["metrics"]]
@@ -194,100 +238,167 @@ def run_benchmark():
 import json, html, datetime
 
 
-_PAGE_TMPL = r'''<!doctype html><html lang="en"><head><meta charset="utf-8">
+_PAGE_TMPL = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1864 Prep - Feature scoreboard</title>
+<title>1864 Prep — Engine diagnostics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
-  :root{--ink:#1a1f24;--soft:#5a636e;--line:#e4e7ea;--paper:#f7f6f3;--navy:#243b53}
-  *{box-sizing:border-box} body{margin:0;font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--paper)}
-  .wrap{max-width:900px;margin:0 auto;padding:28px 18px 60px}
-  h1{font-size:24px;margin:0 0 4px} .sub{color:var(--soft);margin:0 0 16px}
-  .runbar{display:flex;align-items:center;gap:12px;margin:0 0 18px;flex-wrap:wrap}
-  .runbtn{background:var(--navy);color:#fff;border:none;border-radius:10px;padding:11px 20px;font:inherit;font-weight:700;cursor:pointer}
-  .runbtn:disabled{opacity:.6;cursor:default}
-  .runbtn:hover:not(:disabled){filter:brightness(1.08)}
-  .runmsg{color:var(--soft);font-size:13px}
-  .summary{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:18px}
-  .summary b{font-size:30px;color:var(--navy)}
-  .defs{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:22px}
-  .defs h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin:0 0 8px}
-  .defs dl{margin:0;display:grid;grid-template-columns:150px 1fr;gap:6px 14px}
-  .defs dt{font-weight:700} .defs dd{margin:0;color:var(--soft)}
-  .feature{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
-  .fhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  .fhead h3{margin:0;font-size:17px}
-  .badge{font-size:11px;font-weight:800;letter-spacing:.04em;padding:3px 10px;border-radius:99px}
-  .fdesc{color:var(--soft);margin:6px 0 10px;font-size:14px}
-  .metrics{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
-  .mk{color:var(--soft);font-size:13px} .metrics b{color:var(--navy)}
-  .n{margin-left:auto;color:#9aa0a8;font-size:12px;font-family:ui-monospace,monospace}
-  .note{margin-top:10px;font-size:13px;color:var(--soft);border-left:3px solid var(--line);padding-left:10px}
-  details{margin-top:10px} summary{cursor:pointer;font-size:13px;color:var(--navy);font-weight:600}
-  table.fails{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
-  table.fails th,table.fails td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-  table.fails th{color:var(--soft);font-weight:600} .got{color:#a83a3a;font-family:ui-monospace,monospace}
-  .foot{color:#9aa0a8;font-size:12px;margin-top:24px;text-align:center}
-  @media(max-width:640px){.defs dl{grid-template-columns:1fr} .defs dt{margin-top:6px}}
+  :root{
+    --paper:#fbfbf9; --panel:#ffffff; --ink:#14171a; --muted:#6b7078; --faint:#9aa0a8;
+    --line:#e8e9ec; --line2:#f0f1f3; --accent:#1b3a5b;
+    --good:#1f7a44; --good-bg:#e8f3ec; --ok:#8a6a12; --ok-bg:#f6efd7; --weak:#b23b3b; --weak-bg:#f7e6e6; --na:#8a8f98; --na-bg:#eef0f2;
+    --disp:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --body:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:34px 20px 72px}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+  header.top{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:22px}
+  h1{font-family:var(--disp);font-weight:700;font-size:34px;line-height:1.05;letter-spacing:-.01em;margin:0 0 8px}
+  .lede{color:var(--muted);max-width:52ch;margin:0}
+  .gauge{text-align:right;min-width:180px}
+  .gauge .big{font-family:var(--mono);font-weight:600;font-size:46px;line-height:1;letter-spacing:-.02em;color:var(--accent)}
+  .gauge .glabel{font-size:12px;color:var(--muted);margin-top:4px}
+  .gmeter{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:10px}
+  .gmeter i{display:block;height:100%;background:var(--accent)}
+  .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 26px}
+  .run{font-family:var(--disp);font-weight:600;font-size:15px;color:#fff;background:var(--accent);border:none;border-radius:10px;padding:11px 22px;cursor:pointer;transition:filter .15s}
+  .run:hover:not(:disabled){filter:brightness(1.12)} .run:disabled{opacity:.55;cursor:default}
+  .run:focus-visible{outline:3px solid #b9cbe0;outline-offset:2px}
+  .runmsg{font-size:13px;color:var(--muted)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:0 0 26px}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:9px;height:9px;border-radius:99px;display:inline-block}
+  section.defs{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin:0 0 30px}
+  section.defs h2{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:0 0 12px}
+  .defs dl{margin:0;display:grid;grid-template-columns:132px 1fr;gap:0}
+  .defs dt{font-family:var(--disp);font-weight:600;padding:9px 0;border-top:1px solid var(--line2)}
+  .defs dd{margin:0;color:var(--muted);padding:9px 0;border-top:1px solid var(--line2)}
+  .defs dl>dt:first-of-type,.defs dl>dd:nth-of-type(1){border-top:none}
+  .rowlist{display:flex;flex-direction:column;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel)}
+  .feat{padding:20px;border-top:1px solid var(--line)}
+  .feat:first-child{border-top:none}
+  .feat-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .idx{font-family:var(--mono);font-size:12px;color:var(--faint);width:26px;flex:0 0 26px}
+  .feat-head h3{font-family:var(--disp);font-weight:600;font-size:18px;margin:0;flex:1}
+  .pill{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.08em;padding:3px 9px;border-radius:99px}
+  .desc{color:var(--muted);font-size:14px;margin:0 0 14px;padding-left:38px}
+  .readout{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;padding-left:38px}
+  .meter{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+  .meter i{display:block;height:100%;border-radius:99px;transition:width .5s cubic-bezier(.2,.7,.2,1)}
+  .chips{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end}
+  .chip{display:flex;flex-direction:column;gap:2px}
+  .chip .k{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .chip .v{font-family:var(--mono);font-weight:600;font-size:19px;line-height:1;color:var(--ink)}
+  .chip .v.small{font-size:14px;font-weight:500}
+  .note{color:var(--muted);font-size:13px;margin:14px 0 0;padding-left:38px;border-left:0}
+  .note b{color:var(--ink)}
+  details{margin:12px 0 0 38px}
+  summary{cursor:pointer;font-family:var(--disp);font-weight:600;font-size:13px;color:var(--accent);list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸ ";color:var(--faint)}
+  details[open] summary::before{content:"▾ "}
+  table.fails{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+  table.fails th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line)}
+  table.fails td{padding:7px 10px;border-bottom:1px solid var(--line2);vertical-align:top;font-family:var(--mono);font-size:12.5px}
+  table.fails td.exp{color:var(--good)} table.fails td.got{color:var(--weak)}
+  .foot{color:var(--faint);font-size:12px;margin-top:26px;text-align:center;line-height:1.7}
+  .foot code{font-family:var(--mono);background:var(--line2);padding:2px 6px;border-radius:6px}
+  @media(max-width:640px){
+    header.top{grid-template-columns:1fr;align-items:start} .gauge{text-align:left}
+    h1{font-size:27px} .defs dl{grid-template-columns:1fr} .defs dt{padding-bottom:0;border-top:1px solid var(--line2)} .defs dd{padding-top:2px;border-top:none}
+    .desc,.readout,.note,details{padding-left:0;margin-left:0} .idx{display:none}
+    .readout{grid-template-columns:1fr}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style></head><body><div class="wrap">
-  <h1>Feature scoreboard</h1>
-  <p class="sub">How each part of the engine is performing, measured on labelled test cases. Every number is from a live run - nothing is hand-entered.</p>
-  <div class="runbar">
-    <button class="runbtn" id="runbtn" onclick="runLive()">Run tests now</button>
+  <p class="eyebrow">1864 Prep · Engine diagnostics</p>
+  <header class="top">
+    <div>
+      <h1>Feature scoreboard</h1>
+      <p class="lede">How each part of the engine performs, measured on labelled test cases. Every number is from a live run — nothing is hand-entered.</p>
+    </div>
+    <div class="gauge">
+      <div class="big" id="gauge-num">—</div>
+      <div class="glabel">average accuracy · measured features</div>
+      <div class="gmeter"><i id="gauge-bar" style="width:0%"></i></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button class="run" id="runbtn" onclick="runLive()">Run tests now</button>
     <span class="runmsg" id="runmsg">Showing results generated __GENERATED__.</span>
   </div>
-  <div id="summary"></div>
-  <div class="defs"><h2>How to read this</h2><dl>
-    <dt>Accuracy</dt><dd>Share of test cases the feature got exactly right (correct answers / all cases).</dd>
-    <dt>Precision</dt><dd>When the feature makes a positive call, how often it is right. Low precision = false positives (e.g. calling an address a "country").</dd>
-    <dt>Recall</dt><dd>Of the cases that should have been caught, how many were. Low recall = misses (e.g. a real country left unresolved).</dd>
-    <dt>False positive</dt><dd>Saying "yes/this type" when the truth is "no" - the costliest error, because it can change data silently.</dd>
-    <dt>n</dt><dd>Number of labelled cases behind the score. Small n means the number is indicative, not definitive.</dd>
-    <dt>Sentinel</dt><dd>A placeholder like -1, 999, or N/A that stands for "missing/refused", not a real value.</dd>
-  </dl></div>
-  <div id="cards"></div>
-  <div class="foot">1864 Prep - "Run tests now" re-runs the benchmark live (needs the app running). Offline, run <code>python tests/benchmark.py</code>.</div>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--good)"></i> strong · ≥90%</span>
+    <span><i class="dot" style="background:var(--ok)"></i> usable · ≥75%</span>
+    <span><i class="dot" style="background:var(--weak)"></i> needs work · &lt;75%</span>
+    <span style="color:var(--faint)">open a feature's “cases to improve” to see exactly what failed</span>
+  </div>
+
+  <section class="defs"><h2>How to read this</h2><dl>
+    <dt>Accuracy</dt><dd>Share of test cases the feature got exactly right — correct answers ÷ all cases.</dd>
+    <dt>Precision</dt><dd>When the feature makes a positive call, how often it's right. Low precision means false positives (calling an address a “country”).</dd>
+    <dt>Recall</dt><dd>Of the cases that should have been caught, how many were. Low recall means misses (a real country left unresolved).</dd>
+    <dt>False positive</dt><dd>Saying “yes / this type” when the truth is “no” — the costliest error, because it can change data silently.</dd>
+    <dt>n</dt><dd>Number of labelled cases behind the score. A small n means the number is indicative, not definitive.</dd>
+    <dt>Sentinel</dt><dd>A placeholder like -1, 999, or N/A that stands for “missing / refused”, not a real value.</dd>
+  </dl></section>
+
+  <div class="rowlist" id="cards"></div>
+  <p class="foot">Run <code>python tests/benchmark.py</code> to regenerate offline · “Run tests now” re-runs the benchmark live when the app is running.</p>
 </div>
 <script>
-const BADGE={good:['#1f7a44','#e6f4ec'],ok:['#8a6d1f','#f6efd9'],weak:['#a83a3a','#f6e5e5'],na:['#8a8f98','#eef0f2']};
+const C={good:['var(--good)','var(--good-bg)'],ok:['var(--ok)','var(--ok-bg)'],weak:['var(--weak)','var(--weak-bg)'],na:['var(--na)','var(--na-bg)']};
+const LABEL={good:'STRONG',ok:'USABLE',weak:'NEEDS WORK',na:'N/A'};
 const DATA = __DATA__;
-function fmt(v){ return (typeof v==='number' && v<=1 && v>=0) ? Math.round(v*100)+'%' : v; }
-function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function isScore(v){return typeof v==='number' && v>=0 && v<=1;}
+function fmt(v){return isScore(v)?Math.round(v*100)+'%':esc(v);}
+function primaryScore(m){for(const [k,v] of m){if(isScore(v))return v;}return null;}
 function render(results){
-  const nums=results.filter(r=>typeof r.metrics[0][1]==='number');
-  const avg=nums.length? nums.reduce((a,r)=>a+r.metrics[0][1],0)/nums.length : 0;
-  document.getElementById('summary').innerHTML =
-    '<div class="summary">Average accuracy across measured features: <b>'+Math.round(avg*100)+'%</b><br>'+
-    '<span style="color:var(--soft);font-size:13px">Green = strong (&ge;90%), amber = usable (&ge;75%), red = needs work. Open "cases to improve" to see exactly what is failing.</span></div>';
-  document.getElementById('cards').innerHTML = results.map(R=>{
-    const b=BADGE[R.status]||BADGE.na;
-    const metrics=R.metrics.map(([k,v])=>'<span class="mk">'+esc(k)+'</span> <b>'+esc(fmt(v))+'</b>').join(' ');
+  const nums=results.filter(r=>isScore(r.metrics[0][1]));
+  const avg=nums.length?nums.reduce((a,r)=>a+r.metrics[0][1],0)/nums.length:0;
+  document.getElementById('gauge-num').textContent=Math.round(avg*100)+'%';
+  document.getElementById('gauge-bar').style.width=Math.round(avg*100)+'%';
+  document.getElementById('cards').innerHTML=results.map((R,i)=>{
+    const col=C[R.status]||C.na;
+    const score=primaryScore(R.metrics);
+    const meter = score!==null
+      ? '<div class="meter" role="img" aria-label="score '+Math.round(score*100)+' percent"><i style="width:'+Math.round(score*100)+'%;background:'+col[0]+'"></i></div>'
+      : '<div></div>';
+    const chips=R.metrics.map(([k,v])=>'<span class="chip"><span class="k">'+esc(k)+'</span><span class="v'+(isScore(v)?'':' small')+'">'+fmt(v)+'</span></span>').join('')
+      +'<span class="chip"><span class="k">cases</span><span class="v small">n='+R.n+'</span></span>';
     let fails='';
-    if(R.fails && R.fails.length){
-      const rows=R.fails.slice(0,20).map(f=>'<tr><td>'+esc(f[0])+'</td><td>'+esc(f[1])+'</td><td class="got">'+esc(f[2])+'</td></tr>').join('');
-      fails='<details><summary>'+R.fails.length+' case(s) to improve</summary><table class="fails"><tr><th>input</th><th>expected</th><th>got</th></tr>'+rows+'</table></details>';
+    if(R.fails&&R.fails.length){
+      const rows=R.fails.slice(0,20).map(f=>'<tr><td>'+esc(f[0])+'</td><td class="exp">'+esc(f[1])+'</td><td class="got">'+esc(f[2])+'</td></tr>').join('');
+      fails='<details><summary>'+R.fails.length+' case'+(R.fails.length>1?'s':'')+' to improve</summary>'+
+        '<table class="fails"><thead><tr><th>input</th><th>expected</th><th>got</th></tr></thead><tbody>'+rows+'</tbody></table></details>';
     }
-    const note=R.note?'<div class="note">'+esc(R.note)+'</div>':'';
-    return '<div class="feature"><div class="fhead"><h3>'+esc(R.group)+'</h3>'+
-      '<span class="badge" style="color:'+b[0]+';background:'+b[1]+'">'+R.status.toUpperCase()+'</span></div>'+
-      '<div class="fdesc">'+esc(R.desc)+'</div>'+
-      '<div class="metrics">'+metrics+' <span class="n">n='+R.n+'</span></div>'+note+fails+'</div>';
+    const note=R.note?'<p class="note">'+esc(R.note)+'</p>':'';
+    return '<div class="feat"><div class="feat-head"><span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+
+      '<h3>'+esc(R.group)+'</h3><span class="pill" style="color:'+col[0]+';background:'+col[1]+'">'+LABEL[R.status]+'</span></div>'+
+      '<p class="desc">'+esc(R.desc)+'</p>'+
+      '<div class="readout">'+meter+'<div class="chips">'+chips+'</div></div>'+note+fails+'</div>';
   }).join('');
 }
 async function runLive(){
-  const btn=document.getElementById('runbtn'), msg=document.getElementById('runmsg');
-  btn.disabled=true; const t0=Date.now(); msg.textContent='Running the benchmark...';
+  const btn=document.getElementById('runbtn'),msg=document.getElementById('runmsg');
+  btn.disabled=true;const t0=Date.now();msg.textContent='Running the benchmark…';
   try{
     const res=await fetch('/api/benchmark',{method:'POST'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data=await res.json();
-    render(data.results);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();render(data.results);
     msg.textContent='Ran live just now in '+((Date.now()-t0)/1000).toFixed(1)+'s.';
-  }catch(e){
-    msg.textContent='Could not run live (is the app running?). Showing the last generated results. ['+e.message+']';
-  }finally{ btn.disabled=false; }
+  }catch(e){msg.textContent='Could not run live (is the app running?). Showing the last generated results.';}
+  finally{btn.disabled=false;}
 }
 render(DATA);
-</script></body></html>'''
+</script></body></html>"""
 
 
 def build_page(results):

@@ -21,7 +21,7 @@ from typing import Any
 import pandas as pd
 
 _WS = re.compile(r"\s+")
-_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff\u2060"), None)
+_ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff\u2060\ufffd"), None)
 _UNI_SPACE = {ord(c): " " for c in "\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005"
               "\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000"}
 

@@ -37,6 +37,10 @@ _BOOL = {"yes", "no", "true", "false", "y", "n", "1", "0"}
 _GENDER = {"m", "f", "male", "female", "man", "woman", "boy", "girl"}
 
 
+def _re_fullmatch_serial(s):
+    return bool(re.fullmatch(r"\d{5}(?:\.\d+)?", str(s).strip()))
+
+
 def _clean_vals(series: pd.Series) -> list[str]:
     out = []
     for v in series.tolist():
@@ -207,6 +211,18 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     letter_share = _rate(vals, lambda s: any(ch.isalpha() for ch in s))
     if phone_rate >= 0.7 and letter_share < 0.1:      # phones never contain letters
         return ColumnProfile(name, "phone", phone_rate, "phone_ng", evidence=ev)
+
+    # a column of bare Excel date-serials (e.g. 44197, 44562) reads as an ID column,
+    # but if the header hints a date it is almost certainly leaked dates. Convert
+    # only with that hint, so real 5-digit ID/code columns are never corrupted.
+    serials = [v for v in vals if _re_fullmatch_serial(v)]
+    if serials and len(serials) / len(vals) >= 0.9:
+        hint = any(k in name.lower() for k in
+                   ("date", "day", "created", "closed", "resolved", "time",
+                    "dob", "birth", "start", "end", "period", "month", "year", "timestamp"))
+        if hint:
+            ev["excel_date_serials"] = True
+            return ColumnProfile(name, "date", 0.85, "date_iso", evidence=ev)
 
     # leading-zero digit strings are codes (IDs, ZIP, account nos), never measures:
     # "007" is not the number 7. Keep them as identifiers so zeros are preserved.

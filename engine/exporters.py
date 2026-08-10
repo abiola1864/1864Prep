@@ -6,8 +6,22 @@ from pathlib import Path
 import pandas as pd
 
 
+def _export_safe(df: pd.DataFrame) -> pd.DataFrame:
+    """Make text safe for the next tool (Excel, Power BI, other CSV readers):
+    remove carriage returns and newlines inside fields (a common cause of
+    'EOF within quoted string'), drop the Unicode replacement char and other
+    control characters. Meaning is preserved; only breakage is removed."""
+    import re as _r
+    out = df.copy()
+    ctrl = _r.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufffd]")
+    for c in out.columns:
+        out[c] = out[c].map(lambda v: v if not isinstance(v, str)
+                            else ctrl.sub("", v.replace("\r", "").replace("\n", " ")))
+    return out
+
+
 def to_csv(df: pd.DataFrame, path: Path) -> Path:
-    df.to_csv(path, index=False)
+    _export_safe(df).to_csv(path, index=False)
     return path
 
 

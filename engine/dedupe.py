@@ -15,6 +15,7 @@ feed the "needs your attention" worklist rather than changing data silently.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import re
 
 import pandas as pd
 from rapidfuzz import fuzz
@@ -82,33 +83,34 @@ def _row_key(row) -> str:
     return normalize(" ".join("" if pd.isna(c) else str(c) for c in row))
 
 
+_MISSING_CELL = {"", "..", "...", "na", "n/a", "n.a.", "null", "none", "nan", "nat", "-", "--", "n\\a"}
+
+
+def _norm_cell(v) -> str:
+    s = re.sub(r"\s+", " ", str(v).strip().lower())
+    return "" if s in _MISSING_CELL else s
+
+
 def near_duplicate_rows(df: pd.DataFrame, subset: list[str] | None = None,
                         threshold: float = 0.92) -> list[dict]:
-    """Find duplicate / near-duplicate rows. Returns groups of row indices:
-    {rows, kind ('exact'|'near'), similarity}."""
+    """Find duplicate rows SAFELY. Two rows are duplicates only when they match
+    on EVERY column after light normalisation (case/spacing), with missing
+    markers ('', '..', 'NA', 'null', ...) treated as blank so they never count
+    as evidence of a match. Rows that differ on any real value (e.g. a different
+    country) are never grouped - deleting real records is far worse than missing
+    a fuzzy near-duplicate.
+    """
     cols = subset or list(df.columns)
-    keys = [_row_key(df[cols].iloc[i]) for i in range(len(df))]
-
-    exact = defaultdict(list)
-    for i, k in enumerate(keys):
-        if k:
-            exact[k].append(i)
+    buckets: dict[tuple, list[int]] = defaultdict(list)
+    for i in range(len(df)):
+        row = df[cols].iloc[i]
+        norm = tuple(_norm_cell(row[c]) for c in cols)
+        if not any(norm):                 # entirely empty row: not a meaningful duplicate
+            continue
+        buckets[norm].append(i)
     groups = [{"rows": idxs, "kind": "exact", "similarity": 1.0}
-              for k, idxs in exact.items() if len(idxs) > 1]
-
-    # near-duplicates: compare distinct keys pairwise (length-bucketed, capped)
-    uniq = [(k, idxs[0]) for k, idxs in exact.items()]
-    if len(uniq) <= _MAX:
-        for a in range(len(uniq)):
-            ka, ia = uniq[a]
-            for b in range(a + 1, len(uniq)):
-                kb, ib = uniq[b]
-                if abs(len(ka) - len(kb)) > 0.3 * max(len(ka), len(kb), 1):
-                    continue
-                s = fuzz.token_set_ratio(ka, kb) / 100.0
-                if s >= threshold:
-                    groups.append({"rows": [ia, ib], "kind": "near", "similarity": round(s, 3)})
-    groups.sort(key=lambda g: (g["kind"] != "exact", -len(g["rows"]), -g["similarity"]))
+              for norm, idxs in buckets.items() if len(idxs) > 1]
+    groups.sort(key=lambda g: (-len(g["rows"]),))
     return groups
 
 

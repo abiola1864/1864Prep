@@ -14,7 +14,7 @@ import dateparser
 
 from .base import Transform, _clean_str
 
-_SERIAL = re.compile(r"^\d{4,5}$")
+_SERIAL = re.compile(r"^\d{4,5}(?:\.\d+)?$")
 _EXCEL_EPOCH = _dt.date(1899, 12, 30)   # Excel's day 0
 
 
@@ -45,11 +45,12 @@ class DateISOTransform(Transform):
         s = _clean_str(value)
         if s == "":
             return "", True, "empty date"
-        # Excel serial number (e.g. 44197 -> 2021-01-01)
-        if _SERIAL.match(s):
-            n = int(s)
-            if 20000 <= n <= 60000:
-                d = _EXCEL_EPOCH + _dt.timedelta(days=n)
+        # Excel serial number (e.g. 44197 -> 2021-01-01; 44562.5 keeps the date part)
+        _ser = _SERIAL.match(s)
+        if _ser:
+            f = float(s)
+            if 20000 <= f <= 60000:
+                d = _EXCEL_EPOCH + _dt.timedelta(days=int(f))
                 return (d.isoformat(), False, "") if self._in_range(d) else (value, True, "date out of range")
         # ISO-like (YYYY-MM-DD) is unambiguous: keep as-is, never day-first swap
         _iso = _re.match(r"^\s*(\d{4})-(\d{1,2})-(\d{1,2})\s*$", s) if (_re := __import__("re")) else None

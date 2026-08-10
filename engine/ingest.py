@@ -49,6 +49,13 @@ class IngestReport:
 
 # ---------------------------------------------------------------------------
 def _sniff_encoding(raw: bytes) -> str:
+    # BOM is the most reliable signal (charset detectors often miss UTF-16).
+    if raw[:2] == b"\xff\xfe":
+        return "utf-16-le"
+    if raw[:2] == b"\xfe\xff":
+        return "utf-16-be"
+    if raw[:3] == b"\xef\xbb\xbf":
+        return "utf-8-sig"
     try:
         from charset_normalizer import from_bytes
         m = from_bytes(raw).best()
@@ -56,7 +63,12 @@ def _sniff_encoding(raw: bytes) -> str:
             return m.encoding
     except Exception:
         pass
-    return "utf-8"
+    # last resort: latin-1 never fails to decode, so a mangled file still loads
+    try:
+        raw.decode("utf-8")
+        return "utf-8"
+    except Exception:
+        return "latin-1"
 
 
 def _sniff_delimiter(text: str) -> str:
@@ -199,11 +211,24 @@ def read_pdf(path: Path) -> tuple[pd.DataFrame, IngestReport]:
     return df, rep
 
 
+def _fix_serial_header(h: str) -> str:
+    """A bare numeric header in the Excel date-serial range is almost always a
+    date that leaked in as a number (e.g. 44562 -> 2021-12-01). Convert it."""
+    import re as _r, datetime as _d
+    m = _r.fullmatch(r"\d{5}(?:\.\d+)?", h)
+    if m:
+        f = float(h)
+        if 36526 <= f <= 55153:            # 2000-01-01 .. 2051, a safe date window
+            return (_d.date(1899, 12, 30) + _d.timedelta(days=int(f))).isoformat()
+    return h
+
+
 def _dedupe_headers(header: list[str]) -> list[str]:
     _zw = str.maketrans("", "", "\ufeff\u200b\u200c\u200d\u2060")
     seen, out = {}, []
     for j, h in enumerate(header):
         h = str(h).translate(_zw).replace("\xa0", " ").strip()   # drop BOM/zero-width, trim
+        h = _fix_serial_header(h)                                # leaked Excel date serial -> ISO date
         if not h or h.lower().startswith("unnamed"):
             h = f"column_{j+1}_no_header"                        # blank header -> visible, flaggable
         if h in seen:

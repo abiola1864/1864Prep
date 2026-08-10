@@ -33,6 +33,23 @@ def test_no_false_groups_on_distinct():
     assert groups == []
 
 
+
+def test_no_false_row_duplicates_on_wide_sparse_data():
+    import pandas as pd
+    from engine.dedupe import near_duplicate_rows
+    # different entities that share many empty/identical cells must NOT be duplicates
+    df = pd.DataFrame({
+        "country": ["Andorra","Antigua","Sao Tome","St Kitts"],
+        "series":  ["ID ownership"]*4,
+        "y2006": [".."]*4, "y2007": [".."]*4, "y2008": [".."]*4,
+    })
+    assert near_duplicate_rows(df) == []
+    # a genuine repeat is still caught
+    d2 = pd.concat([df, df.iloc[[0]]], ignore_index=True)
+    g = near_duplicate_rows(d2)
+    assert len(g) == 1 and set(g[0]["rows"]) == {0, 4}
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns:

@@ -27,23 +27,30 @@ Two promises it keeps:
 
 Most cleaners handle the obvious. These are the quieter problems that usually get missed, silently corrupt data, or cost hours of manual work — and 1864 Prep handles them locally, tested against real dirty files.
 
-- **It reads the whole column before deciding, not one value at a time.** Many formats are impossible to read from a single cell but obvious across the column. `12.05.2021` alone could be May or December; the tool looks at the column, sees where a value passes 12, and locks the layout for every row — so one typo can't flip it. The same idea decides whether a dot means a decimal or a thousands separator, so a rate like `42.959` is never turned into `42959`.
-- **It tells the difference between a value and a code.** `007`, `01234`, an account number — these only look like numbers. Treating them as numbers drops the leading zeros and destroys the code. The tool keeps them intact, and never confuses a code column with a phone or a measurement.
-- **It knows which changes are safe and which change meaning.** Trimming spaces or fixing capitalisation is standardising *how a value looks*; merging two entries is changing *what it means*. The tool separates the two, breezes through the harmless ones in a single step, and only asks you about the ones that matter.
-- **It refuses to invent data.** Impossible dates, out-of-range ages, refusal codes like `999` or `-1` are flagged for you, not quietly "corrected." A lone odd value is treated as a possible typo, not an excuse to reinterpret a whole column. And two values that merely look similar are only merged when they genuinely mean the same thing — different numbers, different entries, and near-but-distinct labels are kept apart.
-- **It handles the mess you can't see.** Invisible characters, non-breaking spaces, byte-order marks, and garbled encoding (the `Ã©` that should be `é`) are the silent reason spreadsheets fail to join or match. The tool cleans them everywhere, automatically.
-- **It finds the real table inside a messy file.** Files that open with a title, a source line, logos, or blank rows before the data begins are read correctly — the true header is found, and you're shown exactly what sat above it, never dropped without your knowledge.
-- **It recognises real-world things, not just text.** People, places, organisations, money, dates, regions, currencies — the tool identifies what a column actually contains and can standardise entries to their proper form, using established reference data and optional name/entity models. It works the same on a health roll, an agriculture registry, or a global index.
-- **It checks values against the known-correct set, and flags what doesn't belong.** For a column whose universe is known — administrative regions, currencies, standard categories — the tool doesn't just tidy formatting; it validates each value against the full official list. A near-miss is offered as a one-tap correction (a mistyped place name is matched to the right one). A value entered at the wrong level (a state where a local area was expected) is flagged as a level mismatch. And a value that isn't in the list at all (a city or community entered where an official area should be) is flagged for you to check. You confirm each one; nothing is changed silently.
-- **It's honest about time and uncertainty.** Progress reflects the real work happening column by column and never claims "almost done" when it isn't. When something is genuinely ambiguous, it asks instead of guessing.
+| The quiet problem | What 1864 Prep does |
+| --- | --- |
+| A value's format is unreadable on its own (`12.05.2021` — May or December? `42.959` — decimal or thousands?) | Reads the **whole column** first, locks one layout for every row (51% majority, so one typo can't flip it), and never turns `42.959` into `42959` |
+| Codes that only look like numbers (`007`, `01234`, account numbers) | Keeps them as codes so leading zeros survive; never confuses a code column with a phone or a measurement |
+| Not all changes are equal — spacing vs. merging entries | Applies safe formatting (spacing, case) automatically and only asks you about changes that alter meaning |
+| Tools "correcting" bad data into wrong data | Flags impossible dates, out-of-range values, and refusal codes (`999`, `-1`) instead of fixing them; merges two values only when they genuinely mean the same thing |
+| Invisible corruption (zero-width characters, BOMs, `Ã©` that should be `é`) and unknown file encodings | Cleans these everywhere and reads any encoding (UTF-16, UTF-8-BOM, …) so a mangled export still opens |
+| Excel leaking dates as bare numbers like `44562`, even as column headings | Restores the real date, while leaving genuine ID and code numbers untouched |
+| Cleaned files that then break the next tool ("EOF within quoted string") | Strips in-field line breaks and control characters so the file opens cleanly, with meaning unchanged |
+| A title, source line, or blank rows sitting above the real table | Finds the true header and shows you exactly what sat above it — never dropped silently |
+| Real-world things, not just text (people, places, money, regions, currencies) | Identifies what a column actually holds and standardises to the proper form, the same on a health roll, an agriculture registry, or a global index |
+| Values that should belong to a known set (regions, currencies, categories) | Checks each against the full official list: near-misses become one-tap corrections, wrong-level and unknown values are flagged for you — nothing changed silently |
+| Dishonest progress bars and silent guesses | Progress reflects real per-column work; when something is genuinely ambiguous, it asks instead of guessing |
 
 ## What it can't do yet (straight, not undersold)
 
-- **It types entities; it doesn't understand novel ones.** For entity *identity* it relies on reference packages (countries, world regions, currencies) — a very large but finite set. Programme names, agency names, and occupations have no offline canonical source; those are handled as text or need a reference you supply.
-- **Meaning-based matching ("Provisions ~ Groceries") is optional and needs a download.** Reliable semantic similarity uses sentence-transformer embeddings, whose weights download once on your machine. Without them, matching is high-quality string / entity matching, not true synonymy.
-- **Name intelligence and NER are optional add-ons.** Gender-from-name and person / organisation / place typing come from optional models / datasets you install once; the base engine runs without them.
-- **Some calls are genuinely yours to make.** When a date column is fully ambiguous (every part <= 12), or a "same thing?" group is really two things, the tool asks rather than guesses. That's by design, not a gap.
-- **Column split / merge (schema changes) is recorded, not auto-applied.** Reshaping that changes the table's shape is proposed and logged; value-level cleaning is applied on export.
+| Limitation | What that means |
+| --- | --- |
+| Types entities, doesn't understand novel ones | Identity relies on reference sets (countries, world regions, currencies) — large but finite. Programme names, agency names, occupations are handled as text or need a reference you supply |
+| Meaning-based matching is optional | "Provisions ≈ Groceries" needs sentence-transformer embeddings that download once on your machine; without them, matching is strong string / entity matching, not true synonymy |
+| Name and entity intelligence are add-ons | Gender-from-name and person / organisation / place typing come from optional models you install once; the base engine runs without them |
+| Some calls are genuinely yours | A fully ambiguous date column (every part ≤ 12) or a "same thing?" group that is really two things is surfaced for you, by design |
+| Schema reshaping is recorded, not auto-applied | Column split / merge that changes the table's shape is proposed and logged; value-level cleaning is applied on export |
+
 
 ## The interface (secondary)
 
@@ -72,20 +79,23 @@ file -> ingest -> profile (type inference) -> plan -> run_plan -> review -> expo
 
 ### Engine (`engine/`)
 
-- `ingest.py` — reads CSV / TSV / TXT (encoding + delimiter + header sniffing), Excel (multi-sheet), JSON, PDF tables; detects and reports banner rows; strips BOM / zero-width from headers.
-- `profile.py` — semantic type inference with column-context passes: `infer_date_order` (51% majority), `infer_decimal_convention` (dot vs comma), leading-zero and alphanumeric-code detection, optional ML / NER rescue.
-- `transforms/` — 23 registered transforms (numeric, dates / datetimes with impossible-date flagging, phones, emails, names with hyphen / O' / Mc handling, booleans, gender, coordinates, units, sentinels, range checks, categorical induction, resolve).
-- `domains/` — package-based entity resolution: `country_converter` for countries, `pycountry` for currencies and 5,046 world subdivisions, small JSON for survey categoricals (sex, relationship-to-head, disability, payment channel, ID type). Powers merge-safety via `same_entity`.
-- `ng_admin.py` — validation against the complete official set of Nigerian administrative units (36 states + FCT, 774 LGAs, from an MIT-licensed dataset). Typo-tolerant resolution (`rapidfuzz`, full-string ratio so short names don't false-match), plus level-mismatch and unknown-value flags surfaced as a review card.
-- `dedupe.py` / `induce.py` — graded similarity clustering and meaning-preserving category induction; different numbers and different canonical entities never merge.
-- `nlp/` — optional spaCy NER for column typing (person / org / place / money / date).
-- `embeddings.py` — pluggable semantic-embedding layer with graceful fallback (sentence-transformers -> model2vec -> deterministic lexical vectors). Widens match RECALL for category merging and value synonymy; identity is still decided by the reference layer and user confirmation, never by embeddings alone. Reports the active backend honestly and runs everywhere, model or not.
-- `names.py` — optional `names-dataset` layer for name recognition and probabilistic gender estimation.
-- `pipeline.py`, `review.py`, `exporters.py`, `reshape.py`, `regions/`, `ml/` — plan execution, per-column change overview, CSV / XLSX / DOCX export, reshaping, region packs, trained type classifier.
+| Module | Responsibility |
+| --- | --- |
+| `ingest.py` | Reads CSV / TSV / TXT (BOM-first encoding for UTF-16 / UTF-8-BOM with latin-1 fallback, delimiter + header sniffing), Excel (multi-sheet), JSON, PDF tables; reports banner rows; strips BOM / zero-width; repairs Excel date-serials leaked into headers |
+| `profile.py` | Semantic type inference with column-context passes: `infer_date_order` (51% majority), `infer_decimal_convention` (dot vs comma), leading-zero and alphanumeric-code detection, optional ML / NER rescue |
+| `transforms/` | 23 transforms: numeric, dates / datetimes with impossible-date flagging, phones, emails, names (hyphen / O' / Mc), booleans, gender, coordinates, units, sentinels, range checks, category induction, resolve |
+| `domains/` | Reference-based entity resolution — `country_converter` for countries, `pycountry` for currencies and 5,046 world subdivisions, JSON for survey categoricals; powers merge-safety via `same_entity` |
+| `ng_admin.py` | Validation against the full official set of Nigerian admin units (36 states + FCT, 774 LGAs, MIT-licensed). Typo-tolerant resolution, plus level-mismatch and unknown-value flags |
+| `dedupe.py` / `induce.py` | Graded similarity clustering and meaning-preserving category induction; different numbers and canonical entities never merge |
+| `embeddings.py` | Pluggable semantic layer (sentence-transformers → model2vec → deterministic lexical fallback). Widens match *recall*; identity stays with the reference layer. Reports its active backend honestly, runs everywhere |
+| `nlp/` | Optional spaCy NER for column typing (person / org / place / money / date) |
+| `names.py` | Optional `names-dataset` layer for name recognition and probabilistic gender estimation |
+| `exporters.py` | CSV / XLSX / DOCX output; CSV is made safe for downstream tools (in-field line breaks and control characters removed, meaning unchanged) |
+| `pipeline.py`, `review.py`, `reshape.py`, `regions/`, `ml/` | Plan execution, per-column change overview, reshaping, swappable region packs, trained type classifier |
 
 ### Reliability
 
-~78 tests across 14 suites, including a `test_best_practices.py` battery that locks in the hard cases (unicode / zero-width, mojibake, leading-zero codes, impossible dates, hyphenated names, decimal-convention and date-order inference, "-1 != 1", BOM headers, account / age typing, and Nigerian state / LGA resolution with wrong-level flags).
+~85 tests across 16 suites, including a `test_best_practices.py` battery that locks in the hard cases (unicode / zero-width, mojibake, leading-zero codes, impossible dates, hyphenated names, decimal-convention and date-order inference, "-1 != 1", BOM headers, account / age typing, Nigerian state / LGA resolution with wrong-level flags, Excel date-serials, and export-safety).
 
 ```bash
 for t in tests/*.py; do python "$t"; done
@@ -113,40 +123,33 @@ The hosted demo (`one864prep-demo.onrender.com`) is synthetic-data-only, since h
 
 ### Packages, and what each does here
 
-The tool stands on established, well-maintained libraries rather than bespoke per-file rules. Attribution and role:
+The tool stands on established, well-maintained libraries rather than bespoke per-file rules.
 
-**Reading and repair**
-- `pandas`, `numpy` — dataframes and vectorised operations throughout.
-- `openpyxl` — reads and writes Excel (multi-sheet ingest, XLSX export).
-- `pdfplumber` — extracts tables from PDFs.
-- `charset-normalizer` — detects file encoding so non-UTF-8 files read correctly.
-- `ftfy` — repairs mojibake (`Ã©cole -> école`) and broken unicode.
-- `langdetect` — language hint for text columns.
-
-**Type-specific cleaning**
-- `python-dateutil`, `dateparser` — parse dates in many human formats; `dateparser` respects the column-level order we infer.
-- `phonenumbers` — Google's libphonenumber port; validates and formats phone numbers to a standard.
-- `email-validator` — validates and normalises email addresses.
-- `price-parser`, `babel` — currency and locale-aware number handling (with our own decimal-convention layer on top; see below).
-- `pint` — unit parsing and conversion (`3200g` -> `3.2kg`).
-- `lat-lon-parser` — parses coordinates in decimal and DMS forms, preserving precision.
-
-**Matching, entities, dedup**
-- `rapidfuzz` — fast fuzzy string similarity for graded duplicate clustering.
-- `jellyfish` — phonetic matching (Soundex/Metaphone) for name-like variants.
-- `country_converter` — harmonises country names across ISO / UN / World Bank conventions to ISO3 codes. This is what makes `Congo, Dem. Rep.` and `Congo, Rep.` distinct while `naija -> Nigeria` resolves.
-- `pycountry` — authoritative offline ISO data: currencies and 5,046 world subdivisions (states, provinces, counties, LGAs), so look-alike regions never merge.
-
-**Machine learning / NLP (optional)**
-- `scikit-learn`, `joblib` — the trained column-type classifier that rescues hard-to-type columns.
-- `spacy` + `en_core_web_md` (optional `[nlp]`) — NER for column typing (person / org / place / money / date); downloads once from GitHub.
-- `names-dataset` (optional `[names]`) — large offline global names dataset covering Nigerian names; powers name recognition and probabilistic gender estimation.
-- `sentence-transformers` (optional `[semantic]`) — meaning-based similarity for the free-text long tail; weights download once.
-
-**Serving and packaging**
-- `fastapi`, `uvicorn`, `python-multipart` (`[web]`) — the local web wizard.
-- `python-docx` — Word report / change-log export.
-- `pywebview`, `pyinstaller` (`[desktop]`) — the on-device desktop build.
+| Area | Package | What it does here |
+| --- | --- | --- |
+| Reading & repair | `pandas`, `numpy` | Dataframes and vectorised operations throughout |
+| | `openpyxl` | Reads and writes Excel (multi-sheet ingest, XLSX export) |
+| | `pdfplumber` | Extracts tables from PDFs |
+| | `charset-normalizer` | Detects file encoding so non-UTF-8 files read correctly |
+| | `ftfy` | Repairs mojibake (`Ã©cole → école`) and broken unicode |
+| | `langdetect` | Language hint for text columns |
+| Type-specific cleaning | `python-dateutil`, `dateparser` | Parse dates in many human formats; respect the column-level order we infer |
+| | `phonenumbers` | Google's libphonenumber port; validates and formats phone numbers |
+| | `email-validator` | Validates and normalises email addresses |
+| | `price-parser`, `babel` | Currency and locale-aware number handling (with our own decimal-convention layer on top) |
+| | `pint` | Unit parsing and conversion (`3200g → 3.2kg`) |
+| | `lat-lon-parser` | Parses coordinates in decimal and DMS forms, preserving precision |
+| Matching & entities | `rapidfuzz` | Fast fuzzy string similarity for graded duplicate clustering and typo tolerance |
+| | `jellyfish` | Phonetic matching (Soundex / Metaphone) for name-like variants |
+| | `country_converter` | Harmonises country names (ISO / UN / World Bank) to ISO3, so look-alike countries stay distinct while true variants resolve |
+| | `pycountry` | Authoritative offline ISO data: currencies and 5,046 world subdivisions |
+| ML / NLP (optional) | `scikit-learn`, `joblib` | Trained column-type classifier that rescues hard-to-type columns |
+| | `spacy` + `en_core_web_md` `[nlp]` | NER for column typing (person / org / place / money / date) |
+| | `names-dataset` `[names]` | Large offline global names dataset; name recognition and probabilistic gender estimation |
+| | `sentence-transformers`, `model2vec` `[semantic]` | Meaning-based similarity for the free-text long tail; weights download once |
+| Serving & packaging | `fastapi`, `uvicorn`, `python-multipart` `[web]` | The local web wizard |
+| | `python-docx` | Word report / change-log export |
+| | `pywebview`, `pyinstaller` `[desktop]` | The on-device desktop build |
 
 ### Engineering decisions that make it better
 

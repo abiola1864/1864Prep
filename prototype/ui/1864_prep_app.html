@@ -437,6 +437,8 @@
   }
   .linkbtn{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--navy);font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;cursor:pointer}
   .linkbtn:hover{border-color:var(--navy);background:var(--paper)}
+  .cosmetic-note{background:#eef4ee;border:1px solid #d3e3d6;color:#2f5136;border-radius:12px;padding:11px 14px;margin:0 0 14px;font-size:13px;line-height:1.5}
+  .cosmetic-note b{color:#1f3d26}
 </style>
 </head>
 <body>
@@ -473,7 +475,7 @@
 
     <!-- 1 sector -->
     <section class="screen" data-screen="1">
-      <p class="eyebrow">Step 2</p><h1>Which sector is this dataset from?</h1>
+      <p class="eyebrow">Your data</p><h1>What kind of data is this?</h1>
       <p class="lead">Each sector has its own columns. Pick one and we'll show the fields it usually has, so you can tell us which apply to your data.</p>
       <div class="sectors" id="sectors"></div>
     </section>
@@ -481,7 +483,7 @@
     
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
-      <p class="eyebrow">Step 4</p><h1>Upload your file</h1>
+      <p class="eyebrow">Upload</p><h1>Upload your file</h1>
       <p class="lead">Drop in a messy file. CSV, Excel, JSON or PDF. It's read and cleaned right here.</p>
       <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
       <div class="drop" onclick="document.getElementById('realfile').click()">
@@ -493,10 +495,10 @@
 
     <!-- 4 match names -->
     <section class="screen" data-screen="4">
-      <p class="eyebrow">Step 5 · unify column names</p><h1>Match your columns to the standard names</h1>
-      <p class="lead">We found these headers in your file and suggested where each belongs. Confirm or change any, this is just aligning <em>names</em>, so a question means the same thing across agencies. Cleaning the values comes next.</p>
+      <p class="eyebrow">Column names</p><h1>Check your column names</h1>
+      <p class="lead">These are the column names from your file. We suggested a clearer name for each one. Keep our suggestion or pick your own. This only renames columns, it does not touch the values yet.</p>
       <div class="matchtable" id="matchtable">
-        <div class="mh"><span>Your column (as uploaded)</span><span></span><span>Standard field</span><span>Suggestion</span></div>
+        <div class="mh"><span>Name in your file</span><span></span><span>Clearer name</span><span>Suggestion</span></div>
         <div id="matchrows"></div>
       </div>
       <div class="missing" id="missing" style="display:none"></div>
@@ -517,12 +519,13 @@
         <div class="rv-progress"><i id="rvbar"></i></div>
         <span class="rv-count" id="rvcount"></span>
       </div>
+      <div id="cosmetic-note" class="cosmetic-note" style="display:none"></div>
       <div id="reviewcard"></div>
     </section>
 
     <!-- 6 needs your attention (worklist) -->
     <section class="screen" data-screen="6">
-      <p class="eyebrow">Step 7</p><h1>Needs your attention</h1>
+      <p class="eyebrow">Review</p><h1>A few things to check</h1>
       <p class="lead">A few things need your call. Nothing was changed automatically.</p>
       <div id="worklist"></div>
       <div style="display:flex;gap:12px;margin-top:18px">
@@ -533,7 +536,7 @@
 
     <!-- 7 export -->
     <section class="screen" data-screen="7">
-      <p class="eyebrow">Step 8</p><h1>Approved and standardised</h1>
+      <p class="eyebrow">Done</p><h1>Your file is ready</h1>
       <p class="lead">Only what you approved gets applied. Your file stays on your computer.</p>
       <div class="kpis" id="expkpis"></div>
       <div style="display:flex;gap:12px;margin-top:12px">
@@ -725,7 +728,7 @@ function messy(std,i){
   return std;                                                   // as-is
 }
 
-let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null;
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null,COSMETIC_COUNT=0;
 
 function go(n){
   cur=n;
@@ -911,20 +914,20 @@ function numericSummary(f){
   });
   const did=[];
   if(sawSym) did.push('removed currency and other symbols');
-  if(sawSep) did.push('removed thousands separators');
+  if(sawSep) did.push('removed the commas between thousands');
   if(sawSpace) did.push('removed spaces');
-  if(sawTrailZero) did.push('dropped trailing zeros (7.0 is the same number as 7)');
-  const bank = did.length ? did.join(', ') : 'standardised the number formatting';
-  return 'Tidied '+n+' number'+(n===1?'':'s')+': '+bank+'. The value stays the same.';
+  if(sawTrailZero) did.push('removed extra zeros (7.0 is the same as 7)');
+  const bank = did.length ? did.join(', ') : 'tidied the number formatting';
+  return 'Tidied '+n+' number'+(n===1?'':'s')+': '+bank+'. The amount stays exactly the same.';
 }
 function summarise(f){
   const n=f.nChanged;
   if(n===0) return 'Nothing to change, this column already looks clean.';
   switch(f.type){
-    case 'phone': return 'Reformatted '+n+' phone numbers to a single standard.';
+    case 'phone': return 'Put '+n+' phone numbers into one standard format.';
     case 'email': return 'Lower-cased and tidied '+n+' email addresses.';
-    case 'date': return 'Converted '+n+' dates to YYYY-MM-DD, using the date order read from the whole column.';
-    case 'datetime': return 'Converted '+n+' timestamps to YYYY-MM-DD HH:MM:SS. The date order is kept as written.';
+    case 'date': return 'Put '+n+' dates into one standard format (YYYY-MM-DD).';
+    case 'datetime': return 'Put '+n+' date-and-time values into one standard format.';
     case 'latitude': case 'longitude': case 'coordinate': return 'Checked '+n+' coordinates: kept the decimals, flagged anything out of range.';
     case 'gender': return 'Standardised '+n+' entries to Male / Female.';
     case 'boolean': return 'Standardised '+n+' entries to Yes / No.';
@@ -932,7 +935,7 @@ function summarise(f){
     case 'name': return 'Fixed the capitalisation of '+n+' names. The spelling is left as written.';
     case 'geo': return 'Matched '+n+' entries to the correct region.';
     case 'categorical': { const distinct=(f.rows||[]).length||1;
-      return 'Merged spellings that mean the same thing (case, spacing, "&" vs "and", word order). Different words and different numbers stay separate. '+distinct+' spelling'+(distinct===1?'':'s')+' standardised across '+n+' row'+(n===1?'':'s')+'.'; }
+      return 'Made the same answer look the same everywhere (spacing, capitals, "&" vs "and"). Different answers stay separate. Tidied '+distinct+' spelling'+(distinct===1?'':'s')+' across '+n+' row'+(n===1?'':'s')+'.'; }
     case 'identifier': return 'Tidied the formatting of '+n+' IDs (removed stray spaces). The ID value itself is never changed.';
     case 'free_text': return 'Tidied spacing and stray characters on '+n+' entries. The wording is left as written.';
     default: return 'Tidied formatting on '+n+' entries (spacing and stray characters).';
@@ -957,13 +960,13 @@ function buildCards(){
   FIELDS.forEach(f=>{
     const groups=simByCol[f.name]||[];
     if(!(f.nChanged>0 || groups.length)) return;
-    if(f.nChanged>0 && !groups.length && isCosmetic(f)){ cosmetic.push(f); return; }  // batch these
+    if(f.nChanged>0 && !groups.length && isCosmetic(f)){ f.decision='accept'; cosmetic.push(f); return; }  // safe: apply, no card
     CARDS.push({kind:'column', field:f, groups, applyClean:true,
       assign:groups.map(g=>g.members.map(()=>'A')),
       gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
       gmerge:groups.map(()=>true), split:groups.map(()=>false)});
   });
-  if(cosmetic.length){ const at=(SKIPPED&&SKIPPED.length)?1:0; CARDS.splice(at,0,{kind:'tidies', fields:cosmetic, expanded:false}); }
+  COSMETIC_COUNT = cosmetic.length;   // applied automatically; disclosed, not a decision
   ((WORKLIST&&WORKLIST.admin)||[]).forEach(a=>{ if(a.items&&a.items.length) CARDS.push({kind:'admin', col:a.column, level:a.level, items:a.items.map(it=>({...it, decision:null}))}); });
   const dupTotal=(WORKLIST&&WORKLIST.duplicates_total)||((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
   if(dupTotal>0) CARDS.push({kind:'dupes', count:dupTotal, groups:((WORKLIST&&WORKLIST.duplicates)||[])});
@@ -980,6 +983,10 @@ function renderReview(){
   $('#rvbar').style.width=(100*idx/Math.max(1,N-1))+'%';
   $('#rvcount').textContent = c.kind==='done' ? 'all done' : (idx+' of '+total+' done');
   $('#backbtn').disabled=idx===0;
+  const cn=$('#cosmetic-note');
+  if(cn){ if(COSMETIC_COUNT>0){ cn.style.display='block';
+      cn.innerHTML='✓ We tidied extra spaces and capital letters on <b>'+COSMETIC_COUNT+'</b> column'+(COSMETIC_COUNT===1?'':'s')+'. This does not change what your data means, so there is nothing to decide. You can see every change in the log you download at the end.';
+    } else { cn.style.display='none'; } }
   let html='';
   if(c.kind==='banner') html=cardBanner(c);
   else if(c.kind==='tidies') html=cardTidies(c);
@@ -997,7 +1004,7 @@ function seeChangesHTML(nChg){
     '<input class="chgsearch" id="chgsearch" placeholder="search values…" oninput="renderChanges(this.value)"><div class="rc-changes" id="chglist"></div></details>';
 }
 function typeRow(f){
-  return '<div class="rc-sub">read as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">change</a></div>'+
+  return '<div class="rc-sub">seen as <b>'+typeWord(f.type)+'</b> · <a class="link" onclick="toggleType()">not right? change</a></div>'+
     '<div class="typepick" id="typepick" style="display:none"><select onchange="setType(this.value)">'+TYPES.map(t=>'<option value="'+t+'" '+(t===f.type?'selected':'')+'>'+typeWord(t)+'</option>').join('')+'</select></div>';
 }
 function cardColumn(c){
@@ -1006,8 +1013,8 @@ function cardColumn(c){
   if(!hasGroups){
     h+='<div class="rc-summary">'+summarise(f)+'</div>'+(nChg?seeChangesHTML(nChg):'')+
       '<div class="rc-decide">'+
-      '<button class="big ok" onclick="cardDecide(\'accept\')"><b>✓ Clean it</b><span>apply this</span></button>'+
-      '<button class="big no" onclick="cardDecide(\'reject\')"><b>✗ Keep original</b><span>leave unchanged</span></button>'+
+      '<button class="big ok" onclick="cardDecide(\'accept\')"><b>✓ Yes, tidy it</b><span>make it neat</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'reject\')"><b>Leave it</b><span>do not change it</span></button>'+
       '</div></div>';
     return h;
   }
@@ -1019,7 +1026,7 @@ function cardColumn(c){
   }
   h+='<div class="col-groups-h">Possible duplicates</div>';
   c.groups.forEach((g,gi)=>{ h+=groupBlock(c,g,gi); });
-  h+='<div class="rc-decide"><button class="big ok wide" onclick="commitColumn()"><b>Save &amp; continue →</b><span>apply your choices for this column</span></button></div></div>';
+  h+='<div class="rc-decide"><button class="big ok wide" onclick="commitColumn()"><b>Save and next →</b><span>go to the next column</span></button></div></div>';
   return h;
 }
 function summariseShort(f){ const n=f.nChanged; switch(f.type){
@@ -1091,7 +1098,7 @@ function tidyAll(accept){ const c=CARDS[idx]; c.fields.forEach(f=>f.decision=acc
 function cardAdmin(c){
   const lvl=c.level==='state'?'State':'LGA';
   const rows=c.items.map((it,i)=>{
-    const tag = it.kind==='is_state'?'wrong level': (it.kind==='is_lga'?'wrong level':'not found');
+    const tag = it.kind==='is_state'?'this is a state': (it.kind==='is_lga'?'this is an LGA':'not in the list');
     const right = it.suggestion
       ? '<button class="adm-fix" onclick="admFix('+i+')">'+(it.decision==='fix'?'✓ ':'')+'use "'+esc(it.suggestion)+'"</button>'
       : '<span class="adm-note">'+esc(it.note||'')+'</span>';
@@ -1100,10 +1107,10 @@ function cardAdmin(c){
       '<button class="adm-keep '+(it.decision==='keep'?'on':'')+'" onclick="admKeep('+i+')">keep</button></div>';
   }).join('');
   return '<div class="card rcard">'+
-    '<div class="rc-name">'+esc(labelOf(c.col))+': check '+c.items.length+' value'+(c.items.length===1?'':'s')+'</div>'+
-    '<div class="rc-sub">These don\'t match the official list of Nigerian '+lvl+'s. Fix a typo, or keep it as written. Nothing changes unless you choose a fix.</div>'+
+    '<div class="rc-name">Check '+c.items.length+' name'+(c.items.length===1?'':'s')+' in '+esc(labelOf(c.col))+'</div>'+
+    '<div class="rc-sub">These names aren\'t in the official list of Nigerian '+lvl+'s. Pick the right spelling, or keep what you wrote. Nothing changes unless you tap a suggestion.</div>'+
     '<div class="adm-list">'+rows+'</div>'+
-    '<div class="rc-decide"><button class="big ok wide" onclick="advanceCard()"><b>Save &amp; continue →</b><span>apply the fixes you picked</span></button></div>'+
+    '<div class="rc-decide"><button class="big ok wide" onclick="advanceCard()"><b>Save and next →</b><span>apply the fixes you picked</span></button></div>'+
     '</div>';
 }
 function admFix(i){ const c=CARDS[idx]; const it=c.items[i]; it.decision=(it.decision==='fix')?null:'fix';
@@ -1119,11 +1126,11 @@ function cardBanner(c){
   const n=c.rows.length;
   return '<div class="card rcard">'+
     '<div class="rc-name">Skipped '+n+' row'+(n>1?'s':'')+' before your table</div>'+
-    '<div class="rc-sub">These looked like a title or caption, not data. Your table starts at row '+(c.headerRow||'?')+'. Check they are not real records.</div>'+
+    '<div class="rc-sub">These look like a heading or note, not real records. Your data starts at row '+(c.headerRow||'?')+'.</div>'+
     '<div class="ban-list">'+c.rows.map((t,i)=>'<div class="ban-row"><span class="ban-rn">row '+(i+1)+'</span><span class="ban-txt">'+esc(t||'(blank)')+'</span></div>').join('')+'</div>'+
     '<div class="rc-decide">'+
-      '<button class="big ok" onclick="cardDecide(\'skip\')"><b>✓ Skip them</b><span>they are a caption</span></button>'+
-      '<button class="big no" onclick="bannerKeep()"><b>These are data</b><span>do not cut them</span></button>'+
+      '<button class="big ok" onclick="cardDecide(\'skip\')"><b>✓ Ignore them</b><span>just a heading</span></button>'+
+      '<button class="big no" onclick="bannerKeep()"><b>Keep them</b><span>they are real records</span></button>'+
     '</div></div>';
 }
 function bannerKeep(){ toast('Noted. Re-upload the file with the caption rows removed, or tell us the header row, full restore is coming.'); cardDecide('skip'); }
@@ -1137,20 +1144,20 @@ function cardDupes(c){
     }).join('')+'</div>';
   }
   return '<div class="card rcard">'+
-    '<div class="rc-name">Duplicate rows</div>'+
+    '<div class="rc-name">Repeated rows</div>'+
     '<div class="rc-sub">Found <b>'+c.count+'</b> row'+(c.count>1?'s':'')+' that repeat another row'+
       (c.count>shown && shown? ', showing the first '+shown+' set'+(shown>1?'s':''):'')+'. "Remove" keeps the first of each set.</div>'+
     list+
     '<div class="rc-decide">'+
-      '<button class="big ok" onclick="cardDupesYes()"><b>Remove duplicates</b><span>keep the first of each</span></button>'+
-      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep all</b><span>change nothing</span></button>'+
+      '<button class="big ok" onclick="cardDupesYes()"><b>Remove repeats</b><span>keep one of each</span></button>'+
+      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep everything</b><span>change nothing</span></button>'+
     '</div></div>';
 }
 function cardDone(){
   return '<div class="card rcard rc-doneCard">'+
-    '<div class="rc-name">All reviewed 🎉</div>'+
-    '<div class="rc-sub">Your choices are ready. Nothing changes until you produce the file.</div>'+
-    '<div class="rc-decide"><button class="big ok wide" onclick="go(7)"><b>Produce cleaned file →</b><span>apply and download</span></button></div>'+
+    '<div class="rc-name">All done 🎉</div>'+
+    '<div class="rc-sub">Nothing has changed yet. Make your clean file to save everything you chose.</div>'+
+    '<div class="rc-decide"><button class="big ok wide" onclick="go(7)"><b>Make my clean file →</b><span>apply and download</span></button></div>'+
     '</div>';
 }
 function advanceCard(){ if(idx<CARDS.length-1){ idx++; setTimeout(renderReview,140); } else renderReview(); }
