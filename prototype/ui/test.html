@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1864 Prep - Feature scoreboard</title>
+<style>
+  :root{--ink:#1a1f24;--soft:#5a636e;--line:#e4e7ea;--paper:#f7f6f3;--navy:#243b53}
+  *{box-sizing:border-box} body{margin:0;font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--paper)}
+  .wrap{max-width:900px;margin:0 auto;padding:28px 18px 60px}
+  h1{font-size:24px;margin:0 0 4px} .sub{color:var(--soft);margin:0 0 16px}
+  .runbar{display:flex;align-items:center;gap:12px;margin:0 0 18px;flex-wrap:wrap}
+  .runbtn{background:var(--navy);color:#fff;border:none;border-radius:10px;padding:11px 20px;font:inherit;font-weight:700;cursor:pointer}
+  .runbtn:disabled{opacity:.6;cursor:default}
+  .runbtn:hover:not(:disabled){filter:brightness(1.08)}
+  .runmsg{color:var(--soft);font-size:13px}
+  .summary{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:18px}
+  .summary b{font-size:30px;color:var(--navy)}
+  .defs{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:22px}
+  .defs h2{font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);margin:0 0 8px}
+  .defs dl{margin:0;display:grid;grid-template-columns:150px 1fr;gap:6px 14px}
+  .defs dt{font-weight:700} .defs dd{margin:0;color:var(--soft)}
+  .feature{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .fhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .fhead h3{margin:0;font-size:17px}
+  .badge{font-size:11px;font-weight:800;letter-spacing:.04em;padding:3px 10px;border-radius:99px}
+  .fdesc{color:var(--soft);margin:6px 0 10px;font-size:14px}
+  .metrics{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline}
+  .mk{color:var(--soft);font-size:13px} .metrics b{color:var(--navy)}
+  .n{margin-left:auto;color:#9aa0a8;font-size:12px;font-family:ui-monospace,monospace}
+  .note{margin-top:10px;font-size:13px;color:var(--soft);border-left:3px solid var(--line);padding-left:10px}
+  details{margin-top:10px} summary{cursor:pointer;font-size:13px;color:var(--navy);font-weight:600}
+  table.fails{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+  table.fails th,table.fails td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.fails th{color:var(--soft);font-weight:600} .got{color:#a83a3a;font-family:ui-monospace,monospace}
+  .foot{color:#9aa0a8;font-size:12px;margin-top:24px;text-align:center}
+  @media(max-width:640px){.defs dl{grid-template-columns:1fr} .defs dt{margin-top:6px}}
+</style></head><body><div class="wrap">
+  <h1>Feature scoreboard</h1>
+  <p class="sub">How each part of the engine is performing, measured on labelled test cases. Every number is from a live run - nothing is hand-entered.</p>
+  <div class="runbar">
+    <button class="runbtn" id="runbtn" onclick="runLive()">Run tests now</button>
+    <span class="runmsg" id="runmsg">Showing results generated 2026-08-10 11:18.</span>
+  </div>
+  <div id="summary"></div>
+  <div class="defs"><h2>How to read this</h2><dl>
+    <dt>Accuracy</dt><dd>Share of test cases the feature got exactly right (correct answers / all cases).</dd>
+    <dt>Precision</dt><dd>When the feature makes a positive call, how often it is right. Low precision = false positives (e.g. calling an address a "country").</dd>
+    <dt>Recall</dt><dd>Of the cases that should have been caught, how many were. Low recall = misses (e.g. a real country left unresolved).</dd>
+    <dt>False positive</dt><dd>Saying "yes/this type" when the truth is "no" - the costliest error, because it can change data silently.</dd>
+    <dt>n</dt><dd>Number of labelled cases behind the score. Small n means the number is indicative, not definitive.</dd>
+    <dt>Sentinel</dt><dd>A placeholder like -1, 999, or N/A that stands for "missing/refused", not a real value.</dd>
+  </dl></div>
+  <div id="cards"></div>
+  <div class="foot">1864 Prep - "Run tests now" re-runs the benchmark live (needs the app running). Offline, run <code>python tests/benchmark.py</code>.</div>
+</div>
+<script>
+const BADGE={good:['#1f7a44','#e6f4ec'],ok:['#8a6d1f','#f6efd9'],weak:['#a83a3a','#f6e5e5'],na:['#8a8f98','#eef0f2']};
+const DATA = [{"group": "Column type detection", "desc": "Deciding what each column holds (phone, date, number, name, code, category, free text) from its values.", "metrics": [["Accuracy", 0.7], ["Types correct", "7/10"]], "n": 10, "status": "weak", "fails": [["23, 45, 31 ...", "numeric", "identifier"], ["0001234567, 0007654321, 0009999999 ...", "identifier", "phone"], ["good service here, very far from road, okay place ...", "free_text", "name"]], "note": "Accuracy = share of columns typed correctly."}, {"group": "Date-order inference", "desc": "Reading the whole column to decide day/month/year order (51% majority, so one typo can't flip it).", "metrics": [["Accuracy", 1.0]], "n": 4, "status": "good", "fails": [], "note": "Ambiguous columns (every part <=12) should return 'ambiguous' (None) rather than guess."}, {"group": "Decimal convention", "desc": "Deciding if '.' or ',' is the decimal separator, from the whole column, so 42.959 is never turned into 42959.", "metrics": [["Accuracy", 1.0]], "n": 3, "status": "good", "fails": [], "note": ""}, {"group": "Country resolution", "desc": "Matching country names to ISO3, while refusing to turn non-countries (addresses, 'Yes') into a country.", "metrics": [["Precision", 1.0], ["Recall", 0.7142857142857143], ["Accuracy", 0.8333333333333334]], "n": 12, "status": "weak", "fails": [["naija", "NGA", "(missed)"], ["DRC", "COD", "(missed)"]], "note": "Precision here means: when it says 'country', it is right. False positives (addresses becoming a country) hurt precision most."}, {"group": "NG state resolution", "desc": "Standardising the 36 states + FCT, tolerating typos (Cros River -> Cross River).", "metrics": [["Accuracy", 1.0]], "n": 7, "status": "good", "fails": [], "note": ""}, {"group": "NG LGA validation", "desc": "Checking values in an LGA column against all 774 LGAs: real LGA, wrong level (a state), or unknown (a city/community).", "metrics": [["Accuracy", 1.0]], "n": 8, "status": "good", "fails": [], "note": "Lagos LCDAs (Agboyi-Ketu) are correctly 'unknown' - they are not federal LGAs."}, {"group": "Number-merge safety", "desc": "Guard that different numbers never merge (-1 is a sentinel, not 1), while 7.0 == 7.", "metrics": [["Pass", "yes"]], "n": 4, "status": "good", "fails": [], "note": "A single failure here is serious - it would silently corrupt data."}, {"group": "Name gender estimate (optional)", "desc": "Probabilistic gender from a first name; unisex names correctly return unknown. Never overwrites data.", "metrics": [["Accuracy", 1.0]], "n": 7, "status": "good", "fails": [], "note": "This is a labelled ESTIMATE, not a fact. Requires the names-dataset package."}, {"group": "Semantic embedding layer", "desc": "Backend that powers meaning-based matching. Falls back to lexical vectors when no model is installed.", "metrics": [["Active backend", "lexical"], ["Typo similarity (high=good)", 0.78], ["Synonym similarity", 0.12]], "n": 4, "status": "ok", "fails": [], "note": "With the lexical fallback, synonym similarity is expectedly low; installing a neural model ([semantic]) raises it. This row reports reality, not a target."}];
+function fmt(v){ return (typeof v==='number' && v<=1 && v>=0) ? Math.round(v*100)+'%' : v; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function render(results){
+  const nums=results.filter(r=>typeof r.metrics[0][1]==='number');
+  const avg=nums.length? nums.reduce((a,r)=>a+r.metrics[0][1],0)/nums.length : 0;
+  document.getElementById('summary').innerHTML =
+    '<div class="summary">Average accuracy across measured features: <b>'+Math.round(avg*100)+'%</b><br>'+
+    '<span style="color:var(--soft);font-size:13px">Green = strong (&ge;90%), amber = usable (&ge;75%), red = needs work. Open "cases to improve" to see exactly what is failing.</span></div>';
+  document.getElementById('cards').innerHTML = results.map(R=>{
+    const b=BADGE[R.status]||BADGE.na;
+    const metrics=R.metrics.map(([k,v])=>'<span class="mk">'+esc(k)+'</span> <b>'+esc(fmt(v))+'</b>').join(' ');
+    let fails='';
+    if(R.fails && R.fails.length){
+      const rows=R.fails.slice(0,20).map(f=>'<tr><td>'+esc(f[0])+'</td><td>'+esc(f[1])+'</td><td class="got">'+esc(f[2])+'</td></tr>').join('');
+      fails='<details><summary>'+R.fails.length+' case(s) to improve</summary><table class="fails"><tr><th>input</th><th>expected</th><th>got</th></tr>'+rows+'</table></details>';
+    }
+    const note=R.note?'<div class="note">'+esc(R.note)+'</div>':'';
+    return '<div class="feature"><div class="fhead"><h3>'+esc(R.group)+'</h3>'+
+      '<span class="badge" style="color:'+b[0]+';background:'+b[1]+'">'+R.status.toUpperCase()+'</span></div>'+
+      '<div class="fdesc">'+esc(R.desc)+'</div>'+
+      '<div class="metrics">'+metrics+' <span class="n">n='+R.n+'</span></div>'+note+fails+'</div>';
+  }).join('');
+}
+async function runLive(){
+  const btn=document.getElementById('runbtn'), msg=document.getElementById('runmsg');
+  btn.disabled=true; const t0=Date.now(); msg.textContent='Running the benchmark...';
+  try{
+    const res=await fetch('/api/benchmark',{method:'POST'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    render(data.results);
+    msg.textContent='Ran live just now in '+((Date.now()-t0)/1000).toFixed(1)+'s.';
+  }catch(e){
+    msg.textContent='Could not run live (is the app running?). Showing the last generated results. ['+e.message+']';
+  }finally{ btn.disabled=false; }
+}
+render(DATA);
+</script></body></html>

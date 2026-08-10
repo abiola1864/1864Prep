@@ -111,7 +111,7 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
     rows = list(csv.reader(io.StringIO(text), delimiter=delim))
     rows = [r for r in rows if any(c.strip() for c in r)]  # drop blank lines
     hdr = _detect_header_row(rows)
-    header = [c.strip() or f"col_{j+1}" for j, c in enumerate(rows[hdr])]
+    header = [c.strip() or f"column_{j+1}_no_header" for j, c in enumerate(rows[hdr])]
     body = rows[hdr + 1:]
     width = len(header)
     body = [(r + [""] * width)[:width] for r in body]  # pad/trim ragged rows
@@ -137,7 +137,7 @@ def read_excel(path: Path) -> tuple[pd.DataFrame, IngestReport]:
     raw = xl.parse(best, header=None, dtype=str).fillna("").values.tolist()
     raw = [r for r in raw if any(str(c).strip() for c in r)]
     hdr = _detect_header_row([[str(c) for c in r] for r in raw])
-    header = [str(c).strip() or f"col_{j+1}" for j, c in enumerate(raw[hdr])]
+    header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(raw[hdr])]
     body = [ (list(map(str, r)) + [""] * len(header))[:len(header)] for r in raw[hdr + 1:] ]
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
     rep = IngestReport(str(path), "xlsx", sheet=best, sheets_found=sheets,
@@ -187,7 +187,7 @@ def read_pdf(path: Path) -> tuple[pd.DataFrame, IngestReport]:
         return df, rep
     # stack tables that share the same width; use the first row as header
     big = max(tables, key=len)
-    header = [str(c).strip() or f"col_{j+1}" for j, c in enumerate(big[0])]
+    header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(big[0])]
     body = []
     for t in tables:
         if len(t[0]) == len(header):
@@ -202,8 +202,10 @@ def read_pdf(path: Path) -> tuple[pd.DataFrame, IngestReport]:
 def _dedupe_headers(header: list[str]) -> list[str]:
     _zw = str.maketrans("", "", "\ufeff\u200b\u200c\u200d\u2060")
     seen, out = {}, []
-    for h in header:
+    for j, h in enumerate(header):
         h = str(h).translate(_zw).replace("\xa0", " ").strip()   # drop BOM/zero-width, trim
+        if not h or h.lower().startswith("unnamed"):
+            h = f"column_{j+1}_no_header"                        # blank header -> visible, flaggable
         if h in seen:
             seen[h] += 1
             out.append(f"{h}_{seen[h]}")

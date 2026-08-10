@@ -435,6 +435,8 @@
     h1{font-size:18px}
     .big b{font-size:14px}
   }
+  .linkbtn{background:#fff;border:1px solid var(--line);border-radius:8px;color:var(--navy);font:inherit;font-size:12.5px;font-weight:600;padding:6px 12px;cursor:pointer}
+  .linkbtn:hover{border-color:var(--navy);background:var(--paper)}
 </style>
 </head>
 <body>
@@ -683,6 +685,7 @@ const LABELS={
 };
 const ACR={nin:'NIN',bvn:'BVN',tin:'TIN',lga:'LGA',gps:'GPS',hmo:'HMO',nok:'NOK',vin:'VIN',rc:'RC',id:'ID',dob:'DOB',bn:'BN',sqm:'sqm',kg:'kg',ha:'ha'};
 function labelOf(key){ if(LABELS[key])return LABELS[key];
+  const m=/^column_(\d+)_no_header$/.exec(key); if(m) return 'Column '+m[1]+' (no header in file)';
   return key.split('_').map((w,i)=>ACR[w]?ACR[w]:(i===0?w.charAt(0).toUpperCase()+w.slice(1):w)).join(' '); }
 
 const B={
@@ -1076,7 +1079,7 @@ function cardTidies(c){
     '<div class="rc-name">Formatting-only tidies</div>'+
     '<div class="rc-sub"><b>'+N+'</b> column'+(N===1?'':'s')+' had only spacing or letter-case tidied. This standardises how values look. It does not change your data\'s meaning.</div>'+
     listing+
-    '<div class="tidy-link"><a class="link" onclick="tidyExpand()">'+(c.expanded?'hide list':'review individually')+'</a></div>'+
+    '<div class="tidy-link"><button class="linkbtn" onclick="tidyExpand()">'+(c.expanded?'▲ hide list':'▾ review individually')+'</button></div>'+
     '<div class="rc-decide">'+
       '<button class="big ok" onclick="tidyAll(true)"><b>✓ Accept all</b><span>apply these tidies</span></button>'+
       '<button class="big no" onclick="tidyAll(false)"><b>Keep original</b><span>leave them as written</span></button>'+

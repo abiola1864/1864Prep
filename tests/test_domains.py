@@ -52,6 +52,22 @@ def test_ner_layer_degrades_without_model():
     assert (t is None and c == 0.0) or isinstance(t, str)
 
 
+
+def test_detection_is_value_first_and_not_greedy():
+    # value-first: header name (useless / misleading / absent) doesn't change the answer
+    lgas = ["Ikeja","Surulere","Kosofe","Alimosho","Eti-Osa","Ikorodu"]
+    assert D.detect_domain(lgas, "Q4b") == "ng_lga"
+    assert D.detect_domain(lgas, "address") == "ng_lga"
+    assert D.detect_domain(lgas, "") == "ng_lga"
+    # non-domain data must NOT be forced into a domain (country matcher isn't greedy)
+    assert D.canonical_of("country", "12 Broad Street") is None
+    assert D.canonical_of("country", "Yes") is None
+    assert D.canonical_of("country", "Male") is None
+    assert D.canonical_of("country", "Nigeria") == "NGA"      # real ones still resolve
+    assert D.detect_domain(["12 Broad Street","No 4 Allen Ave","Plot 15 Lekki"], "place") is None
+    assert D.detect_domain(["good service","very nice","too far","ok"], "comment") is None
+
+
 if __name__ == "__main__":
     fns=[v for k,v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for fn in fns: fn(); print("ok:", fn.__name__)

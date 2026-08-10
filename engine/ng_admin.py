@@ -22,8 +22,17 @@ from pathlib import Path
 _REF = Path(__file__).resolve().parent.parent / "reference" / "ng_states_lgas.json"
 
 
+_ADMIN_NOISE = re.compile(
+    r"\b(local council development area|local government area|local council area|"
+    r"local government|local council|area council|lcda|lga|l\.?g\.?a\.?|l\.?c\.?d\.?a\.?)\b",
+    re.I)
+
+
 def _norm(s: str) -> str:
     s = str(s).strip().lower()
+    s = _ADMIN_NOISE.sub(" ", s)                 # drop "Local Council Development Area" etc.
+    if "/" in s:                                  # "Agbado / Oke-Odo" -> take the first name
+        s = s.split("/")[0]
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 

@@ -412,13 +412,41 @@ async def health():
     return {"ok": True}
 
 
+@app.get("/test")
+async def test_page():
+    """Feature scoreboard. Served fresh so it always reflects the latest code."""
+    try:
+        import sys as _sys
+        root = str(Path(__file__).resolve().parents[1])
+        if root not in _sys.path:
+            _sys.path.insert(0, root)
+        from tests.benchmark import run_benchmark, build_page
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(build_page(run_benchmark()))
+    except Exception:
+        page = UI_DIR / "test.html"          # fall back to the last generated file
+        if page.exists():
+            return FileResponse(str(page))
+        return JSONResponse(status_code=500, content={"error": "benchmark unavailable"})
+
+
+@app.post("/api/benchmark")
+async def api_benchmark():
+    import sys as _sys
+    root = str(Path(__file__).resolve().parents[1])
+    if root not in _sys.path:
+        _sys.path.insert(0, root)
+    from tests.benchmark import run_benchmark
+    return {"results": run_benchmark()}
+
+
 @app.get("/")
 async def root():
     index = UI_DIR / "1864_prep_app.html"
     if index.exists():
         return FileResponse(str(index))
     return JSONResponse({"service": "1864 Prep engine", "ui": "not bundled",
-                         "try": ["/api/health", "/api/profile", "/api/clean"]})
+                         "try": ["/api/health", "/api/profile", "/api/clean", "/test"]})
 
 
 # serve any other UI assets (e.g. cleaning_review.html) under /ui

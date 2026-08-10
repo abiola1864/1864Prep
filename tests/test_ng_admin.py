@@ -26,3 +26,11 @@ def test_lga_validation_and_level_mismatch():
 def test_coverage():
     d = NG._data()
     assert len(d["states"]) == 37 and len(d["all_lgas"]) >= 760
+
+
+def test_admin_suffix_and_slash_stripping():
+    assert NG.resolve_lga("Ikeja LGA") == "Ikeja"
+    assert NG.resolve_lga("Surulere Local Council") == "Surulere"
+    assert NG.resolve_lga("Kosofe Local Government Area") == "Kosofe"
+    # first name taken before a slash
+    assert NG.resolve_state("Lagos / Ikeja") == "Lagos"

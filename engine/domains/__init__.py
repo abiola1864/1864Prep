@@ -33,6 +33,15 @@ def _coco():
         return None
 
 
+@lru_cache(maxsize=1)
+def _iso3_set():
+    try:
+        import pycountry
+        return {c.alpha_3 for c in pycountry.countries}
+    except Exception:
+        return set()
+
+
 @lru_cache(maxsize=8192)
 def _country_iso(value: str) -> str | None:
     v = str(value).strip()
@@ -45,7 +54,8 @@ def _country_iso(value: str) -> str | None:
         iso = cc.convert(v, to="ISO3", not_found=None)
     except Exception:
         return None
-    return iso or None
+    # coco returns the INPUT unchanged when it can't match, so only accept a real ISO3 code
+    return iso if (isinstance(iso, str) and iso in _iso3_set()) else None
 
 
 @lru_cache(maxsize=4096)

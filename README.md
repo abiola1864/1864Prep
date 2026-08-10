@@ -79,6 +79,7 @@ file -> ingest -> profile (type inference) -> plan -> run_plan -> review -> expo
 - `ng_admin.py` — validation against the complete official set of Nigerian administrative units (36 states + FCT, 774 LGAs, from an MIT-licensed dataset). Typo-tolerant resolution (`rapidfuzz`, full-string ratio so short names don't false-match), plus level-mismatch and unknown-value flags surfaced as a review card.
 - `dedupe.py` / `induce.py` — graded similarity clustering and meaning-preserving category induction; different numbers and different canonical entities never merge.
 - `nlp/` — optional spaCy NER for column typing (person / org / place / money / date).
+- `embeddings.py` — pluggable semantic-embedding layer with graceful fallback (sentence-transformers -> model2vec -> deterministic lexical vectors). Widens match RECALL for category merging and value synonymy; identity is still decided by the reference layer and user confirmation, never by embeddings alone. Reports the active backend honestly and runs everywhere, model or not.
 - `names.py` — optional `names-dataset` layer for name recognition and probabilistic gender estimation.
 - `pipeline.py`, `review.py`, `exporters.py`, `reshape.py`, `regions/`, `ml/` — plan execution, per-column change overview, CSV / XLSX / DOCX export, reshaping, region packs, trained type classifier.
 

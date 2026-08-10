@@ -35,7 +35,7 @@ dependencies = [
 dev = ["pytest>=7.0"]
 web = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "python-multipart>=0.0.9"]
 desktop = ["pywebview>=5.0", "pyinstaller>=6.0"]
-semantic = ["sentence-transformers>=2.2"]
+semantic = ["sentence-transformers>=2.2", "model2vec>=0.3"]
 names = ["names-dataset>=3.1"]
 nlp = ["spacy>=3.7", "en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.8.0/en_core_web_md-3.8.0-py3-none-any.whl"]   # optional local embeddings (meaning-based matching)
 

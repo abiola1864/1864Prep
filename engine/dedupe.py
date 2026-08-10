@@ -170,11 +170,11 @@ def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False
 
     if semantic:
         try:
-            from .ml.embed import available, semantic_pairs
-            if available():
+            from .embeddings import is_semantic, semantic_pairs
+            if is_semantic():                       # only a real neural model, not the lexical fallback
                 for a, b, _s in semantic_pairs(distinct, threshold=0.62):
                     if _numbers(a) == _numbers(b) and not _blocked(a, b):
-                        uf.union(a, b)
+                        uf.union(a, b)              # still guarded: different numbers/entities never merge
         except Exception:
             pass
 
