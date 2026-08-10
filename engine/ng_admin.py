@@ -75,7 +75,7 @@ def _best(value: str, canon_map: dict):
         return (None, 0)
 
 
-_AUTO = 82      # standardise silently at/above this
+_AUTO = 88      # standardise silently at/above this
 _SUGGEST = 70   # only suggest (flag for confirmation) between this and _AUTO
 
 

@@ -178,6 +178,15 @@ def detect_domain(values, header: str = "") -> str | None:
     def rate(dom):
         return sum(1 for v in sample if _identity(dom, v) is not None) / len(sample)
 
+    # A header that clearly names an admin level is a strong signal: validate the
+    # column as that level even when many values are messy or unresolved (the
+    # unresolved ones then get flagged for review rather than silently ignored).
+    strong = {"ng_lga": ["lga", "local government", "l.g.a", "lcda"],
+              "ng_state": ["state of origin", "state"]}
+    for dom in ("ng_lga", "ng_state"):
+        if dom in list_domains() and any(k in h for k in strong[dom]) and rate(dom) >= 0.15:
+            return dom
+
     # specific domains first; country (greedy fuzzy) is the fallback
     order = ["ng_lga", "ng_state", "subdivision", "currency", "sex", "relationship_to_head",
              "disability_status", "payment_channel", "id_type", "country"]

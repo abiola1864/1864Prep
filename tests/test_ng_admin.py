@@ -34,3 +34,18 @@ def test_admin_suffix_and_slash_stripping():
     assert NG.resolve_lga("Kosofe Local Government Area") == "Kosofe"
     # first name taken before a slash
     assert NG.resolve_state("Lagos / Ikeja") == "Lagos"
+
+
+def test_no_cross_state_false_matches():
+    # variants of the same LGA standardise; cross-state look-alikes do NOT auto-match
+    assert NG.validate_lga_value("Jemaa")["canonical"] == "Jema'a"
+    assert NG.validate_lga_value("Jema'a local government")["canonical"] == "Jema'a"
+    assert NG.validate_lga_value("Jama'a")["kind"] == "unknown"      # flagged, not silently -> Jama'are
+    assert NG.validate_lga_value("Kd-North")["kind"] == "unknown"    # flagged, not silently -> Ede North
+
+
+def test_header_forces_admin_validation_on_messy_column():
+    from engine import domains as D
+    messy = ["SABON GARI", "Kd-North", "Jama'a", "Jemaa", "random town", "xyz", "Zaria"]
+    assert D.detect_domain(messy, "In what LGA is this located?") == "ng_lga"
+    assert D.detect_domain(["a note", "some text", "another"], "statement") is None
