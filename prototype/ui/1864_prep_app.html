@@ -439,6 +439,15 @@
   .linkbtn:hover{border-color:var(--navy);background:var(--paper)}
   .cosmetic-note{background:#eef4ee;border:1px solid #d3e3d6;color:#2f5136;border-radius:12px;padding:11px 14px;margin:0 0 14px;font-size:13px;line-height:1.5}
   .cosmetic-note b{color:#1f3d26}
+  .cn-see{color:#1f5c3a;text-decoration:underline;cursor:pointer;font-weight:600;white-space:nowrap}
+  .cn-detail{margin-top:10px;border-top:1px solid #d3e3d6;padding-top:10px}
+  .cn-col{margin-bottom:10px}
+  .cn-colname{font-weight:600;color:#1f3d26;margin-bottom:3px}
+  .cn-n{font-weight:400;color:#5a7a63;font-size:11.5px;font-family:var(--mono)}
+  .cn-eg{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;padding:1px 0}
+  .cn-before{color:#8a5a5a;text-decoration:line-through} .cn-arrow{color:#9aa0a8} .cn-after{color:#1f5c3a}
+  .cn-more{font-size:11.5px;color:#5a7a63;margin-top:1px}
+  .cn-foot{font-size:11.5px;color:#5a7a63;margin-top:6px;font-style:italic}
 </style>
 </head>
 <body>
@@ -728,7 +737,7 @@ function messy(std,i){
   return std;                                                   // as-is
 }
 
-let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null,COSMETIC_COUNT=0;
+let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null,COSMETIC_COUNT=0,COSMETIC_FIELDS=[],COSMETIC_OPEN=false;
 
 function go(n){
   cur=n;
@@ -966,13 +975,23 @@ function buildCards(){
       gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
       gmerge:groups.map(()=>true), split:groups.map(()=>false)});
   });
-  COSMETIC_COUNT = cosmetic.length;   // applied automatically; disclosed, not a decision
+  COSMETIC_COUNT = cosmetic.length; COSMETIC_FIELDS = cosmetic;   // applied automatically; disclosed, not a decision
   ((WORKLIST&&WORKLIST.admin)||[]).forEach(a=>{ if(a.items&&a.items.length) CARDS.push({kind:'admin', col:a.column, level:a.level, items:a.items.map(it=>({...it, decision:null}))}); });
   const dupTotal=(WORKLIST&&WORKLIST.duplicates_total)||((WORKLIST&&WORKLIST.duplicates)||[]).reduce((a,g)=>a+((g.rows&&g.rows.length-1)||0),0);
   if(dupTotal>0) CARDS.push({kind:'dupes', count:dupTotal, groups:((WORKLIST&&WORKLIST.duplicates)||[])});
   CARDS.push({kind:'done'});
 }
 function curField(){ const c=CARDS[idx]; return c&&c.field; }
+function toggleCosmetic(){ COSMETIC_OPEN=!COSMETIC_OPEN; renderReview(); }
+function cosmeticDetail(){
+  return '<div class="cn-detail">'+COSMETIC_FIELDS.map(f=>{
+    const rows=(f.rows||[]).slice(0,3).map(r=>
+      '<div class="cn-eg"><span class="cn-before">'+esc(String(r.before==null?'':r.before))+'</span>'+
+      '<span class="cn-arrow">→</span><span class="cn-after">'+esc(String(r.after==null?'':r.after))+'</span></div>').join('');
+    const more=(f.rows||[]).length>3 ? '<div class="cn-more">+'+((f.rows||[]).length-3)+' more</div>' : '';
+    return '<div class="cn-col"><div class="cn-colname">'+esc(labelOf(f.name))+' <span class="cn-n">'+f.nChanged+' change'+(f.nChanged===1?'':'s')+'</span></div>'+rows+more+'</div>';
+  }).join('')+'<div class="cn-foot">Every change is also in the log you download at the end.</div></div>';
+}
 function renderReview(){
   if(!CARDS.length) buildCards();
   if(!CARDS.length) return;
@@ -985,7 +1004,9 @@ function renderReview(){
   $('#backbtn').disabled=idx===0;
   const cn=$('#cosmetic-note');
   if(cn){ if(COSMETIC_COUNT>0){ cn.style.display='block';
-      cn.innerHTML='✓ We tidied extra spaces and capital letters on <b>'+COSMETIC_COUNT+'</b> column'+(COSMETIC_COUNT===1?'':'s')+'. This does not change what your data means, so there is nothing to decide. You can see every change in the log you download at the end.';
+      cn.innerHTML='✓ We tidied extra spaces and capital letters on <b>'+COSMETIC_COUNT+'</b> column'+(COSMETIC_COUNT===1?'':'s')+'. This does not change what your data means, so there is nothing to decide. '+
+        '<a class="cn-see" onclick="toggleCosmetic()">'+(COSMETIC_OPEN?'hide what changed':'see what changed')+'</a>'+
+        (COSMETIC_OPEN?cosmeticDetail():'');
     } else { cn.style.display='none'; } }
   let html='';
   if(c.kind==='banner') html=cardBanner(c);
