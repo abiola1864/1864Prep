@@ -97,11 +97,16 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
         df, rep = read_any(path)
         _ref = _regions.load_reference()
         profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True)
+        from engine.headers import propose_headers, abnormal_count
+        from engine import domains as _D
+        _doms = [_D.detect_domain(df[c].tolist(), str(c)) for c in df.columns]
+        header_rows = propose_headers(df, profs, _doms)
         return {
             "ingest": rep.summary(),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
             "region": _regions.get_active_region().name,
             "rows": len(df), "cols": len(df.columns),
+            "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
             "columns": [{"name": p.column, "type": p.semantic_type,
                          "confidence": round(p.confidence, 2)} for p in profs],
         }
@@ -151,11 +156,16 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
         sid = _uuid.uuid4().hex[:12]
         _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
         admin_flags = _admin_checks(df, profs)
+        from engine.headers import propose_headers, abnormal_count
+        from engine import domains as _Dh
+        _doms_h = [_Dh.detect_domain(df[c].tolist(), str(c)) for c in df.columns]
+        header_rows = propose_headers(df, profs, _doms_h)
         return {
             "ingest": rep.summary(),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
             "region": _regions.get_active_region().name,
             "session_id": sid,
+            "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
             "overview": column_overview(df, cleaned, types, flags),
             "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
             "worklist": {"flagged": flagged, "admin": admin_flags, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
@@ -227,11 +237,16 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                                       "stage": f"Finding matches ({k+1} of {M})"}) + "\n"
             sid = _uuid.uuid4().hex[:12]
             _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
+            from engine.headers import propose_headers, abnormal_count
+            from engine.domains import detect_domain as _dd
+            _doms_s = [_dd(df[c].tolist(), str(c)) for c in cols]
+            header_rows = propose_headers(df, profs, _doms_s)
             payload = {
                 "ingest": rep.summary(),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
                 "region": _regions.get_active_region().name,
                 "session_id": sid,
+                "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
                 "overview": column_overview(df, cleaned, types, flags),
                 "spotcheck": spotcheck(df, cleaned, pool_size=40, seed=1),
                 "worklist": {"flagged": flagged, "admin": admin_flags, "duplicates": dups, "duplicates_total": _dup_total, "similar": similar,
@@ -410,6 +425,100 @@ async def api_tool_download(rid: str, fmt: str = "csv"):
 @app.get("/api/health")
 async def health():
     return {"ok": True}
+
+
+@app.post("/api/distribution")
+async def api_distribution(payload: dict):
+    """See-your-distribution: pass {rows} for one dataset, or {raw, clean} for a
+    before/after reveal. Returns chart-ready histograms, mean/median, outliers."""
+    import pandas as pd
+    from engine.distribution import distribution_profile, before_after
+    if "raw" in payload and "clean" in payload:
+        raw = pd.DataFrame(payload["raw"]); clean = pd.DataFrame(payload["clean"])
+        return before_after(raw, clean)
+    rows = payload.get("rows")
+    sid = payload.get("session_id")
+    if sid and sid in _SESSIONS:
+        df = _SESSIONS[sid]["df"]
+    elif rows is not None:
+        df = pd.DataFrame(rows)
+    else:
+        return {"error": "provide rows, session_id, or raw+clean"}
+    return {"columns": distribution_profile(df)}
+
+
+@app.get("/api/tool/{name}/flow")
+async def tool_flow(name: str):
+    """The ordered, tool-specific steps the interface should render for this tool."""
+    from engine.flows import get_flow
+    from engine.toolkit import TOOLS
+    if name not in TOOLS:
+        return {"error": f"unknown tool {name!r}"}
+    title, desc, kind = TOOLS[name]
+    return {"tool": name, "title": title, "output": kind, "steps": get_flow(name)}
+
+
+@app.post("/api/tool/outliers/evaluate")
+async def tool_outlier_evaluate(payload: dict):
+    """The 'look at the spread' step: per-column distribution read-out."""
+    import pandas as pd
+    from engine.toolkit import outlier_evaluate
+    rows = payload.get("rows"); cols = payload.get("columns")
+    sid = payload.get("session_id")
+    if sid and sid in _SESSIONS:
+        df = _SESSIONS[sid]["df"]
+    elif rows is not None:
+        df = pd.DataFrame(rows)
+    else:
+        return {"error": "provide session_id or rows"}
+    return {"columns": outlier_evaluate(df, cols)}
+
+
+@app.post("/api/tool/duplicates/confusion")
+async def tool_dupe_confusion(payload: dict):
+    """The 'check confusing columns' step before finalising duplicates."""
+    import pandas as pd
+    from engine.toolkit import dedupe_confusion
+    rows = payload.get("rows"); subset = payload.get("columns")
+    sid = payload.get("session_id")
+    if sid and sid in _SESSIONS:
+        df = _SESSIONS[sid]["df"]
+    elif rows is not None:
+        df = pd.DataFrame(rows)
+    else:
+        return {"error": "provide session_id or rows"}
+    return {"warnings": dedupe_confusion(df, subset)}
+
+
+# --- AI assist (optional, off by default; the base tool is fully offline) ---@app.get("/api/ai/status")
+async def ai_status():
+    """The interface uses this to show an online/offline switch. AI assist is
+    off unless a key is present AND the user turns it on; enabling it goes
+    online, and only small per-column samples are ever sent."""
+    import os
+    has_key = bool(os.environ.get("OPENAI_API_KEY"))
+    return {
+        "available": has_key,
+        "enabled_by_default": False,
+        "offline_by_default": True,
+        "banner": ("AI assist is available. Turning it on goes online and sends "
+                   "only a few sample values from one column at a time, never your dataset."),
+        "what_is_sent": "One column's distinct sample values (optionally masked). Never full rows, never row counts.",
+    }
+
+
+@app.post("/api/ai/preview")
+async def ai_preview(payload: dict):
+    """Show EXACTLY what would be sent for one column, without sending anything.
+    Body: {column, values:[...], task?, mode?}. Returns the safe request."""
+    from engine.ai_privacy import build_column_query, is_full_dataset
+    column = payload.get("column", "")
+    values = payload.get("values", [])
+    if not isinstance(values, list):
+        return {"error": "values must be a list from a single column"}
+    q = build_column_query(column, values, task=payload.get("task", "type"), mode=payload.get("mode"))
+    q["single_column_guaranteed"] = not is_full_dataset(q)
+    return q
 
 
 @app.get("/test")

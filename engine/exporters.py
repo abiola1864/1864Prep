@@ -31,6 +31,21 @@ def to_xlsx(df: pd.DataFrame, path: Path, sheet: str = "Result") -> Path:
     return path
 
 
+def to_xlsx_multi(sheets: list[tuple[str, "pd.DataFrame"]], path: Path) -> Path:
+    """Write several cleaned sheets back into one workbook, keeping each sheet's
+    name and its own columns. Sheets stay separate, exactly as they came in."""
+    used = set()
+    with pd.ExcelWriter(path, engine="openpyxl") as w:
+        for name, df in sheets:
+            safe = (str(name)[:31] or "Sheet")
+            base, n = safe, 2
+            while safe.lower() in used:                 # keep names unique within 31 chars
+                suffix = f"_{n}"; safe = base[:31 - len(suffix)] + suffix; n += 1
+            used.add(safe.lower())
+            df.to_excel(w, sheet_name=safe, index=False)
+    return path
+
+
 def to_docx(title: str, df: pd.DataFrame, path: Path, intro: str = "") -> Path:
     """A clean Word report: title, optional intro, then the data as a table."""
     from docx import Document

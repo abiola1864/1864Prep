@@ -205,7 +205,13 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     if lower_distinct <= _GENDER and d <= 6:
         return ColumnProfile(name, "gender", 0.95, "gender", evidence=ev)
 
-    if lower_distinct <= _BOOL and d <= 4:
+    # A real boolean column has BOTH a positive and a negative value. A column
+    # holding only "y" (a footnote flag), or values with separators like "y,v",
+    # is not boolean and must be left alone, not coerced to True/False.
+    _pos = {"yes", "true", "y", "1"}
+    _neg = {"no", "false", "n", "0"}
+    if (lower_distinct <= _BOOL and 2 <= d <= 4
+            and lower_distinct & _pos and lower_distinct & _neg):
         return ColumnProfile(name, "boolean", 0.95, "boolean", evidence=ev)
 
     letter_share = _rate(vals, lambda s: any(ch.isalpha() for ch in s))

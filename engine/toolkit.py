@@ -75,6 +75,68 @@ def find_outliers(df: pd.DataFrame):
                     sum(1 for p in profs if p.semantic_type == "numeric")}
 
 
+def outlier_evaluate(df: pd.DataFrame, columns: list[str] | None = None) -> list[dict]:
+    """The 'look at the spread' step. For each numeric column, return a plain
+    read-out (count, missing, min, quartiles, max, skew) and a suggested method,
+    so the person can judge the shape before flagging anything. Best practice:
+    IQR for skewed data, Z-score for roughly symmetric data."""
+    profs = {p.column: p for p in profile_dataframe(df, use_ml=True)}
+    cols = columns or [c for c in df.columns if profs.get(c) and profs[c].semantic_type == "numeric"]
+    out = []
+    for c in cols:
+        s = pd.to_numeric(df[c].astype(str).str.replace(r"[,\s%$₦£€]", "", regex=True),
+                          errors="coerce")
+        vals = s.dropna()
+        if len(vals) < 5:
+            out.append({"column": c, "note": "too few numbers to evaluate"})
+            continue
+        q1, q3, med = vals.quantile(0.25), vals.quantile(0.75), vals.median()
+        skew = float(vals.skew()) if len(vals) > 2 else 0.0
+        method = "IQR — best for skewed data" if abs(skew) >= 1 else "Z-score — best for bell-shaped data"
+        out.append({
+            "column": c, "count": int(len(vals)), "missing": int(s.isna().sum()),
+            "min": round(float(vals.min()), 3), "q1": round(float(q1), 3),
+            "median": round(float(med), 3), "q3": round(float(q3), 3),
+            "max": round(float(vals.max()), 3), "skew": round(skew, 2),
+            "suggested_method": method,
+            "shape": ("right-skewed" if skew >= 1 else "left-skewed" if skew <= -1 else "roughly symmetric"),
+        })
+    return out
+
+
+def dedupe_confusion(df: pd.DataFrame, subset: list[str] | None = None) -> list[dict]:
+    """The 'check confusing columns' step for duplicates. Before matching, warn
+    about columns whose own values are inconsistent, because that quietly makes
+    the tool miss real duplicates or merge different records. Returns one warning
+    per problem, with an example, so the person can tidy first."""
+    cols = subset or list(df.columns)
+    warnings = []
+    for c in cols:
+        s = df[c].dropna().astype(str)
+        if s.empty:
+            continue
+        stripped = s.str.strip()
+        # case/whitespace variants that collapse to the same key
+        collapsed = stripped.str.lower()
+        distinct_raw = s.nunique()
+        distinct_key = collapsed.nunique()
+        if distinct_key < distinct_raw:
+            example = next((v for v in s.unique()
+                            if sum(1 for w in s.unique() if str(w).strip().lower() == str(v).strip().lower()) > 1), None)
+            warnings.append({"column": c, "issue": "case or spacing variants",
+                             "detail": f"{distinct_raw - distinct_key} value(s) differ only by capitals or spaces",
+                             "example": example,
+                             "advice": "Standardise this column first, or matches on it will be missed."})
+        # values with separators (multi-code) are risky as match keys
+        multi = stripped.str.contains(r"[;,/|]").mean()
+        if multi >= 0.1:
+            warnings.append({"column": c, "issue": "multiple values in one cell",
+                             "detail": f"about {round(multi*100)}% of cells contain separators (comma, slash)",
+                             "example": next((v for v in stripped if any(x in v for x in ";,/|")), None),
+                             "advice": "This is a coded/multi-value column; it is a poor key for matching duplicates."})
+    return warnings
+
+
 # ── 3. match & merge across files ────────────────────────────────────────────
 def match_files(dfs: list[pd.DataFrame], how: str = "outer", key: str | None = None):
     if len(dfs) < 2:
