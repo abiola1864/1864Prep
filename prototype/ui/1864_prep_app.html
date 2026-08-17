@@ -459,6 +459,14 @@
 .tk-stepper .st{font-size:11.5px;padding:5px 10px;border-radius:20px;background:var(--wash);color:var(--ink-soft);border:1px solid var(--line)}
 .tk-stepper .st.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 .tk-stepper .st.done{background:#e7efe9;color:#2f6f57;border-color:#cfe3d6}
+.progress > i.indet{position:relative;animation:indet 1.15s ease-in-out infinite}
+@keyframes indet{0%{margin-left:0;width:25%}50%{width:55%}100%{margin-left:100%;width:20%}}
+.cf-wrap{display:inline-flex;align-items:center;gap:8px}
+.cf.ok{background:#e7efe9;color:#2f6f57;border:1px solid #cfe3d6}
+.cf.sug{background:#eef4fb;color:#1d3a53;border:1px solid #d5e2f0}
+.cf-wrap .tp{font-size:11px;color:var(--ink-soft);background:var(--wash);border:1px solid var(--line);border-radius:20px;padding:3px 9px}
+.cf-name{display:flex;flex-direction:column;gap:5px}
+.typesel{padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:#fff;max-width:150px}
 </style>
 </head>
 <body>
@@ -490,7 +498,7 @@
         <p class="lead" style="text-align:center;margin:6px auto 16px">Prepare any agency's records for the Open Network.</p>
         <div class="field"><label>Work email</label><input value="data.officer@agency.gov.ng"></div>
         <div class="field"><label>Password</label><input type="password" value="••••••••••"></div>
-        <button class="btn" style="width:100%;margin-top:6px" onclick="go(1)">Sign in</button></div>
+        <button class="btn" style="width:100%;margin-top:6px" onclick="signInFriendly()">Sign in</button></div>
     </section>
 
     <!-- 1 sector -->
@@ -518,7 +526,7 @@
       <p class="eyebrow">Step 1 · Columns first</p><h1>These are your columns — check them</h1>
       <p class="lead">Before any value is touched, confirm the columns. We detected each column's name and type from your file; edit any name here. Nothing is cleaned until you confirm.</p>
       <div class="matchtable" id="matchtable">
-        <div class="mh"><span>Name in your file</span><span></span><span>Clearer name</span><span>Suggestion</span></div>
+        <div class="mh"><span>Name in your file</span><span></span><span>Column name (edit if needed)</span><span>Data type</span></div>
         <div id="matchrows"></div>
       </div>
       <div class="missing" id="missing" style="display:none"></div>
@@ -756,6 +764,10 @@ function messy(std,i){
 
 let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null,COSMETIC_COUNT=0,COSMETIC_FIELDS=[],COSMETIC_OPEN=false;
 
+function signInFriendly(){
+  go(1);
+  toast('Welcome back 👋  Let\u2019s get your data ready.');
+}
 function go(n){
   cur=n;
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
@@ -854,10 +866,25 @@ function renderMatch(){
 function setMatch(i,v){RAWS[i].chosen=v;renderMatch();}
 
 /* cleaning overlay -> review */
-function toggleAI(on){USE_AI=on;
-  $('#ainote').textContent = on
-    ? 'On, adds an AI model for the hard cases (unusual headers, place names, free text). You\u2019ll connect a model first; only column names and sample values are shared, never full records.'
-    : 'Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.';
+async function toggleAI(on){
+  USE_AI=on;
+  const note=$('#ainote');
+  if(!on){ note.textContent='Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.'; return; }
+  note.textContent='Checking for an AI connection…';
+  try{
+    const s=await (await fetch('/api/ai/status')).json();
+    if(s.available){
+      note.innerHTML='\u2713 AI is connected. It helps only on the hard, meaning-based cases, one column at a time \u2014 only column names and a few sample values are shared, never full records.';
+    }else{
+      USE_AI=false; const sw=$('#aiswitch'); if(sw) sw.checked=false;
+      note.innerHTML='No AI key found, so AI can\u2019t be turned on. Add a key in <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="openSettings()">Settings</a>, or continue with the built-in engine (it handles most cleaning on its own).';
+      toast('No AI key found \u2014 add one in Settings to enable AI.');
+    }
+  }catch(e){
+    USE_AI=false; const sw=$('#aiswitch'); if(sw) sw.checked=false;
+    note.textContent='Could not reach the AI service. Continuing with the built-in engine.';
+    toast('AI unavailable right now \u2014 using the built-in engine.');
+  }
 }
 function startCleaning(){
   const matched=[...new Set(RAWS.filter(r=>r.chosen&&r.chosen!=='__ignore').map(r=>r.chosen))];
@@ -1354,7 +1381,7 @@ function renderExport(){
   FIELDS.forEach(f=>{ if(!(f.name in PERM)) PERM[f.name]='off'; });   // consent-first: default off
   renderPerm();
   const dp=$('#distpanel');
-  if(dp){ if(DIST&&DIST.length){ dp.style.display='block'; renderDistribution($('#distgrid'), DIST); } else dp.style.display='none'; }
+  if(dp){ if(DIST!=null){ dp.style.display='block'; renderDistribution($('#distgrid'), DIST); } else dp.style.display='none'; }
 }
 const SENSITIVE=new Set(['identifier']);
 function toggleNet(on){ $('#netpanel').style.display=on?'block':'none';
@@ -1532,7 +1559,8 @@ function makeProgressManual(el, title, sub){
   let t0=Date.now(), prevT=t0, prevF=0, rate=0;
   return {
     showCancel(){ if(cx) cx.style.display='inline-flex'; },
-    set(frac,stage){ frac=Math.max(0,Math.min(0.99,frac)); const p=Math.round(frac*100);
+    indeterminate(stage){ bar.classList.add('indet'); bar.style.width='40%'; pct.textContent=''; eta.textContent=''; if(stage) stg.textContent=stage; },
+    set(frac,stage){ bar.classList.remove('indet'); frac=Math.max(0,Math.min(0.99,frac)); const p=Math.round(frac*100);
       bar.style.width=p+'%'; pct.textContent=p+'%'; if(stage) stg.textContent=stage;
       const now=Date.now();
       if(frac>prevF){ const inst=(frac-prevF)/Math.max(0.001,(now-prevT)/1000);
@@ -1542,7 +1570,7 @@ function makeProgressManual(el, title, sub){
       } else if(frac>=0.98){ eta.textContent='wrapping up'; }
       else { eta.textContent='working…'; }
     },
-    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; if(cx) cx.style.display='none'; }
+    finish(){ bar.classList.remove('indet'); bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; if(cx) cx.style.display='none'; }
   };
 }
 function makeProgress(el, estMs, stages, title, sub){
@@ -1603,24 +1631,37 @@ async function onRealFile(e){
   if(!file) return;
   PENDING_FILE=file;
   const ov=$('#overlay'); ov.classList.add('on');
-  const prog=makeProgressManual(ov,"Reading the columns…","Working out the columns and types in <b>"+esc(file.name)+"</b> before any cleaning.");
+  const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+"</b> before any cleaning.");
+  // honest phases so the person sees what's happening (single fast request)
+  const phases=[[0.15,"Reading the file"],[0.4,"Finding the table"],[0.7,"Detecting the columns"],[0.9,"Working out each type"]];
+  let pi=0; prog.set(0.05,"Starting");
+  const ticker=setInterval(()=>{ if(pi<phases.length){ prog.set(phases[pi][0],phases[pi][1]); pi++; } }, 550);
   try{
     const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
     const res=await fetch('/api/profile',{method:'POST',body:fd});
-    if(!res.ok) throw new Error('profile '+res.status);
     const data=await res.json();
+    clearInterval(ticker);
+    if(!res.ok || data.error) throw new Error(data.error||('profile '+res.status));
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on'); buildColumnReview(data,file.name); reached=Math.max(reached,4); go(4); },300);
-  }catch(err){ ov.classList.remove('on'); toast('Could not read that file: '+err.message); }
+  }catch(err){ clearInterval(ticker); ov.classList.remove('on'); toast('Could not read that file: '+err.message); }
 }
 
 // build the editable column list from the engine's real detection
 function buildColumnReview(data,filename){
   const heads=data.headers||[];
   const cols=data.columns||[];
-  COLREVIEW=heads.map((h,i)=>({
-    original:h.original, name:(h.suggested||h.original), abnormal:!!h.abnormal,
-    reason:h.reason||'', type:(cols[i]&&cols[i].type)||'—'}));
+  COLREVIEW=heads.map((h,i)=>{
+    const suggestDiffers = h.suggested && h.suggested!==h.original;
+    return {
+      original:h.original,
+      // keep the person's own header when it's fine; only auto-fill a name for
+      // genuinely abnormal headers (blank, cryptic, a leaked serial).
+      name: h.abnormal ? (h.suggested||h.original) : h.original,
+      abnormal:!!h.abnormal, reason:h.reason||'',
+      suggestion:(suggestDiffers && !h.abnormal) ? h.suggested : '',
+      type:(cols[i]&&cols[i].type)||'—'};
+  });
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   const rf=$('#rf-file'); if(rf&&data.rows!=null) rf.textContent=data.rows+'×'+(data.cols||cols.length);
   renderColumnReview();
@@ -1630,19 +1671,31 @@ const TYPE_LABEL={date:'Date',datetime:'Date & time',numeric:'Number',identifier
   boolean:'Yes/No',gender:'Gender',email:'Email',phone:'Phone',geo:'Place',currency:'Amount',
   categorical:'Category',name:'Name',free_text:'Text'};
 
+function applySuggestion(i){ COLREVIEW[i].name=COLREVIEW[i].suggestion; COLREVIEW[i].suggestion=''; renderColumnReview(); }
+function setColType(i,v){ COLREVIEW[i].type=v; }
+
+const TYPE_ORDER=['identifier','name','date','datetime','numeric','currency','boolean','gender','email','phone','geo','categorical','free_text'];
+function typeSelect(i,cur){
+  const opts=TYPE_ORDER.map(t=>`<option value="${t}" ${t===cur?'selected':''}>${TYPE_LABEL[t]||t}</option>`).join('');
+  const known=TYPE_ORDER.includes(cur)?'':`<option value="${esc(cur)}" selected>${esc(cur)}</option>`;
+  return `<select class="typesel" onchange="setColType(${i},this.value)" title="What kind of values this column holds. Change it if we guessed wrong.">${known}${opts}</select>`;
+}
+
 function renderColumnReview(){
   const abn=COLREVIEW.filter(c=>c.abnormal).length;
   const rows=COLREVIEW.map((c,i)=>{
-    const t=TYPE_LABEL[c.type]||c.type;
-    const flag=c.abnormal?`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`:`<span class="cf hi">${esc(t)}</span>`;
+    let status;
+    if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
+    else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
+    else status=`<span class="cf ok" title="This name is clear — nothing to change">✓ looks good</span>`;
     return `<div class="mrow ${c.abnormal?'needpick':''}">
       <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
-      <input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px">
-      ${flag}</div>`;}).join('');
+      <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status}</span>
+      ${typeSelect(i,c.type)}</div>`;}).join('');
   $('#matchrows').innerHTML=rows;
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
-  if(miss){ if(abn){miss.style.display='block';miss.innerHTML=`<b>${abn}</b> column(s) had no clear header — we proposed names. Edit any above; nothing is cleaned until you confirm.`;} else miss.style.display='none'; }
+  if(miss){ if(abn){miss.style.display='block';miss.innerHTML=`<b>${abn}</b> column(s) had no clear header — we proposed a name. Everything else is kept exactly as you named it. The <b>data type</b> is our best guess; change it on the right if it's wrong.`;} else {miss.style.display='block';miss.innerHTML=`All ${COLREVIEW.length} columns have clear names. The <b>data type</b> on the right is our best guess — change any if we got it wrong, then continue.`;} }
 }
 
 let CLEAN_JOB=null, CLEAN_ABORTED=false, DIST=null;
@@ -1652,12 +1705,14 @@ function cancelClean(){ if(CLEAN_JOB){ CLEAN_ABORTED=true; fetch('/api/job/'+CLE
 async function confirmColumnsAndClean(){
   if(!PENDING_FILE){ toast('Upload a file first'); return; }
   const rename={}; COLREVIEW.forEach(c=>{ if(c.name && c.name!==c.original) rename[c.original]=c.name; });
+  const types={}; COLREVIEW.forEach(c=>{ const key=(c.name&&c.name!==c.original)?c.name:c.original; if(c.type&&c.type!=='—') types[key]=c.type; });
   const ov=$('#overlay'); ov.classList.add('on'); CLEAN_JOB=null; CLEAN_ABORTED=false;
   const prog=makeProgressManual(ov,(USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine'),
     "Applying only what you approve. Your file stays on this computer.");
   try{
     const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'ng');
     fd.append('rename',JSON.stringify(rename));
+    fd.append('types',JSON.stringify(types));
     const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
     if(!res.ok||!res.body) throw new Error('stream '+res.status);
     const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='',payload=null,errMsg=null,cancelled=false;

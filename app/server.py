@@ -96,10 +96,13 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
     try:
         df, rep = read_any(path)
         _ref = _regions.load_reference()
-        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True)
+        # columns-first is a FAST structural pass: rule-based typing only, no ML/NLP
+        # or embeddings load, so "Reading the columns" returns in a moment even on
+        # large files. The heavy work happens later, during the actual clean.
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=False, use_nlp=False)
         from engine.headers import propose_headers, abnormal_count
         from engine import domains as _D
-        _doms = [_D.detect_domain(df[c].tolist(), str(c)) for c in df.columns]
+        _doms = [_D.detect_domain(df[c].head(300).tolist(), str(c)) for c in df.columns]
         header_rows = propose_headers(df, profs, _doms)
         return {
             "ingest": rep.summary(),
@@ -107,10 +110,12 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
             "region": _regions.get_active_region().name,
             "rows": len(df), "cols": len(df.columns),
             "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
-            "preview": df.head(200).astype(str).to_dict(orient="records"),
+            "preview": df.head(50).astype(str).to_dict(orient="records"),
             "columns": [{"name": p.column, "type": p.semantic_type,
                          "confidence": round(p.confidence, 2)} for p in profs],
         }
+    except Exception as e:
+        return {"error": f"Could not read the columns: {e}"}
     finally:
         path.unlink(missing_ok=True)
 
@@ -179,10 +184,10 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
 
 
 @app.post("/api/clean_stream")
-async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}")):
+async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}"), types: str = Form("{}")):
     """Same as /api/clean but streams real progress (one tick per column) so the
-    bar reflects the actual workload instead of an estimate. `rename` is the
-    person's confirmed column names from the columns-first step."""
+    bar reflects the actual workload instead of an estimate. `rename` and `types`
+    are the person's confirmed column names and data types from the columns-first step."""
     if region:
         _regions.set_active_region(region)
     path = _save(file)
@@ -192,6 +197,10 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
         _rename_map = _json.loads(rename) if rename else {}
     except Exception:
         _rename_map = {}
+    try:
+        _type_map = _json.loads(types) if types else {}
+    except Exception:
+        _type_map = {}
 
     def gen():
         import json
@@ -217,6 +226,11 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     yield json.dumps({"t": "progress", "pct": 0.05 + 0.75 * (i + 1) / N,
                                       "stage": f"Checking column {i+1} of {N}"}) + "\n"
             plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
+            if _type_map:                        # honour the person's confirmed data types
+                for p in profs:
+                    if p.column in _type_map and _type_map[p.column]:
+                        p.semantic_type = _type_map[p.column]
+                plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
             types = {p.column: p.semantic_type for p in profs}
             yield json.dumps({"t": "progress", "pct": 0.82, "stage": "Cleaning values"}) + "\n"
             cleaned, report, _ = run_plan(df, plan, "web")
