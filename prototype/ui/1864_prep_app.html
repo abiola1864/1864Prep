@@ -481,6 +481,9 @@
 .ver-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
 .ver-item .vmeta{font-size:12px;color:var(--ink-soft)}
 .hist-item{font-size:13px;padding:8px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+.idgrid{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0}
+.idstat b{display:block;font-family:Cambria,serif;font-size:18px;color:var(--navy)}
+.idstat span{font-size:11px;color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -1877,6 +1880,17 @@ function renderDistribution(container, cols){
   if(!container) return;
   if(!cols||!cols.length){ container.innerHTML='<div class="wl-empty">Nothing to chart in this data.</div>'; return; }
   container.innerHTML=cols.slice(0,6).map((c,ci)=>{
+    if(c.kind==='identifier'){
+      const stats=[['filled',Math.round((c.fill_share||0)*100)+'%'],
+                   ['distinct',c.distinct],
+                   ['unique',Math.round((c.unique_share||0)*100)+'%'],
+                   ['valid format',Math.round((c.valid_format_share||0)*100)+'%'],
+                   ['usual length',c.common_length||'—']];
+      return '<div class="distcard id"><div class="disttitle">'+esc(c.column)+' <span style="font-weight:400;color:var(--ink-soft);font-size:12px">· identifier / contact</span></div>'+
+        '<div class="idgrid">'+stats.map(s=>'<div class="idstat"><b>'+esc(String(s[1]))+'</b><span>'+s[0]+'</span></div>').join('')+'</div>'+
+        (c.missing?('<div class="diststats">'+c.missing+' blank</div>'):'')+
+        '<div class="diststats">'+esc(c.note||'Analysed for completeness and format, not as a number.')+'</div></div>';
+    }
     if(c.kind==='categorical'){
       const max=Math.max(...(c.top||[]).map(t=>t.count),1);
       const rows=(c.top||[]).map(t=>'<div class="catrow"><span class="clab" title="'+esc(t.value)+'">'+esc(t.value)+'</span>'+
