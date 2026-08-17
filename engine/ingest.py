@@ -115,16 +115,23 @@ def _find_data_start(rows: list[list[str]]) -> int:
 
 def _header_band(rows: list[list[str]], data_start: int) -> tuple[int, int]:
     """The header is the block of consecutive non-blank rows sitting just above
-    the first data row, after skipping any blank separator line."""
+    the first data row, after skipping any blank separator. Rows far narrower than
+    the data (banners/titles) are excluded even without a blank separator."""
+    data_ne = sum(1 for c in rows[data_start] if str(c).strip()) if data_start < len(rows) else 1
+    floor = max(2, data_ne * 0.5)
     j = data_start - 1
     while j >= 0 and not any(str(c).strip() for c in rows[j]):   # skip blank separators
         j -= 1
     end = j
-    while j >= 0 and any(str(c).strip() for c in rows[j]):       # collect contiguous header rows
+    while j >= 0:
+        ne = sum(1 for c in rows[j] if str(c).strip())
+        if ne == 0 or ne < floor:                               # blank OR banner-width -> stop
+            break
         j -= 1
     start = j + 1
-    # cap at 3 header rows; keep the ones nearest the data
-    if end - start + 1 > 3:
+    if end < start:
+        return max(0, data_start - 1), max(0, data_start - 1)
+    if end - start + 1 > 3:                                      # cap at 3 header rows nearest data
         start = end - 2
     return start, end
 
@@ -213,25 +220,95 @@ def _drop_empty_columns(df: pd.DataFrame, notes: list) -> pd.DataFrame:
     return df[keep]
 
 
+MAX_BYTES = 60 * 1024 * 1024          # hard cap; above this we sample + batch
+_SAMPLE_ROWS = 5000                    # rows scanned for structure/type detection on huge files
+
+
+def detect_orientation(rows: list[list[str]]) -> str:
+    """Decide how the table is laid out so headers always end up as columns.
+    Conservative: only leaves 'normal' when there is a strong signal otherwise.
+
+    'normal'     header across the top (keep).
+    'transposed' field names down the first column, records left-to-right (transpose).
+    'form'       first column(s) hold category/section labels and sub-totals.
+    """
+    body = [r for r in rows if any(str(c).strip() for c in r)]
+    if len(body) < 3:
+        return "normal"
+    ncols = max(len(r) for r in body)
+    if ncols < 2:
+        return "normal"
+
+    def numshare(cells):
+        v = [str(c).strip() for c in cells if str(c).strip()]
+        return sum(1 for x in v if _looks_numeric(x)) / len(v) if v else 0.0
+
+    # FORM: 'total/subtotal/section/category' labels appear in the first two
+    # columns, and many rows are otherwise blank (a template, not a table).
+    label_words = re.compile(r"\b(total|subtotal|sub-total|category|section|item|justification)\b", re.I)
+    left_labels = [str(r[k]).strip() for r in body for k in (0, 1) if k < len(r) and str(r[k]).strip()]
+    label_hits = sum(1 for v in left_labels if label_words.search(v))
+    mostly_blank = sum(1 for r in body if sum(1 for c in r[2:] if str(c).strip()) <= 1)
+    if label_hits >= 2 and mostly_blank >= len(body) * 0.3:
+        return "form"
+
+    # TRANSPOSED: strong signal = wide and short (more record-columns than field-
+    # rows), the first column is all text (field names), and it's more distinct than
+    # the first row. Requiring width > height avoids mislabelling normal tables.
+    col0 = [str(r[0]).strip() for r in body if r]
+    col0_num = numshare(col0)
+    row0_num = numshare(body[0])
+    if ncols >= len(body) * 1.3 and col0_num < 0.1 and row0_num < 0.35:
+        col0_distinct = len(set(v.lower() for v in col0 if v)) / max(1, len([v for v in col0 if v]))
+        if col0_distinct > 0.8:
+            return "transposed"
+    return "normal"
+
+
 def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
+    size = path.stat().st_size
     raw = path.read_bytes()
-    enc = _sniff_encoding(raw)
+    enc = _sniff_encoding(raw[:1 << 20])                    # sniff on first 1MB only
     text = raw.decode(enc, errors="replace")
-    delim = "\t" if kind == "tsv" else _sniff_delimiter(text)
-    rows = list(csv.reader(io.StringIO(text), delimiter=delim))
-    rows = [r for r in rows if any(c.strip() for c in r)]  # drop blank lines
-    hdr = _detect_header_row(rows)
-    header = [c.strip() or f"column_{j+1}_no_header" for j, c in enumerate(rows[hdr])]
-    body = rows[hdr + 1:]
+    delim = "\t" if kind == "tsv" else _sniff_delimiter(text[:1 << 16])
+    reader = csv.reader(io.StringIO(text), delimiter=delim)
+    rows, truncated = [], False
+    for i, r in enumerate(reader):
+        rows.append(r)                                       # keep blanks: they mark separators
+        if size > MAX_BYTES and len(rows) >= _SAMPLE_ROWS:
+            truncated = True
+            break
+    while rows and not any(str(c).strip() for c in rows[-1]):
+        rows.pop()                                           # trim trailing blank lines only
+    hdr = _detect_header_row([r for r in rows if any(str(c).strip() for c in r)])
+    header, data_start = _resolve_header(rows, hdr)          # multi-row header on CSV too
+    header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(header)]
+    orient = detect_orientation([r for r in rows[data_start:data_start + 200] if any(str(c).strip() for c in r)])
     width = len(header)
-    body = [(r + [""] * width)[:width] for r in body]  # pad/trim ragged rows
+    body = [(r + [""] * width)[:width] for r in rows[data_start:] if any(str(c).strip() for c in r)]
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
-    rep = IngestReport(str(path), kind, encoding=enc, delimiter=delim, header_row=hdr + 1,
+    if orient == "transposed":
+        df = _transpose(df)
+    rep = IngestReport(str(path), kind, encoding=enc, delimiter=delim, header_row=data_start,
                        rows=len(df), cols=len(df.columns))
-    if hdr > 0:
-        rep.notes.append(f"skipped {hdr} banner/metadata row(s) above the header")
-        rep.skipped_rows = [" · ".join(c.strip() for c in rows[k] if c.strip()) for k in range(hdr)]
+    rep.notes.append(f"layout detected: {orient}")
+    if data_start > 0:
+        rep.skipped_rows = [" · ".join(c.strip() for c in rows[k] if c.strip()) for k in range(min(data_start, hdr + 1))]
+    if truncated:
+        rep.notes.append(f"large file ({size // (1024*1024)} MB): structure read from the first {_SAMPLE_ROWS} rows; run full clean in batches")
     return df, rep
+
+
+def _transpose(df: pd.DataFrame) -> pd.DataFrame:
+    """Flip a table whose field names run down the first column into one whose
+    field names are the columns."""
+    if df.empty:
+        return df
+    idx = df.columns[0]
+    t = df.set_index(idx).T.reset_index(drop=True)
+    t.columns = [str(c).strip() or f"column_{i+1}_no_header" for i, c in enumerate(t.columns)]
+    t.columns = _dedupe_headers(list(t.columns))
+    return t
 
 
 _HELPER_SHEET = re.compile(r"\b(check|notes?|readme|meta(data)?|temp|tmp|qa|pivot|lookup|drop.?down|list|ref|scratch|working|calc)\b", re.I)
@@ -293,9 +370,13 @@ def _read_one_sheet(path: Path, sheet: str, grid: list[list[str]], sheets: list[
     body = [(list(map(str, r)) + [""] * len(header))[:len(header)] for r in raw[data_start:]]
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
     df = _drop_empty_columns(df, rep_notes := [])
+    orient = detect_orientation(raw[data_start:data_start + 200])
+    if orient == "transposed":
+        df = _transpose(df)
     rep = IngestReport(str(path), "xlsx", sheet=sheet, sheets_found=sheets,
                        header_row=data_start, rows=len(df), cols=len(df.columns))
     rep.notes.extend(rep_notes)
+    rep.notes.append(f"layout detected: {orient}")
     if merged:
         rep.notes.append(f"filled {len(merged)} merged cell block(s) so group headers reach every column")
     if autofilter:

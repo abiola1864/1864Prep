@@ -107,6 +107,7 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
             "region": _regions.get_active_region().name,
             "rows": len(df), "cols": len(df.columns),
             "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
+            "preview": df.head(200).astype(str).to_dict(orient="records"),
             "columns": [{"name": p.column, "type": p.semantic_type,
                          "confidence": round(p.confidence, 2)} for p in profs],
         }
@@ -178,13 +179,19 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
 
 
 @app.post("/api/clean_stream")
-async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None)):
+async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}")):
     """Same as /api/clean but streams real progress (one tick per column) so the
-    bar reflects the actual workload instead of an estimate."""
+    bar reflects the actual workload instead of an estimate. `rename` is the
+    person's confirmed column names from the columns-first step."""
     if region:
         _regions.set_active_region(region)
     path = _save(file)
     fname = file.filename
+    import json as _json
+    try:
+        _rename_map = _json.loads(rename) if rename else {}
+    except Exception:
+        _rename_map = {}
 
     def gen():
         import json
@@ -192,12 +199,19 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
         from engine.profile import profile_column, profile_to_plan
         from engine.dedupe import cluster_similar, duplicate_columns, near_duplicate_rows
         try:
+            _job = _uuid.uuid4().hex[:12]
+            yield json.dumps({"t": "job", "job_id": _job}) + "\n"
             yield json.dumps({"t": "progress", "pct": 0.04, "stage": "Reading the file"}) + "\n"
             df, rep = read_any(path)
+            if _rename_map:                      # apply the confirmed column names first
+                df = df.rename(columns={k: v for k, v in _rename_map.items() if k in df.columns})
             _ref = _regions.load_reference()
             cols = list(df.columns); N = max(1, len(cols))
             profs = []
             for i, c in enumerate(cols):
+                if _is_cancelled(_job):
+                    _CANCELLED.discard(_job)
+                    yield json.dumps({"t": "cancelled"}) + "\n"; return
                 profs.append(profile_column(df[c], c, _ref["gazetteers"], _ref["place_index"], use_ml=True, use_nlp=True))
                 if i % 2 == 0 or i == N - 1:
                     yield json.dumps({"t": "progress", "pct": 0.05 + 0.75 * (i + 1) / N,
@@ -425,6 +439,61 @@ async def api_tool_download(rid: str, fmt: str = "csv"):
 @app.get("/api/health")
 async def health():
     return {"ok": True}
+
+
+# --- cancellable jobs: a job registers a token; the clean loop checks it ---
+_CANCELLED: set[str] = set()
+
+
+@app.post("/api/job/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """Mark a running clean/tool job as cancelled. Long loops check this and stop
+    cleanly, so a user can abandon a big file mid-way."""
+    _CANCELLED.add(job_id)
+    return {"job_id": job_id, "cancelled": True}
+
+
+def _is_cancelled(job_id: str | None) -> bool:
+    return bool(job_id) and job_id in _CANCELLED
+
+
+@app.post("/api/structure")
+async def api_structure(payload: dict):
+    """Header-review-first: return the full structure + per-column identity for a
+    file so the person can confirm names/types/orientation BEFORE value cleaning.
+    Body: {path} (server-side) or a prior session_id."""
+    import pandas as pd
+    from engine.ingest import read_any
+    from engine.headers import propose_headers, abnormal_count
+    from engine import domains as _D
+    from engine.context import DatasetContext, ColumnContext
+    path = payload.get("path")
+    sid = payload.get("session_id")
+    if sid and sid in _SESSIONS:
+        df = _SESSIONS[sid]["df"]; rep = _SESSIONS[sid].get("rep")
+    elif path:
+        df, rep = read_any(path)
+    else:
+        return {"error": "provide path or session_id"}
+    profs = profile_dataframe(df, use_ml=True)
+    doms = [_D.detect_domain(df[c].tolist(), str(c)) for c in df.columns]
+    headers = propose_headers(df, profs, doms)
+    ctx = DatasetContext(
+        source=str(path or sid), file_type=(getattr(rep, "kind", "") if rep else ""),
+        sheet_name=(getattr(rep, "sheet", "") if rep else ""),
+        sheets_all=(getattr(rep, "sheets_found", []) if rep else []),
+        structure={"notes": (getattr(rep, "notes", []) if rep else []),
+                   "header_row": (getattr(rep, "header_row", None) if rep else None)},
+    )
+    for p, h, d in zip(profs, headers, doms):
+        exp = {}
+        if d: exp["allowed_set"] = d
+        ctx.columns.append(ColumnContext(
+            raw_header=h["original"], proposed_name=h["suggested"],
+            semantic_type=p.semantic_type, expected=exp,
+            evidence=f"confidence {round(p.confidence,2)}",
+            context_note=(f"looks like {d}" if d else p.semantic_type)).to_dict())
+    return {"dataset": ctx.to_dict(), "headers_abnormal": abnormal_count(headers)}
 
 
 @app.post("/api/distribution")

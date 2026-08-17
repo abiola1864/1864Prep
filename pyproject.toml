@@ -9,6 +9,7 @@ authors = [{ name = "The 1864 Research & Innovation Institute" }]
 dependencies = [
     "pandas>=2.0",
     "openpyxl>=3.1",
+    "xlrd>=2.0.1",            # legacy .xls files
     "python-dateutil>=2.8",
     "rapidfuzz>=3.0",
     "jellyfish>=1.0",

@@ -329,6 +329,28 @@ TOOLS.update({
 })
 
 
+def _name_column_score(header: str, values: list) -> float:
+    """How name-like a column is, from its header and its values. Used to find the
+    right column for gender estimation instead of guessing."""
+    import re as _re
+    h = str(header).lower()
+    score = 0.0
+    if _re.search(r"\b(name|surname|firstname|first name|fullname|full name|given|forename)\b", h):
+        score += 0.6
+    if _re.search(r"\b(id|code|email|phone|amount|date|number|no\.?)\b", h):
+        score -= 0.5
+    vals = [str(v).strip() for v in values if str(v).strip()][:200]
+    if not vals:
+        return score
+    alpha = sum(1 for v in vals if _re.fullmatch(r"[A-Za-z][A-Za-z '\-\.]+", v))
+    onetothree = sum(1 for v in vals if 1 <= len(v.split()) <= 3)
+    titlecase = sum(1 for v in vals if v[:1].isupper())
+    score += 0.4 * (alpha / len(vals)) + 0.2 * (onetothree / len(vals)) + 0.1 * (titlecase / len(vals))
+    distinct = len(set(v.lower() for v in vals)) / len(vals)
+    score += 0.1 * distinct
+    return score
+
+
 def guess_gender(df: pd.DataFrame, how: dict | None = None):
     """Add a clearly-labelled gender ESTIMATE from a name column (opt-in).
     Never overwrites data; adds '<col>_gender_estimate' + confidence. Unisex or
@@ -336,16 +358,20 @@ def guess_gender(df: pd.DataFrame, how: dict | None = None):
     """
     how = how or {}
     from .names import available, name_gender
-    if not available():
-        return df, {"note": "names-dataset not installed; run: pip install names-dataset"}
     col = how.get("column")
     if not col:
-        # pick the most name-like text column
-        from .names import looks_like_person_names
-        cands = [(c, looks_like_person_names(df[c].tolist())) for c in df.columns if df[c].dtype == object]
-        col = max(cands, key=lambda x: x[1])[0] if cands else None
+        # score every column for name-likeness; require a clear winner
+        scored = sorted(((_name_column_score(c, df[c].tolist()), c) for c in df.columns), reverse=True)
+        best_score, best_col = scored[0] if scored else (0, None)
+        if best_score < 0.4:
+            return df, {"note": "No clear name column found. Please pick the column that holds people's names.",
+                        "candidates": [c for _, c in scored[:3]]}
+        col = best_col
     if not col or col not in df.columns:
         return df, {"note": "no name column found"}
+    if not available():
+        return df, {"note": "names-dataset not installed; run: pip install names-dataset",
+                    "column": col}
     out = df.copy()
     est, conf = [], []
     for v in out[col].tolist():

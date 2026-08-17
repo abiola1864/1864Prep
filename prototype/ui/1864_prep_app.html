@@ -448,6 +448,17 @@
   .cn-before{color:#8a5a5a;text-decoration:line-through} .cn-arrow{color:#9aa0a8} .cn-after{color:#1f5c3a}
   .cn-more{font-size:11.5px;color:#5a7a63;margin-top:1px}
   .cn-foot{font-size:11.5px;color:#5a7a63;margin-top:6px;font-style:italic}
+.distgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.distgrid{grid-template-columns:1fr}}
+.distcard{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff}
+.disttitle{font-weight:600;font-size:14px;margin-bottom:8px}
+.distchart{height:96px;display:flex;align-items:flex-end;gap:2px}
+.dbar{flex:1;background:var(--navy);border-radius:2px 2px 0 0;transition:height .7s cubic-bezier(.2,.8,.2,1)}
+.diststats{font-size:12px;color:var(--ink-soft);margin-top:8px}.diststats b{color:var(--navy)}
+.tk-stepper{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.tk-stepper .st{font-size:11.5px;padding:5px 10px;border-radius:20px;background:var(--wash);color:var(--ink-soft);border:1px solid var(--line)}
+.tk-stepper .st.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.tk-stepper .st.done{background:#e7efe9;color:#2f6f57;border-color:#cfe3d6}
 </style>
 </head>
 <body>
@@ -499,13 +510,13 @@
         <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
         <p style="color:var(--ink-soft);margin:0;font-size:13px">.csv · .xlsx · .json · .pdf, cleaned by the engine</p>
       </div>
-      <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="doUpload()">Continue with sample data</a> to walk through the flow.</p>
+      <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="downloadSample()">Download a sample file</a>, then upload it above to see the real flow.</p>
     </section>
 
     <!-- 4 match names -->
     <section class="screen" data-screen="4">
-      <p class="eyebrow">Column names</p><h1>Check your column names</h1>
-      <p class="lead">These are the column names from your file. We suggested a clearer name for each one. Keep our suggestion or pick your own. This only renames columns, it does not touch the values yet.</p>
+      <p class="eyebrow">Step 1 · Columns first</p><h1>These are your columns — check them</h1>
+      <p class="lead">Before any value is touched, confirm the columns. We detected each column's name and type from your file; edit any name here. Nothing is cleaned until you confirm.</p>
       <div class="matchtable" id="matchtable">
         <div class="mh"><span>Name in your file</span><span></span><span>Clearer name</span><span>Suggestion</span></div>
         <div id="matchrows"></div>
@@ -516,8 +527,8 @@
         <span class="sp"></span>
         <label class="switch"><input type="checkbox" id="aiswitch" onchange="toggleAI(this.checked)"><span class="track"></span><span class="knob"></span></label>
       </div>
-      <div class="actbar"><button class="btn" onclick="startCleaning()">Looks right, clean my data →</button>
-        <span class="cnt" style="font-size:12.5px;color:var(--ink-soft)"><b id="matchn" style="font-family:var(--mono);color:var(--navy)">0</b> columns matched</span></div>
+      <div class="actbar"><button class="btn" onclick="confirmColumnsAndClean()">Columns look right, clean my data →</button>
+        <span class="cnt" style="font-size:12.5px;color:var(--ink-soft)"><b id="matchn" style="font-family:var(--mono);color:var(--navy)">0</b> columns detected</span></div>
     </section>
 
     <!-- 5 review -->
@@ -552,6 +563,12 @@
         <button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button>
       </div>
       <div id="expout" style="margin-top:14px"></div>
+
+      <div id="distpanel" style="margin-top:22px;display:none">
+        <h3 style="margin:0 0 4px">See your data's shape</h3>
+        <p class="lead" style="font-size:13px;margin:0 0 12px">The distribution of your numeric columns after cleaning — mean, median, and any flagged outliers.</p>
+        <div class="distgrid" id="distgrid"></div>
+      </div>
 
       <div class="aitoggle" style="max-width:860px;margin-top:24px">
         <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.</span></div>
@@ -744,7 +761,7 @@ function go(n){
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
   $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n);li.classList.toggle('done',s<n&&s<=reached);});
   $('#gate').style.display=n===5?'flex':'none';
-  if(n===4)renderMatch();
+  if(n===4){ if(COLREVIEW&&COLREVIEW.length) renderColumnReview(); else renderMatch(); }
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
   if(n===7)renderExport();
@@ -1336,6 +1353,8 @@ function renderExport(){
     .map(x=>'<div class="kpi"><div class="n" style="color:'+x[0]+'">'+x[1]+'</div><div class="l">'+x[2]+'</div></div>').join('');
   FIELDS.forEach(f=>{ if(!(f.name in PERM)) PERM[f.name]='off'; });   // consent-first: default off
   renderPerm();
+  const dp=$('#distpanel');
+  if(dp){ if(DIST&&DIST.length){ dp.style.display='block'; renderDistribution($('#distgrid'), DIST); } else dp.style.display='none'; }
 }
 const SENSITIVE=new Set(['identifier']);
 function toggleNet(on){ $('#netpanel').style.display=on?'block':'none';
@@ -1405,24 +1424,72 @@ async function renderToolkit(){
     '<div class="tk-card" onclick="openTool(\''+t.id+'\')"><div class="tk-name">'+esc(t.name)+'</div>'+
     '<div class="tk-desc">'+esc(t.desc)+'</div><div class="tk-kind">'+(t.kind==='report'?'report':'dataset')+'</div></div>').join('')+'</div>';
 }
-function openTool(id){
+async function openTool(id){
   TK_CUR=TK_TOOLS.find(t=>t.id===id); TK_RESULT=null;
   const multi=(id==='match'||id==='compare'||id==='combine');
   const box=$('#toolkit');
+  let stepper='';
+  try{ const flow=(await (await fetch('/api/tool/'+id+'/flow')).json()).steps||[];
+    if(flow.length) stepper='<div class="tk-stepper">'+flow.map((s,i)=>'<span class="st'+(i===0?' on':'')+'" title="'+esc(s.why||'')+'">'+(i+1)+'. '+esc(s.label)+'</span>').join('')+'</div>';
+  }catch(e){}
   box.innerHTML='<button class="btn ghost sm" onclick="renderToolkit()">← All tools</button>'+
     '<h2 style="margin:12px 0 4px">'+esc(TK_CUR.name)+'</h2><p class="lead">'+esc(TK_CUR.desc)+'</p>'+
+    stepper+
     '<div class="tk-panel"><label class="tk-file">'+
       '<input type="file" id="tk-input" '+(multi?'multiple ':'')+'accept=".csv,.tsv,.txt,.xlsx,.xls,.json,.pdf" onchange="tkPick()">'+
       '<span id="tk-filelabel">'+(multi?'Choose two or more files to match…':'Choose a file…')+'</span></label>'+
       (multi?'<div class="tk-row"><span>Join</span><select id="tk-how"><option value="outer">Keep everyone (outer)</option><option value="inner">Only matches (inner)</option></select></div>':'')+
-      '<button class="btn" id="tk-run" disabled onclick="runTool()">Run &amp; preview</button>'+
+      '<button class="btn" id="tk-run" disabled onclick="tkVerifyThenRun()">Check columns &amp; continue →</button>'+
     '</div><div id="tk-out"></div>';
 }
+function tkStep(n){ const s=$$('#toolkit .tk-stepper .st'); s.forEach((el,i)=>{ el.classList.toggle('done',i<n); el.classList.toggle('on',i===n); }); }
 function tkPick(){ const inp=$('#tk-input'); const n=inp.files.length;
   $('#tk-filelabel').textContent=n?(n+' file'+(n>1?'s':'')+' selected'):'Choose a file…';
   $('#tk-run').disabled=(n===0 || (['match','compare','combine'].includes(TK_CUR.id)&&n<2)); }
-async function runTool(){
+// Column verification first — every tool confirms columns before it runs.
+async function tkVerifyThenRun(){
   const inp=$('#tk-input'); if(!inp.files.length) return;
+  const out=$('#tk-out'); tkStep(1);
+  out.innerHTML='<div class="wl-empty">Reading the columns…</div>';
+  try{
+    const fd=new FormData(); fd.append('file', inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'ng');
+    const d=await (await fetch('/api/profile',{method:'POST',body:fd})).json();
+    const heads=d.headers||[], cols=d.columns||[];
+    const rows=heads.map((h,i)=>{const t=TYPE_LABEL[(cols[i]&&cols[i].type)]|| (cols[i]&&cols[i].type)||'—';
+      return '<div class="mrow'+(h.abnormal?' needpick':'')+'"><span class="raw">'+esc(h.original)+'</span><span class="arr">→</span>'+
+        '<span>'+esc(h.suggested||h.original)+'</span><span class="cf '+(h.abnormal?'lo':'hi')+'">'+esc(h.abnormal?'needs a name':t)+'</span></div>';}).join('');
+    let extra='';
+    out.innerHTML='<div class="matchtable"><div class="mh"><span>Column in your file</span><span></span><span>Read as</span><span>Type</span></div>'+rows+'</div>'+
+      '<p class="lead" style="font-size:13px;margin:10px 0">'+(d.rows!=null?(d.rows+' rows · '):'')+heads.length+' columns detected. If these look right, run the tool.</p>'+extra+
+      '<button class="btn" onclick="tkRunFlow()">Columns look right — run '+esc(TK_CUR.name)+' →</button>';
+  }catch(err){ out.innerHTML='<div class="wl-empty">Could not read columns: '+esc(err.message)+'. <button class="btn sm" onclick="runTool()">Run anyway</button></div>'; }
+}
+
+// run the tool, first showing its tool-specific pre-check (outliers spread /
+// duplicate confusion) where the flow calls for it.
+async function tkRunFlow(){
+  const inp=$('#tk-input'); if(!inp.files.length) return; const out=$('#tk-out'); tkStep(2);
+  try{
+    if(TK_CUR.id==='outliers' || TK_CUR.id==='duplicates' || TK_CUR.id==='dedupe'){
+      const fd=new FormData(); fd.append('file',inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'ng');
+      // reuse a lightweight clean to get a session for evaluate/confusion
+      const prof=await (await fetch('/api/profile',{method:'POST',body:fd})).json();
+      if(TK_CUR.id==='outliers'){
+        const ev=await (await fetch('/api/tool/outliers/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||prof.sample||[]})})).json();
+        if(ev&&ev.columns&&ev.columns.length){ out.insertAdjacentHTML('afterbegin',
+          '<div class="cosmetic-note" style="display:block">Spread check: '+ev.columns.map(c=>esc(c.column)+' ('+(c.shape||'')+', suggests '+(c.suggested_method||'')+')').join(' · ')+'</div>'); }
+      } else {
+        const cf=await (await fetch('/api/tool/duplicates/confusion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||prof.sample||[]})})).json();
+        if(cf&&cf.warnings&&cf.warnings.length){ out.insertAdjacentHTML('afterbegin',
+          '<div class="cosmetic-note" style="display:block">Before finalising: '+cf.warnings.map(w=>esc(w.column)+' — '+esc(w.issue)).join(' · ')+'</div>'); }
+      }
+    }
+  }catch(e){}
+  runTool();
+}
+
+async function runTool(){
+  const inp=$('#tk-input'); if(!inp.files.length) return; tkStep(3);
   const out=$('#tk-out');
   let bytes=0; for(const f of inp.files) bytes+=f.size;
   const stages=["Uploading…","Reading the file(s)…","Running "+TK_CUR.name.toLowerCase()+"…","Building your result…"];
@@ -1458,11 +1525,13 @@ function makeProgressManual(el, title, sub){
     <h3>${title}</h3><p>${sub||''}</p>
     <div class="progress"><i id="pgbar"></i></div>
     <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta"></span></div>
-    <div class="prog-stage" id="pgstage">starting…</div></div>`;
+    <div class="prog-stage" id="pgstage">starting…</div>
+    <button class="btn ghost sm" id="pgcancel" style="margin-top:14px;display:none" onclick="cancelClean()">Cancel</button></div>`;
   const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
-        eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage');
+        eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage'), cx=el.querySelector('#pgcancel');
   let t0=Date.now(), prevT=t0, prevF=0, rate=0;
   return {
+    showCancel(){ if(cx) cx.style.display='inline-flex'; },
     set(frac,stage){ frac=Math.max(0,Math.min(0.99,frac)); const p=Math.round(frac*100);
       bar.style.width=p+'%'; pct.textContent=p+'%'; if(stage) stg.textContent=stage;
       const now=Date.now();
@@ -1473,7 +1542,7 @@ function makeProgressManual(el, title, sub){
       } else if(frac>=0.98){ eta.textContent='wrapping up'; }
       else { eta.textContent='working…'; }
     },
-    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; }
+    finish(){ bar.style.width='100%'; pct.textContent='100%'; eta.textContent='done'; stg.textContent='Ready'; if(cx) cx.style.display='none'; }
   };
 }
 function makeProgress(el, estMs, stages, title, sub){
@@ -1506,38 +1575,133 @@ function makeProgress(el, estMs, stages, title, sub){
 }
 function estimateMs(bytes){ return Math.round(1800 + Math.min(22000, (bytes/1048576)*1500)); }
 
+// A neutral, deliberately-messy sample so people learn the REAL flow (not a
+// separate hardcoded walkthrough). They download this, then upload it above.
+function downloadSample(){
+  const csv =
+"Data export — sample\n" +
+"generated for demo\n" +
+"\n" +
+"record_id,full name, State ,amount (NGN),joined,active\n" +
+"001, ada  lovelace ,Lagos,\"12,500\",2021-03-04,y\n" +
+"002,MUSA BELLO,kano,8000,04/05/2021,y\n" +
+"003,ngozi eze,Cros River,15750,2021-06-01,n\n" +
+"004, Tunde  A. ,,9000,2021/07/12,y\n" +
+"005,fatima sani,Oyo,999999,2021-08-20,y\n";
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='1864prep_sample.csv'; document.body.appendChild(a); a.click(); a.remove();
+  toast('Sample downloaded. Now drop it in the box above to run the real flow.');
+}
+
+let PENDING_FILE=null, COLREVIEW=[];
+
+// Phase 1: read the file's STRUCTURE only (no cleaning yet), so the person can
+// see and correct the columns first — for every upload, the same way.
 async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
+  PENDING_FILE=file;
   const ov=$('#overlay'); ov.classList.add('on');
-  const prog=makeProgressManual(ov, "Reading &amp; cleaning your file…",
-    "Reading <b>"+esc(file.name)+"</b> on this computer. Nothing is uploaded in the desktop app.");
+  const prog=makeProgressManual(ov,"Reading the columns…","Working out the columns and types in <b>"+esc(file.name)+"</b> before any cleaning.");
   try{
-    const fd=new FormData(); fd.append('file', file); fd.append('region', SETTINGS.region||'ng');
+    const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
+    const res=await fetch('/api/profile',{method:'POST',body:fd});
+    if(!res.ok) throw new Error('profile '+res.status);
+    const data=await res.json();
+    prog.finish();
+    setTimeout(()=>{ ov.classList.remove('on'); buildColumnReview(data,file.name); reached=Math.max(reached,4); go(4); },300);
+  }catch(err){ ov.classList.remove('on'); toast('Could not read that file: '+err.message); }
+}
+
+// build the editable column list from the engine's real detection
+function buildColumnReview(data,filename){
+  const heads=data.headers||[];
+  const cols=data.columns||[];
+  COLREVIEW=heads.map((h,i)=>({
+    original:h.original, name:(h.suggested||h.original), abnormal:!!h.abnormal,
+    reason:h.reason||'', type:(cols[i]&&cols[i].type)||'—'}));
+  SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
+  const rf=$('#rf-file'); if(rf&&data.rows!=null) rf.textContent=data.rows+'×'+(data.cols||cols.length);
+  renderColumnReview();
+}
+
+const TYPE_LABEL={date:'Date',datetime:'Date & time',numeric:'Number',identifier:'ID / code',
+  boolean:'Yes/No',gender:'Gender',email:'Email',phone:'Phone',geo:'Place',currency:'Amount',
+  categorical:'Category',name:'Name',free_text:'Text'};
+
+function renderColumnReview(){
+  const abn=COLREVIEW.filter(c=>c.abnormal).length;
+  const rows=COLREVIEW.map((c,i)=>{
+    const t=TYPE_LABEL[c.type]||c.type;
+    const flag=c.abnormal?`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`:`<span class="cf hi">${esc(t)}</span>`;
+    return `<div class="mrow ${c.abnormal?'needpick':''}">
+      <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
+      <input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px">
+      ${flag}</div>`;}).join('');
+  $('#matchrows').innerHTML=rows;
+  const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
+  const miss=$('#missing');
+  if(miss){ if(abn){miss.style.display='block';miss.innerHTML=`<b>${abn}</b> column(s) had no clear header — we proposed names. Edit any above; nothing is cleaned until you confirm.`;} else miss.style.display='none'; }
+}
+
+let CLEAN_JOB=null, CLEAN_ABORTED=false, DIST=null;
+function cancelClean(){ if(CLEAN_JOB){ CLEAN_ABORTED=true; fetch('/api/job/'+CLEAN_JOB+'/cancel',{method:'POST'}); toast('Cancelling…'); } }
+
+// Phase 2: clean with the confirmed column names, then go to review.
+async function confirmColumnsAndClean(){
+  if(!PENDING_FILE){ toast('Upload a file first'); return; }
+  const rename={}; COLREVIEW.forEach(c=>{ if(c.name && c.name!==c.original) rename[c.original]=c.name; });
+  const ov=$('#overlay'); ov.classList.add('on'); CLEAN_JOB=null; CLEAN_ABORTED=false;
+  const prog=makeProgressManual(ov,(USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine'),
+    "Applying only what you approve. Your file stays on this computer.");
+  try{
+    const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'ng');
+    fd.append('rename',JSON.stringify(rename));
     const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
-    if(!res.ok || !res.body) throw new Error('stream '+res.status);
-    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='', payload=null, errMsg=null;
-    while(true){
-      const {value,done}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true});
-      let nl; while((nl=buf.indexOf('\n'))>=0){
-        const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
-        let msg; try{ msg=JSON.parse(line); }catch(e){ continue; }
-        if(msg.t==='progress'){ const frac=(msg.pct!=null)?msg.pct:((msg.done||0)/(msg.total||1)); prog.set(frac, msg.stage); }
+    if(!res.ok||!res.body) throw new Error('stream '+res.status);
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='',payload=null,errMsg=null,cancelled=false;
+    while(true){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true});
+      let nl; while((nl=buf.indexOf('\n'))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
+        let msg; try{msg=JSON.parse(line);}catch(e){continue;}
+        if(msg.t==='job'){ CLEAN_JOB=msg.job_id; prog.showCancel(); }
+        else if(msg.t==='progress'){ const frac=(msg.pct!=null)?msg.pct:((msg.done||0)/(msg.total||1)); prog.set(frac,msg.stage); }
         else if(msg.t==='result'){ payload=msg.payload; }
-        else if(msg.t==='error'){ errMsg=msg.error; }
-      }
-    }
+        else if(msg.t==='cancelled'){ cancelled=true; }
+        else if(msg.t==='error'){ errMsg=msg.error; } } }
+    if(cancelled || CLEAN_ABORTED){ ov.classList.remove('on'); toast('Cleaning cancelled. Your columns are still here.'); go(4); return; }
     if(errMsg) throw new Error(errMsg);
     if(!payload) throw new Error('no result');
-    buildFieldsFromAPI(payload, file.name);
-    reached=Math.max(reached,5);
-    prog.finish();
-    setTimeout(()=>{ ov.classList.remove('on'); go(5); }, 400);
-  }catch(err){
-    ov.classList.remove('on');
-    toast('Could not clean that file: '+err.message);
-  }
+    if(payload.overview) payload.overview.forEach(c=>{ if(rename[c.column]) c.column=rename[c.column]; });
+    buildFieldsFromAPI(payload, PENDING_FILE.name);
+    reached=Math.max(reached,5); prog.finish();
+    fetchDistribution();                                  // the 'wow' — shape of the cleaned data
+    setTimeout(()=>{ ov.classList.remove('on'); go(5); },400);
+  }catch(err){ ov.classList.remove('on'); toast('Could not clean that file: '+err.message); }
+}
+
+// distribution "wow": fetch chart-ready shape for the cleaned session
+async function fetchDistribution(){
+  DIST=null; if(!SESSION_ID) return;
+  try{ const d=await (await fetch('/api/distribution',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({session_id:SESSION_ID})})).json();
+    DIST=(d&&d.columns)||null; }catch(e){ DIST=null; }
+}
+
+// draw simple animated histogram bars into a container from distribution columns
+function renderDistribution(container, cols){
+  if(!container) return;
+  if(!cols||!cols.length){ container.innerHTML='<div class="wl-empty">No numeric columns to chart in this data.</div>'; return; }
+  container.innerHTML=cols.slice(0,6).map((c,ci)=>{
+    const max=Math.max(...c.histogram.map(h=>h.count),1);
+    const bars=c.histogram.map((h,i)=>'<div class="dbar" style="height:0" data-h="'+(6+92*h.count/max)+'" title="'+h.lo+'–'+h.hi+': '+h.count+'"></div>').join('');
+    const bad=c.unreadable_share>0?(' · <span style="color:#b8863b">'+Math.round(c.unreadable_share*100)+'% not numeric</span>'):'';
+    return '<div class="distcard"><div class="disttitle">'+esc(c.column)+'</div>'+
+      '<div class="distchart" data-ci="'+ci+'">'+bars+'</div>'+
+      '<div class="diststats">mean <b>'+Math.round(c.mean)+'</b> · median <b>'+Math.round(c.median)+'</b> · outliers <b>'+c.outliers+'</b>'+bad+'</div></div>';
+  }).join('');
+  // animate bars in
+  setTimeout(()=>{ container.querySelectorAll('.dbar').forEach((b,i)=>{ setTimeout(()=>{ b.style.height=b.dataset.h+'%'; }, 40+i*12); }); },60);
 }
 function buildFieldsFromAPI(data, filename){
   const ov=data.overview||[];
