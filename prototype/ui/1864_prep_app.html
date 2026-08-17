@@ -1477,45 +1477,51 @@ function tkPick(){ const inp=$('#tk-input'); const n=inp.files.length;
 async function tkVerifyThenRun(){
   const inp=$('#tk-input'); if(!inp.files.length) return;
   const out=$('#tk-out'); tkStep(1);
-  out.innerHTML='<div class="wl-empty">Reading the columns…</div>';
+  const prog=makeProgressManual(out,"Reading the columns…","Understanding your file before running "+esc(TK_CUR.name)+".");
+  const phases=[[0.15,"Reading the file"],[0.45,"Finding the table"],[0.75,"Detecting the columns"],[0.9,"Working out each type"]];
+  let pi=0; prog.set(0.05,"Starting");
+  const ticker=setInterval(()=>{ if(pi<phases.length){ prog.set(phases[pi][0],phases[pi][1]); pi++; } },450);
   try{
     const fd=new FormData(); fd.append('file', inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'ng');
     const d=await (await fetch('/api/profile',{method:'POST',body:fd})).json();
+    clearInterval(ticker); prog.finish();
+    if(d.error) throw new Error(d.error);
     const heads=d.headers||[], cols=d.columns||[];
     const rows=heads.map((h,i)=>{const t=TYPE_LABEL[(cols[i]&&cols[i].type)]|| (cols[i]&&cols[i].type)||'—';
       return '<div class="mrow'+(h.abnormal?' needpick':'')+'"><span class="raw">'+esc(h.original)+'</span><span class="arr">→</span>'+
         '<span>'+esc(h.suggested||h.original)+'</span><span class="cf '+(h.abnormal?'lo':'hi')+'">'+esc(h.abnormal?'needs a name':t)+'</span></div>';}).join('');
-    let extra='';
-    out.innerHTML='<div class="matchtable"><div class="mh"><span>Column in your file</span><span></span><span>Read as</span><span>Type</span></div>'+rows+'</div>'+
-      '<p class="lead" style="font-size:13px;margin:10px 0">'+(d.rows!=null?(d.rows+' rows · '):'')+heads.length+' columns detected. If these look right, run the tool.</p>'+extra+
+    out.innerHTML='<div class="matchtable"><div class="mh"><span>Column in your file</span><span></span><span>Read as</span><span>Data type</span></div>'+rows+'</div>'+
+      '<p class="lead" style="font-size:13px;margin:10px 0">'+(d.rows!=null?(d.rows+' rows · '):'')+heads.length+' columns detected. If these look right, run the tool.</p>'+
       '<button class="btn" onclick="tkRunFlow()">Columns look right — run '+esc(TK_CUR.name)+' →</button>';
-  }catch(err){ out.innerHTML='<div class="wl-empty">Could not read columns: '+esc(err.message)+'. <button class="btn sm" onclick="runTool()">Run anyway</button></div>'; }
+  }catch(err){ clearInterval(ticker); out.innerHTML='<div class="wl-empty">Could not read columns: '+esc(err.message)+'. <button class="btn sm" onclick="runTool()">Run anyway</button></div>'; }
 }
 
 // run the tool, first showing its tool-specific pre-check (outliers spread /
 // duplicate confusion) where the flow calls for it.
 async function tkRunFlow(){
   const inp=$('#tk-input'); if(!inp.files.length) return; const out=$('#tk-out'); tkStep(2);
+  let note='';
   try{
     if(TK_CUR.id==='outliers' || TK_CUR.id==='duplicates' || TK_CUR.id==='dedupe'){
+      const prog=makeProgressManual(out,(TK_CUR.id==='outliers'?'Checking the spread…':'Checking for confusing columns…'),
+        'A quick look before we '+(TK_CUR.id==='outliers'?'flag anything':'finalise')+'.');
+      prog.indeterminate(TK_CUR.id==='outliers'?'Measuring each numeric column…':'Scanning the match columns…');
       const fd=new FormData(); fd.append('file',inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'ng');
-      // reuse a lightweight clean to get a session for evaluate/confusion
       const prof=await (await fetch('/api/profile',{method:'POST',body:fd})).json();
       if(TK_CUR.id==='outliers'){
-        const ev=await (await fetch('/api/tool/outliers/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||prof.sample||[]})})).json();
-        if(ev&&ev.columns&&ev.columns.length){ out.insertAdjacentHTML('afterbegin',
-          '<div class="cosmetic-note" style="display:block">Spread check: '+ev.columns.map(c=>esc(c.column)+' ('+(c.shape||'')+', suggests '+(c.suggested_method||'')+')').join(' · ')+'</div>'); }
+        const ev=await (await fetch('/api/tool/outliers/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||[]})})).json();
+        if(ev&&ev.columns&&ev.columns.length) note='<div class="cosmetic-note" style="display:block">Spread check: '+ev.columns.map(c=>esc(c.column)+' ('+(c.shape||'')+', suggests '+(c.suggested_method||'')+')').join(' · ')+'</div>';
       } else {
-        const cf=await (await fetch('/api/tool/duplicates/confusion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||prof.sample||[]})})).json();
-        if(cf&&cf.warnings&&cf.warnings.length){ out.insertAdjacentHTML('afterbegin',
-          '<div class="cosmetic-note" style="display:block">Before finalising: '+cf.warnings.map(w=>esc(w.column)+' — '+esc(w.issue)).join(' · ')+'</div>'); }
+        const cf=await (await fetch('/api/tool/duplicates/confusion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||[]})})).json();
+        if(cf&&cf.warnings&&cf.warnings.length) note='<div class="cosmetic-note" style="display:block">Before finalising: '+cf.warnings.map(w=>esc(w.column)+' — '+esc(w.issue)).join(' · ')+'</div>';
       }
+      prog.finish();
     }
   }catch(e){}
-  runTool();
+  runTool(note);
 }
 
-async function runTool(){
+async function runTool(preNote){
   const inp=$('#tk-input'); if(!inp.files.length) return; tkStep(3);
   const out=$('#tk-out');
   let bytes=0; for(const f of inp.files) bytes+=f.size;
@@ -1532,7 +1538,7 @@ async function runTool(){
     prog.finish(); await new Promise(r=>setTimeout(r,350));
     TK_RESULT=d;
     const sm=Object.entries(d.summary).map(([k,v])=>'<b>'+esc(v)+'</b> '+esc(k.replace(/_/g,' '))).join(' · ');
-    let html='<div class="tk-summary">'+sm+'</div>';
+    let html=(preNote||'')+'<div class="tk-summary">'+sm+'</div>';
     if(d.rows_total===0){ html+='<div class="wl-empty">Nothing found, your data looks clean for this check.</div>'; }
     else{
       html+='<div class="tk-tablewrap"><table class="tk-table"><thead><tr>'+d.columns.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>'+
