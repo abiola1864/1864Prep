@@ -467,6 +467,20 @@
 .cf-wrap .tp{font-size:11px;color:var(--ink-soft);background:var(--wash);border:1px solid var(--line);border-radius:20px;padding:3px 9px}
 .cf-name{display:flex;flex-direction:column;gap:5px}
 .typesel{padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:#fff;max-width:150px}
+#toastwrap{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:9999;align-items:center}
+.toastmsg{display:flex;align-items:center;gap:12px;background:var(--navy);color:#fff;padding:11px 16px;border-radius:10px;box-shadow:0 8px 26px rgba(0,0,0,.22);font-size:14px;max-width:520px;opacity:0;transform:translateY(10px);transition:.22s}
+.toastmsg.show{opacity:1;transform:none}
+.toastmsg.warn{background:#8a5a12}.toastmsg.good{background:#2f6f57}
+.toastx{background:rgba(255,255,255,.18);border:0;color:#fff;width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:12px;line-height:1;flex:none}
+.cf.ok{background:transparent;color:#8a9299;border:0;font-weight:500}
+.distcard.cat .dbar{background:var(--teal)}
+.catrow{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12.5px}
+.catrow .cbar{height:10px;background:var(--navy);border-radius:3px;transition:width .7s cubic-bezier(.2,.8,.2,1)}
+.catrow .clab{min-width:90px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catrow .ccount{color:var(--ink-soft);min-width:28px;text-align:right}
+.ver-item{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.ver-item .vmeta{font-size:12px;color:var(--ink-soft)}
+.hist-item{font-size:13px;padding:8px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
 </style>
 </head>
 <body>
@@ -571,6 +585,8 @@
         <button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button>
       </div>
       <div id="expout" style="margin-top:14px"></div>
+      <div style="margin-top:12px"><button class="btn ghost sm" onclick="saveCurrentAsVersion()">⭑ Save these steps as a version</button>
+        <span class="set-sub" style="font-size:12px">Reuse this exact cleaning on future files of the same type, from Settings.</span></div>
 
       <div id="distpanel" style="margin-top:22px;display:none">
         <h3 style="margin:0 0 4px">See your data's shape</h3>
@@ -653,6 +669,18 @@
           <label class="set-toggle"><input type="checkbox" id="set-contrib"> Contribute my corrections (never my records)</label>
         </div>
 
+        <div class="set-sec">
+          <div class="set-h">Version control <span class="set-tag">steps you can reuse</span></div>
+          <p class="set-sub">Each saved version stores the exact steps taken for a cleaned file — the engine's decisions and your review. Apply one to a new file of the same type and skip the manual review; anything new or left over is still cleaned and shown. Good for speed, transparency and traceability.</p>
+          <div id="ver-list"><p class="set-sub">No versions yet. Clean a file, then choose “Save these steps as a version” on the last screen.</p></div>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h">History</div>
+          <p class="set-sub">What you've cleaned recently, and which version (if any) was used.</p>
+          <div id="hist-list"><p class="set-sub">Nothing yet.</p></div>
+        </div>
+
         <div class="modal-foot">
           <button class="btn" onclick="saveSettings()">Save settings</button>
           <button class="btn ghost" onclick="closeSettings()">Cancel</button>
@@ -666,7 +694,20 @@
 <script>
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700);}
+function toast(m, opts){
+  opts=opts||{};
+  const dur = opts.duration!=null ? opts.duration : 10000;   // default: auto-dismiss after 10s
+  const sticky = !!opts.sticky;
+  let wrap=$('#toastwrap');
+  if(!wrap){ wrap=document.createElement('div'); wrap.id='toastwrap'; document.body.appendChild(wrap); }
+  const el=document.createElement('div'); el.className='toastmsg'+(opts.kind?(' '+opts.kind):'');
+  el.innerHTML='<span>'+m+'</span>'+((sticky||opts.close)?'<button class="toastx" aria-label="Close">✕</button>':'');
+  wrap.appendChild(el); requestAnimationFrame(()=>el.classList.add('show'));
+  const kill=()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),250); };
+  const x=el.querySelector('.toastx'); if(x) x.onclick=kill;
+  if(!sticky) setTimeout(kill, dur);
+  return kill;
+}
 
 const DEFS={
  nin:'National Identification Number, the 11-digit national ID.',bvn:'Bank Verification Number, the 11-digit banking ID.',tin:'Tax Identification Number.',rc_number:'Company (RC) registration number from CAC.',bn_number:'Business-name registration number.',
@@ -878,7 +919,7 @@ async function toggleAI(on){
     }else{
       USE_AI=false; const sw=$('#aiswitch'); if(sw) sw.checked=false;
       note.innerHTML='No AI key found, so AI can\u2019t be turned on. Add a key in <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="openSettings()">Settings</a>, or continue with the built-in engine (it handles most cleaning on its own).';
-      toast('No AI key found \u2014 add one in Settings to enable AI.');
+      toast('No AI key found \u2014 add one in Settings to enable AI.', {sticky:true, kind:'warn'});
     }
   }catch(e){
     USE_AI=false; const sw=$('#aiswitch'); if(sw) sw.checked=false;
@@ -1409,6 +1450,17 @@ function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSI
 function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
 
 let SETTINGS={region:'ng',ai:false,provider:'ollama',key:'',contrib:false};
+function renderSettingsLists(){
+  const vl=$('#ver-list'); if(vl){ const vs=getVersions();
+    vl.innerHTML = vs.length ? vs.map(v=>'<div class="ver-item"><div><b>'+esc(v.name)+'</b>'+
+      '<div class="vmeta">'+((v.columns||[]).length)+' columns · '+new Date(v.created).toLocaleDateString()+'</div></div>'+
+      '<div><button class="btn sm" onclick="applyVersion(\''+v.id+'\')">Apply to new file</button> '+
+      '<button class="btn sm ghost" onclick="deleteVersion(\''+v.id+'\')">Delete</button></div></div>').join('')
+      : '<p class="set-sub">No versions yet. Clean a file, then choose “Save these steps as a version” on the last screen.</p>'; }
+  const hl=$('#hist-list'); if(hl){ const h=getHistory();
+    hl.innerHTML = h.length ? h.slice(0,20).map(x=>'<div class="hist-item"><span>'+esc(x.file)+' · '+x.cols+' cols'+(x.version?(' · via “'+esc(x.version)+'”'):'')+'</span><span class="vmeta">'+new Date(x.when).toLocaleString()+'</span></div>').join('')
+      : '<p class="set-sub">Nothing yet.</p>'; }
+}
 async function openSettings(){
   const m=$('#settings'); m.classList.add('on');
   const sel=$('#set-region');
@@ -1422,6 +1474,7 @@ async function openSettings(){
   $('#set-ai').checked=SETTINGS.ai; onAIToggle(SETTINGS.ai);
   $('#set-provider').value=SETTINGS.provider; onProviderChange();
   $('#set-key').value=SETTINGS.key; $('#set-contrib').checked=SETTINGS.contrib;
+  renderSettingsLists();
 }
 function closeSettings(){ $('#settings').classList.remove('on'); }
 function onAIToggle(on){ $('#set-ai-panel').style.display=on?'block':'none'; }
@@ -1559,7 +1612,7 @@ function makeProgressManual(el, title, sub){
     <div class="progress"><i id="pgbar"></i></div>
     <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta"></span></div>
     <div class="prog-stage" id="pgstage">starting…</div>
-    <button class="btn ghost sm" id="pgcancel" style="margin-top:14px;display:none" onclick="cancelClean()">Cancel</button></div>`;
+    <button class="btn ghost sm" id="pgcancel" style="margin-top:14px;display:none" onclick="overlayCancel()">Cancel</button></div>`;
   const bar=el.querySelector('#pgbar'), pct=el.querySelector('#pgpct'),
         eta=el.querySelector('#pgeta'), stg=el.querySelector('#pgstage'), cx=el.querySelector('#pgcancel');
   let t0=Date.now(), prevT=t0, prevF=0, rate=0;
@@ -1632,25 +1685,29 @@ let PENDING_FILE=null, COLREVIEW=[];
 
 // Phase 1: read the file's STRUCTURE only (no cleaning yet), so the person can
 // see and correct the columns first — for every upload, the same way.
+let COL_ABORT=null;
+function cancelColumnRead(){ if(COL_ABORT){ COL_ABORT.abort(); } }
 async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
   PENDING_FILE=file;
   const ov=$('#overlay'); ov.classList.add('on');
   const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+"</b> before any cleaning.");
-  // honest phases so the person sees what's happening (single fast request)
+  prog.showCancel(); COL_ABORT=new AbortController();
   const phases=[[0.15,"Reading the file"],[0.4,"Finding the table"],[0.7,"Detecting the columns"],[0.9,"Working out each type"]];
   let pi=0; prog.set(0.05,"Starting");
   const ticker=setInterval(()=>{ if(pi<phases.length){ prog.set(phases[pi][0],phases[pi][1]); pi++; } }, 550);
   try{
     const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
-    const res=await fetch('/api/profile',{method:'POST',body:fd});
+    const res=await fetch('/api/profile',{method:'POST',body:fd,signal:COL_ABORT.signal});
     const data=await res.json();
-    clearInterval(ticker);
+    clearInterval(ticker); COL_ABORT=null;
     if(!res.ok || data.error) throw new Error(data.error||('profile '+res.status));
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on'); buildColumnReview(data,file.name); reached=Math.max(reached,4); go(4); },300);
-  }catch(err){ clearInterval(ticker); ov.classList.remove('on'); toast('Could not read that file: '+err.message); }
+  }catch(err){ clearInterval(ticker); COL_ABORT=null; ov.classList.remove('on');
+    if(err.name==='AbortError'){ toast('Cancelled reading the file.'); $('#file').value=''; }
+    else toast('Could not read that file: '+err.message); }
 }
 
 // build the editable column list from the engine's real detection
@@ -1704,6 +1761,68 @@ function renderColumnReview(){
   if(miss){ if(abn){miss.style.display='block';miss.innerHTML=`<b>${abn}</b> column(s) had no clear header — we proposed a name. Everything else is kept exactly as you named it. The <b>data type</b> is our best guess; change it on the right if it's wrong.`;} else {miss.style.display='block';miss.innerHTML=`All ${COLREVIEW.length} columns have clear names. The <b>data type</b> on the right is our best guess — change any if we got it wrong, then continue.`;} }
 }
 
+// ---- Version control + History (stored locally in the browser) ----
+function _lsGet(k,def){ try{ return JSON.parse(localStorage.getItem(k))||def; }catch(e){ return def; } }
+function _lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function getVersions(){ return _lsGet('prep_versions',[]); }
+function saveVersion(v){ const all=getVersions(); all.unshift(v); _lsSet('prep_versions',all.slice(0,50)); }
+function deleteVersion(id){ _lsSet('prep_versions', getVersions().filter(v=>v.id!==id)); renderSettingsLists(); }
+function getHistory(){ return _lsGet('prep_history',[]); }
+function addHistory(h){ const all=getHistory(); all.unshift(h); _lsSet('prep_history',all.slice(0,100)); }
+
+let CURRENT_RECIPE=null;
+let APPLIED_VERSION=null;
+// Apply a saved version's steps to a NEW file: skip manual naming/typing (reuse
+// the recipe), clean, and only review what's genuinely new/left over.
+function applyVersion(id){
+  const v=getVersions().find(x=>x.id===id); if(!v) return;
+  APPLIED_VERSION=v.name;
+  closeSettings();
+  const inp=document.createElement('input'); inp.type='file';
+  inp.accept='.csv,.tsv,.txt,.xlsx,.xls,.json,.pdf';
+  inp.onchange=async(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    PENDING_FILE=file;
+    const ov=$('#overlay'); ov.classList.add('on');
+    const prog=makeProgressManual(ov,'Applying \u201c'+esc(v.name)+'\u201d','Reusing your saved steps on <b>'+esc(file.name)+'</b>. You will only review what is new.');
+    prog.showCancel(); CLEAN_JOB=null; CLEAN_ABORTED=false;
+    try{
+      const fd=new FormData(); fd.append('file',file); fd.append('region',v.region||'ng');
+      fd.append('rename',JSON.stringify(v.rename||{})); fd.append('types',JSON.stringify(v.types||{}));
+      const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
+      const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='',payload=null,err=null,cancelled=false;
+      while(true){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true});
+        let nl; while((nl=buf.indexOf('\n'))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
+          let msg; try{msg=JSON.parse(line);}catch(_){continue;}
+          if(msg.t==='job'){ CLEAN_JOB=msg.job_id; }
+          else if(msg.t==='progress'){ prog.set(msg.pct!=null?msg.pct:0,msg.stage); }
+          else if(msg.t==='result'){ payload=msg.payload; }
+          else if(msg.t==='cancelled'){ cancelled=true; } else if(msg.t==='error'){ err=msg.error; } } }
+      if(cancelled||CLEAN_ABORTED){ ov.classList.remove('on'); toast('Cancelled.'); return; }
+      if(err||!payload) throw new Error(err||'no result');
+      const rn=v.rename||{}; if(payload.overview) payload.overview.forEach(c=>{ if(rn[c.column]) c.column=rn[c.column]; });
+      buildFieldsFromAPI(payload, file.name);
+      COLREVIEW=(v.columns||[]).map(o=>({original:o,name:(rn[o]||o),abnormal:false,suggestion:'',type:(v.types&&v.types[rn[o]||o])||'\u2014'}));
+      CURRENT_RECIPE={region:v.region,rename:rn,types:v.types,columns:v.columns,appliedVersion:v.name};
+      addHistory({when:new Date().toISOString(), file:file.name, cols:(v.columns||[]).length, version:v.name});
+      DIST=null; fetchDistribution();
+      prog.finish(); setTimeout(()=>{ ov.classList.remove('on'); reached=5; go(5);
+        toast('Applied \u201c'+v.name+'\u201d. Review any new items, then export.', {kind:'good'}); },400);
+    }catch(ex){ ov.classList.remove('on'); toast('Could not apply version: '+ex.message, {kind:'warn'}); }
+  };
+  inp.click();
+}
+
+function saveCurrentAsVersion(){
+  if(!CURRENT_RECIPE){ toast('Clean a file first, then save it as a version.'); return; }
+  const name=prompt('Name this version (e.g. "Monthly enrolment file")');
+  if(!name) return;
+  saveVersion(Object.assign({id:'v'+Date.now(), name:name, created:new Date().toISOString()}, CURRENT_RECIPE));
+  toast('Saved version “'+name+'”. Find it in Settings → Version control.', {kind:'good'});
+}
+
+let overlayCancelFn=null;
+function overlayCancel(){ if(COL_ABORT){ cancelColumnRead(); } else { cancelClean(); } }
 let CLEAN_JOB=null, CLEAN_ABORTED=false, DIST=null;
 function cancelClean(){ if(CLEAN_JOB){ CLEAN_ABORTED=true; fetch('/api/job/'+CLEAN_JOB+'/cancel',{method:'POST'}); toast('Cancelling…'); } }
 
@@ -1735,6 +1854,10 @@ async function confirmColumnsAndClean(){
     if(!payload) throw new Error('no result');
     if(payload.overview) payload.overview.forEach(c=>{ if(rename[c.column]) c.column=rename[c.column]; });
     buildFieldsFromAPI(payload, PENDING_FILE.name);
+    CURRENT_RECIPE={region:(SETTINGS.region||'ng'), rename:rename, types:types,
+                    columns:COLREVIEW.map(c=>c.original), appliedVersion:(APPLIED_VERSION||null)};
+    addHistory({when:new Date().toISOString(), file:PENDING_FILE.name,
+                cols:COLREVIEW.length, version:(APPLIED_VERSION||null)});
     reached=Math.max(reached,5); prog.finish();
     fetchDistribution();                                  // the 'wow' — shape of the cleaned data
     setTimeout(()=>{ ov.classList.remove('on'); go(5); },400);
@@ -1752,17 +1875,27 @@ async function fetchDistribution(){
 // draw simple animated histogram bars into a container from distribution columns
 function renderDistribution(container, cols){
   if(!container) return;
-  if(!cols||!cols.length){ container.innerHTML='<div class="wl-empty">No numeric columns to chart in this data.</div>'; return; }
+  if(!cols||!cols.length){ container.innerHTML='<div class="wl-empty">Nothing to chart in this data.</div>'; return; }
   container.innerHTML=cols.slice(0,6).map((c,ci)=>{
+    if(c.kind==='categorical'){
+      const max=Math.max(...(c.top||[]).map(t=>t.count),1);
+      const rows=(c.top||[]).map(t=>'<div class="catrow"><span class="clab" title="'+esc(t.value)+'">'+esc(t.value)+'</span>'+
+        '<span class="cbar" style="width:0" data-w="'+Math.round(100*t.count/max)+'"></span><span class="ccount">'+t.count+'</span></div>').join('');
+      const other=c.other?('<div class="diststats">+ '+c.other+' more in other values</div>'):'';
+      return '<div class="distcard cat"><div class="disttitle">'+esc(c.column)+' <span style="font-weight:400;color:var(--ink-soft);font-size:12px">· '+c.distinct+' distinct</span></div>'+
+        rows+other+'<div class="diststats">filled '+Math.round((c.fill_share||0)*100)+'%'+(c.missing?(' · '+c.missing+' blank'):'')+'</div></div>';
+    }
     const max=Math.max(...c.histogram.map(h=>h.count),1);
-    const bars=c.histogram.map((h,i)=>'<div class="dbar" style="height:0" data-h="'+(6+92*h.count/max)+'" title="'+h.lo+'–'+h.hi+': '+h.count+'"></div>').join('');
+    const bars=c.histogram.map(h=>'<div class="dbar" style="height:0" data-h="'+(6+92*h.count/max)+'" title="'+h.lo+'–'+h.hi+': '+h.count+'"></div>').join('');
     const bad=c.unreadable_share>0?(' · <span style="color:#b8863b">'+Math.round(c.unreadable_share*100)+'% not numeric</span>'):'';
     return '<div class="distcard"><div class="disttitle">'+esc(c.column)+'</div>'+
-      '<div class="distchart" data-ci="'+ci+'">'+bars+'</div>'+
+      '<div class="distchart">'+bars+'</div>'+
       '<div class="diststats">mean <b>'+Math.round(c.mean)+'</b> · median <b>'+Math.round(c.median)+'</b> · outliers <b>'+c.outliers+'</b>'+bad+'</div></div>';
   }).join('');
-  // animate bars in
-  setTimeout(()=>{ container.querySelectorAll('.dbar').forEach((b,i)=>{ setTimeout(()=>{ b.style.height=b.dataset.h+'%'; }, 40+i*12); }); },60);
+  setTimeout(()=>{
+    container.querySelectorAll('.dbar').forEach((b,i)=>setTimeout(()=>{ b.style.height=b.dataset.h+'%'; },40+i*12));
+    container.querySelectorAll('.cbar').forEach((b,i)=>setTimeout(()=>{ b.style.width=b.dataset.w+'%'; },40+i*40));
+  },60);
 }
 function buildFieldsFromAPI(data, filename){
   const ov=data.overview||[];

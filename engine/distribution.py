@@ -67,24 +67,47 @@ def _stats(vals: pd.Series) -> dict:
     }
 
 
-def distribution_profile(df: pd.DataFrame, min_numeric_share: float = 0.6,
-                         max_columns: int = 8, bins: int = 12) -> list[dict]:
-    """Chart-ready distribution for each column where numbers make sense.
+def _category_profile(series, col, top_n=8) -> dict:
+    """A 'wow' for non-numeric columns: the top values and how often each occurs,
+    plus completeness. Works for categories, codes, phones, gender, anything."""
+    s = series.astype(str).str.strip()
+    non_empty = s[s.ne("") & s.str.lower().ne("nan") & s.ne("-")]
+    total = len(s)
+    filled = len(non_empty)
+    vc = non_empty.value_counts()
+    top = [{"value": (str(k)[:28]), "count": int(v)} for k, v in vc.head(top_n).items()]
+    other = int(vc.iloc[top_n:].sum()) if len(vc) > top_n else 0
+    return {
+        "column": str(col), "kind": "categorical",
+        "distinct": int(vc.nunique() if hasattr(vc, "nunique") else len(vc)),
+        "filled": filled, "missing": total - filled,
+        "fill_share": round(filled / total, 3) if total else 0.0,
+        "top": top, "other": other,
+    }
 
-    A column is included when at least `min_numeric_share` of its non-empty
-    values parse as numbers (so a mostly-numeric column still counts even when
-    stored as text). `unreadable_share` tells the person how messy it was.
+
+def distribution_profile(df: pd.DataFrame, min_numeric_share: float = 0.6,
+                         max_columns: int = 8, bins: int = 12,
+                         include_categorical: bool = True) -> list[dict]:
+    """Chart-ready distribution for each column.
+
+    Numeric-ish columns get a histogram + mean/median/outliers. Everything else
+    (categories, phones, codes, gender, text) gets a top-values frequency chart
+    and completeness, so every column has a 'wow', not just numbers.
     """
     out = []
     for col in df.columns:
         vals, share = _to_numbers(df[col])
-        if share < min_numeric_share or len(vals) < 5:
-            continue
-        item = {"column": str(col), "numeric_share": round(share, 3),
-                "unreadable_share": round(1 - share, 3),
-                "histogram": _histogram(vals, bins)}
-        item.update(_stats(vals))
-        out.append(item)
+        if share >= min_numeric_share and len(vals) >= 5:
+            item = {"column": str(col), "kind": "numeric", "numeric_share": round(share, 3),
+                    "unreadable_share": round(1 - share, 3),
+                    "histogram": _histogram(vals, bins)}
+            item.update(_stats(vals))
+            out.append(item)
+        elif include_categorical:
+            prof = _category_profile(df[col], col)
+            if prof["filled"] >= 1 and prof["distinct"] >= 1:
+                out.append(prof)
         if len(out) >= max_columns:
             break
     return out

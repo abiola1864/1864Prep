@@ -8,7 +8,9 @@ raw = pd.DataFrame({
 })
 prof = distribution_profile(raw)
 print("cols profiled:", [p["column"] for p in prof])
-assert [p["column"] for p in prof] == ["rate"]          # only the numeric-ish column
+cols={p["column"]:p for p in prof}
+assert cols["rate"]["kind"]=="numeric"                    # numeric column profiled
+assert "name" in cols and cols["name"]["kind"]=="categorical"   # non-numeric now included too
 r = prof[0]
 assert r["unreadable_share"] > 0                         # '-' counted as unreadable
 assert r["outliers"] >= 1 and "histogram" in r
