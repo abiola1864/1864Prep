@@ -484,9 +484,40 @@
 .idgrid{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0}
 .idstat b{display:block;font-family:Cambria,serif;font-size:18px;color:var(--navy)}
 .idstat span{font-size:11px;color:var(--ink-soft)}
+.onboard{position:fixed;inset:0;background:linear-gradient(160deg,#fbfcfd,#eef2f6);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px}
+.onb-panel{width:100%;max-width:640px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 20px 60px rgba(30,58,95,.14);padding:34px 34px 28px;animation:d-rise .5s cubic-bezier(.2,.8,.2,1) both}
+.onb-dots{display:flex;gap:6px;justify-content:center;margin-bottom:18px}
+.onb-dots i{width:26px;height:5px;border-radius:20px;background:var(--line)}.onb-dots i.on{background:var(--teal)}
+.onb-hero{text-align:center}
+.onb-logo{width:64px;height:64px;border-radius:16px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px}
+.onb-logo.done{background:var(--ok,#2f6f57)}
+.onb-hero h1,.onb-card h1{font-size:25px;margin:4px 0 6px}
+.onb-tour{display:flex;flex-direction:column;gap:10px;text-align:left;margin:18px 0}
+.onb-t{border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+.onb-t b{display:block;font-size:14px}.onb-t span{font-size:12.5px;color:var(--ink-soft)}
+.onb-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+@media(max-width:560px){.onb-grid{grid-template-columns:1fr}}
+.onb-actions{display:flex;justify-content:space-between;gap:10px;margin-top:18px}
+.onb-actions .btn{flex:0 0 auto}.onb-actions .btn:only-child{margin-left:auto}
+.onb-skip{text-align:center;color:var(--ink-soft);font-size:12.5px;margin-top:14px;cursor:pointer;text-decoration:underline}
+.onb-sectors{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:14px 0}
+@media(max-width:560px){.onb-sectors{grid-template-columns:1fr 1fr}}
+.onb-sector{border:1.5px solid var(--line);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:.15s}
+.onb-sector:hover{border-color:var(--teal);transform:translateY(-2px)}
+.onb-sector.sel{border-color:var(--teal);background:#f0f7f8}
+.onb-sector .ic{font-size:24px}.onb-sector b{display:block;font-size:12.5px;margin-top:6px}
+.onb-card.center{text-align:center}
+#identity{margin-bottom:8px}
+#identity .who{font-size:12px;color:var(--ink-soft)}
+#identity .who b{color:var(--ink);font-size:12.5px}
+#identity .role{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:4px}
+#identity .role.admin{background:#eef4fb;color:#1d3a53}#identity .role.member{background:var(--wash);color:var(--ink-soft)}
 </style>
 </head>
 <body>
+<div class="onboard" id="onboard" style="display:none">
+  <div class="onb-panel"><div class="onb-dots" id="onb-dots"></div><div id="onb-body"></div></div>
+</div>
 <div class="app">
   <nav class="rail">
     <div class="brand">
@@ -501,7 +532,7 @@
       <li data-s="5"><span class="n"><span>5</span></span> Review</li>
       <li data-s="7"><span class="n"><span>6</span></span> Export</li>
     </ol>
-    <div class="railfoot">Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
+    <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
       <span class="hint">More</span>
       <button class="setgear" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" onclick="openSettings()">⚙ Settings</button>
@@ -673,6 +704,32 @@
         </div>
 
         <div class="set-sec">
+          <div class="set-h">People &amp; roles</div>
+          <p class="set-sub">The owner is an Administrator and can add members. Members can clean data; administrators can also manage people and settings. Stored on this device.</p>
+          <div id="people-list"></div>
+          <div id="people-add" style="display:none;margin-top:8px">
+            <div class="onb-grid" style="margin:6px 0">
+              <input id="pm-first" placeholder="First name">
+              <input id="pm-last" placeholder="Surname">
+            </div>
+            <div class="onb-grid" style="margin:0 0 8px">
+              <select id="pm-role"><option value="member">Member</option><option value="admin">Administrator</option></select>
+              <button class="btn sm" onclick="addMember()">Add person</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h">Security</div>
+          <p class="set-sub" id="sec-note"></p>
+          <div class="onb-grid" style="margin:6px 0">
+            <input id="sec-pass" type="password" placeholder="New password (blank to remove)">
+            <button class="btn sm" onclick="setPassword()">Save password</button>
+          </div>
+          <p class="set-sub">For real protection, also enable full-disk encryption: <b>FileVault</b> (Mac) or <b>BitLocker</b> (Windows). A password here is a convenience lock, not encryption.</p>
+        </div>
+
+        <div class="set-sec">
           <div class="set-h">Version control <span class="set-tag">steps you can reuse</span></div>
           <p class="set-sub">Each saved version stores the exact steps taken for a cleaned file — the engine's decisions and your review. Apply one to a new file of the same type and skip the manual review; anything new or left over is still cleaned and shown. Good for speed, transparency and traceability.</p>
           <div id="ver-list"><p class="set-sub">No versions yet. Clean a file, then choose “Save these steps as a version” on the last screen.</p></div>
@@ -808,10 +865,137 @@ function messy(std,i){
 
 let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_AI=false,AI_CONNECTED=false,PERM={},WORKLIST=null,WLDECISIONS={},SESSION_ID=null,WL_MERGES=[],WL_SETALL={},WL_REMOVE_DUPES=false,SKIPPED=[],HEADER_ROW=null,COSMETIC_COUNT=0,COSMETIC_FIELDS=[],COSMETIC_OPEN=false;
 
-function signInFriendly(){
-  go(1);
-  toast('Welcome back 👋  Let\u2019s get your data ready.');
+// ---- First-run onboarding, offline profile, roles, optional password ----
+// Everything is stored locally on this machine. After a one-time, very basic
+// setup, the app opens straight to Upload. Nothing is asked twice.
+function _pget(k,d){ try{ const v=localStorage.getItem(k); return v===null?d:JSON.parse(v); }catch(e){ return d; } }
+function _pset(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+async function _hash(s){
+  try{ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1864:'+s));
+       return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+  catch(e){ return 'x'+btoa(unescape(encodeURIComponent(s))); }
 }
+function getOwner(){ return _pget('prep_owner', null); }
+function getMembers(){ return _pget('prep_members', []); }
+function currentUser(){ return _pget('prep_current', getOwner()); }
+function isSetup(){ return !!(_pget('prep_setup', false) && getOwner()); }
+
+let ONB={step:0, first:'', last:'', org:'', orgRole:'', sector:null, pass:''};
+
+function bootApp(){
+  if(!isSetup()){ startOnboarding(); return; }
+  const pw=_pget('prep_pass', null);
+  if(pw){ askPassword(); } else { enterApp(); }
+}
+function enterApp(){
+  const ob=$('#onboard'); if(ob) ob.style.display='none';
+  const s=_pget('prep_sector', null);
+  SECTOR = s ? {name:s.name, cols:(s.cols||[]), desc:'', ic:'📂'} : {name:'General / other', cols:[]};
+  const rf=$('#rf-sector'); if(rf) rf.textContent=SECTOR.name;
+  renderIdentity();
+  reached=Math.max(reached,3); go(3);
+}
+function renderIdentity(){
+  const el=$('#identity'); if(!el) return; const u=currentUser();
+  if(!u){ el.innerHTML=''; return; }
+  el.innerHTML='<div class="who"><b>'+esc((u.first||'')+' '+(u.last||'')).trim()+'</b> <span class="role '+(u.role||'member')+'">'+
+    ((u.role==='admin')?'Administrator':'Member')+'</span></div>';
+}
+function startOnboarding(){ ONB={step:0,first:'',last:'',org:'',orgRole:'',sector:null,pass:''}; showOnboard(); }
+function onbNext(){ ONB.step++; showOnboard(); }
+function onbBack(){ ONB.step=Math.max(0,ONB.step-1); showOnboard(); }
+function showOnboard(){
+  const ob=$('#onboard'); ob.style.display='flex';
+  const steps=[obWelcome, obBasics, obSector, obPassword, obDone];
+  ob.querySelector('#onb-body').innerHTML = steps[Math.min(ONB.step,steps.length-1)]();
+  const dots=ob.querySelector('#onb-dots');
+  if(dots) dots.innerHTML=steps.map((_,i)=>'<i class="'+(i<=ONB.step?'on':'')+'"></i>').join('');
+}
+function obWelcome(){
+  return '<div class="onb-hero"><div class="onb-logo">\u2B22</div>'+
+    '<h1>Welcome to 1864 Prep</h1>'+
+    '<p class="lead">Clean any agency\u2019s messy records into trustworthy data \u2014 right here on this computer. Nothing is uploaded.</p>'+
+    '<div class="onb-tour">'+
+      '<div class="onb-t"><b>Columns first</b><span>See and confirm your columns before anything is cleaned.</span></div>'+
+      '<div class="onb-t"><b>You approve every change</b><span>The engine proposes; you decide. Every step is logged.</span></div>'+
+      '<div class="onb-t"><b>Reusable steps</b><span>Save a cleanup as a version and reuse it on future files.</span></div>'+
+    '</div>'+
+    '<div class="onb-actions"><button class="btn" onclick="onbNext()">Get started \u2192</button></div>'+
+    '<p class="onb-skip" onclick="onbSkipAll()">Skip setup, just let me upload</p></div>';
+}
+function obBasics(){
+  return '<div class="onb-card"><p class="eyebrow">A little about you</p><h1>Who\u2019s the administrator?</h1>'+
+    '<p class="lead">So the app can label who cleaned what. This stays on your device.</p>'+
+    '<div class="onb-grid">'+
+      '<div class="field"><label>First name</label><input value="'+esc(ONB.first)+'" oninput="ONB.first=this.value"></div>'+
+      '<div class="field"><label>Surname</label><input value="'+esc(ONB.last)+'" oninput="ONB.last=this.value"></div>'+
+      '<div class="field"><label>Organization</label><input value="'+esc(ONB.org)+'" oninput="ONB.org=this.value"></div>'+
+      '<div class="field"><label>Your role in the organization</label><input placeholder="e.g. Data Officer" value="'+esc(ONB.orgRole)+'" oninput="ONB.orgRole=this.value"></div>'+
+    '</div>'+
+    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button class="btn" onclick="onbSaveBasics()">Continue \u2192</button></div></div>';
+}
+function onbSaveBasics(){
+  if(!ONB.first.trim()||!ONB.org.trim()){ toast('Please add at least your first name and organization.'); return; }
+  onbNext();
+}
+function obSector(){
+  const cards=SECTORS.map((s,i)=>'<div class="onb-sector'+(ONB.sector&&ONB.sector.name===s.name?' sel':'')+'" onclick="onbPickSector('+i+')">'+
+    '<div class="ic">'+s.ic+'</div><b>'+esc(s.name)+'</b></div>').join('');
+  return '<div class="onb-card"><p class="eyebrow">One-time choice</p><h1>What kind of data do you mostly work with?</h1>'+
+    '<p class="lead">This tailors a few hints. You can change it later in Settings, and won\u2019t be asked again.</p>'+
+    '<div class="onb-sectors">'+cards+'<div class="onb-sector'+(ONB.sector&&ONB.sector.name==='General / other'?' sel':'')+'" onclick="onbPickGeneral()"><div class="ic">📂</div><b>General / other</b></div></div>'+
+    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button class="btn" onclick="onbNext()" '+(ONB.sector?'':'disabled')+'>Continue \u2192</button></div></div>';
+}
+function onbPickSector(i){ ONB.sector={name:SECTORS[i].name, cols:SECTORS[i].cols}; showOnboard(); }
+function onbPickGeneral(){ ONB.sector={name:'General / other', cols:[]}; showOnboard(); }
+function obPassword(){
+  return '<div class="onb-card"><p class="eyebrow">Optional</p><h1>Set a password?</h1>'+
+    '<p class="lead">A password locks the app on open. It\u2019s optional \u2014 for real protection also turn on full-disk encryption (FileVault on Mac, BitLocker on Windows). You can set this later in Settings.</p>'+
+    '<div class="field"><label>Password (leave blank to skip)</label><input type="password" oninput="ONB.pass=this.value"></div>'+
+    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button class="btn" onclick="onbFinish()">Finish setup \u2192</button></div>'+
+    '<p class="onb-skip" onclick="ONB.pass=\'\';onbFinish()">Skip for now</p></div>';
+}
+async function onbFinish(){
+  const owner={first:ONB.first.trim()||'Owner', last:ONB.last.trim(), org:ONB.org.trim(),
+               orgRole:ONB.orgRole.trim(), role:'admin', created:new Date().toISOString()};
+  _pset('prep_owner', owner); _pset('prep_current', owner);
+  _pset('prep_sector', ONB.sector||{name:'General / other',cols:[]});
+  if(ONB.pass && ONB.pass.length){ _pset('prep_pass', await _hash(ONB.pass)); }
+  _pset('prep_setup', true);
+  ONB.step=4; showOnboard();
+}
+function obDone(){
+  const passNote = _pget('prep_pass',null) ? 'Password set.' : 'No password (you can add one in Settings).';
+  return '<div class="onb-hero"><div class="onb-logo done">\u2713</div><h1>You\u2019re all set</h1>'+
+    '<p class="lead">'+passNote+' Everything runs on this computer. Let\u2019s clean your first file.</p>'+
+    '<div class="onb-actions"><button class="btn" onclick="finishOnboarding()">Go to upload \u2192</button></div></div>';
+}
+function finishOnboarding(){ enterApp(); }
+function onbSkipAll(){
+  _pset('prep_owner', {first:'Owner', last:'', org:'', orgRole:'', role:'admin', created:new Date().toISOString()});
+  _pset('prep_current', getOwner()); _pset('prep_sector', {name:'General / other',cols:[]});
+  _pset('prep_setup', true); enterApp();
+}
+function askPassword(){
+  const ob=$('#onboard'); ob.style.display='flex';
+  ob.querySelector('#onb-dots').innerHTML='';
+  ob.querySelector('#onb-body').innerHTML='<div class="onb-card center"><div class="onb-logo">\u2B22</div>'+
+    '<h1>Welcome back</h1><p class="lead">Enter your password to open 1864 Prep.</p>'+
+    '<div class="field"><input id="ob-unlock" type="password" placeholder="Password" onkeydown="if(event.key===\'Enter\')tryUnlock()"></div>'+
+    '<div class="onb-actions"><button class="btn" onclick="tryUnlock()">Open \u2192</button></div>'+
+    '<p class="onb-skip" id="ob-unlock-msg"></p></div>';
+  setTimeout(()=>{ const i=$('#ob-unlock'); if(i) i.focus(); },100);
+}
+async function tryUnlock(){
+  const v=($('#ob-unlock')||{}).value||''; const h=await _hash(v);
+  if(h===_pget('prep_pass',null)){ enterApp(); }
+  else { const m=$('#ob-unlock-msg'); if(m) m.textContent='Incorrect password. Try again.'; const i=$('#ob-unlock'); if(i) i.value=''; }
+}
+
+function signInFriendly(){ go(1); }
 function go(n){
   cur=n;
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
@@ -1454,15 +1638,48 @@ function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; to
 
 let SETTINGS={region:'ng',ai:false,provider:'ollama',key:'',contrib:false};
 function renderSettingsLists(){
+  // People & roles
+  const pl=$('#people-list');
+  if(pl){ const owner=getOwner(); const members=getMembers(); const me=currentUser();
+    const admin = me && me.role==='admin';
+    let html='';
+    if(owner) html+='<div class="ver-item"><div><b>'+esc((owner.first||'')+' '+(owner.last||'')).trim()+'</b>'+
+      '<div class="vmeta">'+esc(owner.org||'')+(owner.orgRole?(' · '+esc(owner.orgRole)):'')+' · owner</div></div>'+
+      '<span class="role admin" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#eef4fb;color:#1d3a53">Administrator</span></div>';
+    members.forEach((m,i)=>{ html+='<div class="ver-item"><div><b>'+esc((m.first||'')+' '+(m.last||'')).trim()+'</b>'+
+      '<div class="vmeta">'+((m.role==='admin')?'Administrator':'Member')+'</div></div>'+
+      (admin?('<button class="btn sm ghost" onclick="removeMember('+i+')">Remove</button>'):'')+'</div>'; });
+    pl.innerHTML=html;
+    const add=$('#people-add'); if(add) add.style.display = admin ? 'block' : 'none';
+    if(!admin && !members.length) pl.innerHTML += '<p class="set-sub">Only an administrator can add people.</p>';
+  }
+  // Security note
+  const sn=$('#sec-note'); if(sn) sn.textContent = _pget('prep_pass',null)
+    ? 'A password is set. It is asked when the app opens.'
+    : 'No password set. The app opens straight to work.';
+  // versions + history
   const vl=$('#ver-list'); if(vl){ const vs=getVersions();
     vl.innerHTML = vs.length ? vs.map(v=>'<div class="ver-item"><div><b>'+esc(v.name)+'</b>'+
       '<div class="vmeta">'+((v.columns||[]).length)+' columns · '+new Date(v.created).toLocaleDateString()+'</div></div>'+
       '<div><button class="btn sm" onclick="applyVersion(\''+v.id+'\')">Apply to new file</button> '+
       '<button class="btn sm ghost" onclick="deleteVersion(\''+v.id+'\')">Delete</button></div></div>').join('')
-      : '<p class="set-sub">No versions yet. Clean a file, then choose “Save these steps as a version” on the last screen.</p>'; }
+      : '<p class="set-sub">No versions yet. Clean a file, then choose \u201cSave these steps as a version\u201d on the last screen.</p>'; }
   const hl=$('#hist-list'); if(hl){ const h=getHistory();
-    hl.innerHTML = h.length ? h.slice(0,20).map(x=>'<div class="hist-item"><span>'+esc(x.file)+' · '+x.cols+' cols'+(x.version?(' · via “'+esc(x.version)+'”'):'')+'</span><span class="vmeta">'+new Date(x.when).toLocaleString()+'</span></div>').join('')
+    hl.innerHTML = h.length ? h.slice(0,20).map(x=>'<div class="hist-item"><span>'+esc(x.file)+' · '+x.cols+' cols'+(x.version?(' · via \u201c'+esc(x.version)+'\u201d'):'')+'</span><span class="vmeta">'+new Date(x.when).toLocaleString()+'</span></div>').join('')
       : '<p class="set-sub">Nothing yet.</p>'; }
+}
+function addMember(){
+  const f=($('#pm-first').value||'').trim(); if(!f){ toast('Add a first name.'); return; }
+  const m={first:f, last:($('#pm-last').value||'').trim(), role:($('#pm-role').value||'member')};
+  const all=getMembers(); all.push(m); _pset('prep_members', all);
+  $('#pm-first').value=''; $('#pm-last').value=''; renderSettingsLists(); toast('Added '+f+'.', {kind:'good'});
+}
+function removeMember(i){ const all=getMembers(); all.splice(i,1); _pset('prep_members', all); renderSettingsLists(); }
+async function setPassword(){
+  const v=($('#sec-pass').value||'');
+  if(!v){ localStorage.removeItem('prep_pass'); toast('Password removed.'); }
+  else { _pset('prep_pass', await _hash(v)); toast('Password saved.', {kind:'good'}); }
+  $('#sec-pass').value=''; renderSettingsLists();
 }
 async function openSettings(){
   const m=$('#settings'); m.classList.add('on');
@@ -1931,7 +2148,7 @@ function buildFieldsFromAPI(data, filename){
   if(data.ingest){ const m=/(\d+)\s*rows\s*x\s*(\d+)\s*cols/i.exec(data.ingest); const ext=(data.ingest.split('|')[0]||'').trim();
     const rf=$('#rf-file'); if(rf) rf.textContent = m ? (m[1]+'×'+m[2]+' · '+ext) : data.ingest; }
 }
-go(0);
+bootApp();
 </script>
 </body>
 </html>
