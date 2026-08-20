@@ -512,6 +512,8 @@
 #identity .who b{color:var(--ink);font-size:12.5px}
 #identity .role{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:4px}
 #identity .role.admin{background:#eef4fb;color:#1d3a53}#identity .role.member{background:var(--wash);color:var(--ink-soft)}
+.steps.muted{opacity:.4;transition:opacity .2s}
+.setgear.active{background:var(--navy);color:#fff;border-radius:8px}
 </style>
 </head>
 <body>
@@ -525,16 +527,14 @@
       <div><b>1864 PREP</b><span>wizard</span></div>
     </div>
     <ol class="steps" id="steps">
-      <li data-s="0"><span class="n"><span>1</span></span> Sign in</li>
-      <li data-s="1"><span class="n"><span>2</span></span> Sector</li>
-      <li data-s="3"><span class="n"><span>3</span></span> Upload</li>
-      <li data-s="4"><span class="n"><span>4</span></span> Match names</li>
-      <li data-s="5"><span class="n"><span>5</span></span> Review</li>
-      <li data-s="7"><span class="n"><span>6</span></span> Export</li>
+      <li data-s="3"><span class="n"><span>1</span></span> Upload</li>
+      <li data-s="4"><span class="n"><span>2</span></span> Columns</li>
+      <li data-s="5"><span class="n"><span>3</span></span> Review</li>
+      <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
       <span class="hint">More</span>
-      <button class="setgear" onclick="go(8)">🧰 Data Toolkit</button>
+      <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" onclick="openSettings()">⚙ Settings</button>
     </div>
   </nav>
@@ -655,8 +655,9 @@
 
     <!-- 8 data toolkit (standalone) -->
     <section class="screen" data-screen="8">
-      <p class="eyebrow">Data Toolkit</p><h1>Data Toolkit</h1>
-      <p class="lead">Handy one-off tools. Pick one, upload, preview, download.</p>
+      <p class="eyebrow">Data Toolkit <span style="color:var(--ink-soft)">· separate from the cleaning wizard</span></p>
+      <h1>Data Toolkit</h1>
+      <p class="lead">Handy one-off tools, each with its own steps. <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="go(3)">← Back to the cleaning wizard</a></p>
       <div id="toolkit"></div>
     </section>
 
@@ -999,7 +1000,10 @@ function signInFriendly(){ go(1); }
 function go(n){
   cur=n;
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
-  $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n);li.classList.toggle('done',s<n&&s<=reached);});
+  const inToolkit = (n===8);
+  const steps=$('#steps'); if(steps) steps.classList.toggle('muted', inToolkit);
+  $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n && !inToolkit);li.classList.toggle('done',s<n&&s<=reached&&!inToolkit);});
+  const tkNav=$('#tk-nav'); if(tkNav) tkNav.classList.toggle('active', inToolkit);
   $('#gate').style.display=n===5?'flex':'none';
   if(n===4){ if(COLREVIEW&&COLREVIEW.length) renderColumnReview(); else renderMatch(); }
   if(n===5){renderReview();updateGate();}
