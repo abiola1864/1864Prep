@@ -35,28 +35,53 @@ demos). **Put only synthetic/sample data through it.**
 
 ## Step 4 — the desktop app (Mac + Windows)
 
-`app/desktop.py` runs the same service on localhost and shows it in a native
-window via **pywebview** — so the desktop app and the web demo share one
-codebase. Package it with **PyInstaller**:
+The end product is an **offline desktop app**: `app/desktop.py` runs the same
+engine on localhost and shows it in a native window (via **pywebview**), so the
+desktop app and the web demo share one codebase. If pywebview isn't present it
+falls back to the default browser, so it always runs.
+
+### Option A — run locally with no build (fastest)
+
+For your own use or a tester on the same OS, no packaging is needed:
+
+- **macOS:** double-click **`launch.command`** (or `./launch.command` in Terminal).
+- **any OS:** `bash launch.sh`
+
+On first run it creates a private `.venv`, installs dependencies, then opens the
+app. Everything stays on the machine.
+
+### Option B — a real double-click app (.app / .exe)
+
+Package with **PyInstaller** using the bundled **`1864Prep.spec`**, which is set
+up to include the things a naïve command misses: the UI (`prototype/ui`), the
+**reference data** (`reference/` — gazetteers/domains, required for full
+cleaning), the top-level **`regions.py`** module, and the dynamic-import
+libraries.
 
 ```bash
-pip install -e ".[web,desktop]" pyinstaller
-# macOS:
-pyinstaller --noconfirm --windowed --name 1864Prep \
-  --add-data "prototype/ui:prototype/ui" app/desktop.py
-# Windows (note the ';' instead of ':'):
-pyinstaller --noconfirm --windowed --name 1864Prep ^
-  --add-data "prototype/ui;prototype/ui" app/desktop.py
+pip install -e ".[web,desktop]"
+pyinstaller --noconfirm 1864Prep.spec
 ```
 
-Output lands in `dist/` — a `.app` on Mac, a `.exe`/folder on Windows.
+Output in `dist/`: **`1864Prep.app`** on macOS, a **`1864Prep/`** folder (with
+`1864Prep.exe`) on Windows. Zip it and that's the download.
 
-**You build on the OS you target.** You have a Mac, so you can build the Mac app
-directly. For the Windows `.exe` without a Windows PC, the included GitHub Action
+> The plain `pyinstaller app/desktop.py` command shown in older notes is **not**
+> enough — it omits `regions.py` and `reference/`, so the packaged app can't do
+> reference matching. Always build from `1864Prep.spec`.
+
+**You build on the OS you target.** On your Mac you get the `.app` directly. For
+the Windows `.exe` without a Windows PC, the GitHub Action
 (`.github/workflows/build-desktop.yml`) builds **both** on GitHub's free runners
 — trigger it from the **Actions** tab (or push a `v*` tag) and download the
-installers from the run's artifacts. This is a starting point and will need
-tuning (icons, a `.spec` file for reliable data bundling).
+installers from the run's artifacts.
+
+### Bundling checklist (so the packaged app isn't broken)
+
+- `reference/` exists at the repo root before building (the spec bundles it).
+- `regions.py` exists at the repo root (the spec lists it as a hidden import).
+- Launch the built app once on a machine **without** the source repo to confirm
+  it finds its bundled UI and reference data.
 
 ## Step 5 — signing & notarisation (costs money — do last)
 
