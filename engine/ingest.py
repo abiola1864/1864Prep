@@ -114,34 +114,51 @@ def _find_data_start(rows: list[list[str]]) -> int:
 
 
 def _row_width(row) -> int:
-    """How 'header-like' a row is: the count of DISTINCT non-empty values. A
-    merged banner filled across every column (e.g. a title) collapses to 1, so it
-    never out-scores a real header row of many distinct labels."""
-    return len({str(c).strip() for c in row if str(c).strip()})
+    """How 'header-like' a row is. Normally the count of non-empty cells, but a
+    single value smeared across many cells (a merged title banner) collapses to 1
+    — so a banner never out-scores a real header, yet a genuine header with a
+    repeated group label ('Score','Score') keeps its full width."""
+    vals = [str(c).strip() for c in row if str(c).strip()]
+    if not vals:
+        return 0
+    if len(set(vals)) == 1 and len(vals) > 2:
+        return 1
+    return len(vals)
+
+
+def _is_subheader_row(row) -> bool:
+    """A secondary header row (e.g. 'Term1, Term2' under merged 'Score'): a couple
+    of short, mostly non-numeric labels — not a data row, not a 1-cell divider."""
+    vals = [str(c).strip() for c in row if str(c).strip()]
+    if len(vals) < 2:
+        return False
+    numeric = sum(1 for v in vals if _looks_numeric(v))
+    return numeric <= len(vals) * 0.3 and all(len(v) <= 24 for v in vals)
 
 
 def _header_band(rows: list[list[str]], data_start: int) -> tuple[int, int]:
-    """Locate the real header block above the first data row. Skips blank
-    separators AND narrow section-divider/banner rows (e.g. '>>> LAGOS <<<')
-    that sit between the header and the data, and anchors on the row with the
-    most distinct labels — the genuine header — not a merge-filled title banner."""
+    """Locate the real header block above the first data row. Anchors on the row
+    with the most labels (ignoring smeared banners), extends UP to stacked header
+    rows and DOWN to sub-header rows that sit between it and the data, while
+    skipping blank separators and 1-cell section dividers."""
     data_ne = _row_width(rows[data_start]) if data_start < len(rows) else 1
     floor = max(3, data_ne * 0.5)
     lo = max(0, data_start - 10)
     widths = [(_row_width(rows[j]), j) for j in range(lo, data_start)]
-    widths = [(w, j) for w, j in widths if w >= floor]
-    if not widths:
+    cands = [(w, j) for w, j in widths if w >= floor]
+    if not cands:                                            # fall back to the widest non-banner row
+        cands = [(w, j) for w, j in widths if w >= 2]
+    if not cands:
         return max(0, data_start - 1), max(0, data_start - 1)
-    best_w = max(w for w, _ in widths)
-    header_j = max(j for w, j in widths if w == best_w)
-    end = header_j
-    start = header_j
-    j = header_j - 1
-    while j >= lo:
-        if _row_width(rows[j]) >= floor:
-            start = j; j -= 1
-        else:
-            break
+    best_w = max(w for w, _ in cands)
+    header_j = max(j for w, j in cands if w == best_w)
+    start = end = header_j
+    j = header_j - 1                                         # stacked header rows ABOVE
+    while j >= lo and _row_width(rows[j]) >= floor:
+        start = j; j -= 1
+    k = header_j + 1                                         # sub-header rows BELOW, up to the data
+    while k < data_start and _is_subheader_row(rows[k]):
+        end = k; k += 1
     if end - start + 1 > 3:
         start = end - 2
     return start, end
