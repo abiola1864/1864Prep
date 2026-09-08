@@ -113,25 +113,36 @@ def _find_data_start(rows: list[list[str]]) -> int:
     return -1
 
 
+def _row_width(row) -> int:
+    """How 'header-like' a row is: the count of DISTINCT non-empty values. A
+    merged banner filled across every column (e.g. a title) collapses to 1, so it
+    never out-scores a real header row of many distinct labels."""
+    return len({str(c).strip() for c in row if str(c).strip()})
+
+
 def _header_band(rows: list[list[str]], data_start: int) -> tuple[int, int]:
-    """The header is the block of consecutive non-blank rows sitting just above
-    the first data row, after skipping any blank separator. Rows far narrower than
-    the data (banners/titles) are excluded even without a blank separator."""
-    data_ne = sum(1 for c in rows[data_start] if str(c).strip()) if data_start < len(rows) else 1
-    floor = max(2, data_ne * 0.5)
-    j = data_start - 1
-    while j >= 0 and not any(str(c).strip() for c in rows[j]):   # skip blank separators
-        j -= 1
-    end = j
-    while j >= 0:
-        ne = sum(1 for c in rows[j] if str(c).strip())
-        if ne == 0 or ne < floor:                               # blank OR banner-width -> stop
-            break
-        j -= 1
-    start = j + 1
-    if end < start:
+    """Locate the real header block above the first data row. Skips blank
+    separators AND narrow section-divider/banner rows (e.g. '>>> LAGOS <<<')
+    that sit between the header and the data, and anchors on the row with the
+    most distinct labels — the genuine header — not a merge-filled title banner."""
+    data_ne = _row_width(rows[data_start]) if data_start < len(rows) else 1
+    floor = max(3, data_ne * 0.5)
+    lo = max(0, data_start - 10)
+    widths = [(_row_width(rows[j]), j) for j in range(lo, data_start)]
+    widths = [(w, j) for w, j in widths if w >= floor]
+    if not widths:
         return max(0, data_start - 1), max(0, data_start - 1)
-    if end - start + 1 > 3:                                      # cap at 3 header rows nearest data
+    best_w = max(w for w, _ in widths)
+    header_j = max(j for w, j in widths if w == best_w)
+    end = header_j
+    start = header_j
+    j = header_j - 1
+    while j >= lo:
+        if _row_width(rows[j]) >= floor:
+            start = j; j -= 1
+        else:
+            break
+    if end - start + 1 > 3:
         start = end - 2
     return start, end
 
@@ -285,7 +296,10 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
     header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(header)]
     orient = detect_orientation([r for r in rows[data_start:data_start + 200] if any(str(c).strip() for c in r)])
     width = len(header)
-    body = [(r + [""] * width)[:width] for r in rows[data_start:] if any(str(c).strip() for c in r)]
+    body_rows = [r for r in rows[data_start:] if any(str(c).strip() for c in r)]
+    if width >= 4:                                           # wide table: 1-cell rows are dividers
+        body_rows = [r for r in body_rows if sum(1 for c in r if str(c).strip()) > 1]
+    body = [(r + [""] * width)[:width] for r in body_rows]
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
     if orient == "transposed":
         df = _transpose(df)
@@ -311,7 +325,7 @@ def _transpose(df: pd.DataFrame) -> pd.DataFrame:
     return t
 
 
-_HELPER_SHEET = re.compile(r"\b(check|notes?|readme|meta(data)?|temp|tmp|qa|pivot|lookup|drop.?down|list|ref|scratch|working|calc)\b", re.I)
+_HELPER_SHEET = re.compile(r"\b(check|notes?|readme|meta(data)?|temp|tmp|qa|pivot|lookup|drop.?down|list|ref|scratch|working|calc|copy|backup|old|archive|bak|test|draft|deprecated)\b|\(\s*\d+\s*\)|\bv?\d+\b\s*$", re.I)
 
 
 def _sheet_density(raw: list[list[str]]) -> float:
@@ -367,9 +381,22 @@ def _read_one_sheet(path: Path, sheet: str, grid: list[list[str]], sheets: list[
     hdr = _detect_header_row([[str(c) for c in r] for r in raw])
     header, data_start = _resolve_header(raw, hdr, forward_fill=(not merged))
     header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(header)]
-    body = [(list(map(str, r)) + [""] * len(header))[:len(header)] for r in raw[data_start:]]
+    width = len(header)
+    body_rows = raw[data_start:]
+    dividers = 0
+    if width >= 4:                                              # wide table: 1-cell rows are dividers
+        kept = []
+        for r in body_rows:
+            if sum(1 for c in r if str(c).strip()) <= 1 and any(str(c).strip() for c in r):
+                dividers += 1                                   # e.g. ">>> LAGOS STATE <<<"
+            else:
+                kept.append(r)
+        body_rows = kept
+    body = [(list(map(str, r)) + [""] * width)[:width] for r in body_rows]
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
     df = _drop_empty_columns(df, rep_notes := [])
+    if dividers:
+        rep_notes.append(f"removed {dividers} section-divider/label row(s) from the data")
     orient = detect_orientation(raw[data_start:data_start + 200])
     if orient == "transposed":
         df = _transpose(df)
@@ -410,8 +437,15 @@ def read_excel(path: Path, sheet: str | None = None) -> tuple[pd.DataFrame, Inge
         best = sheet
     else:
         def score(s):
-            name_penalty = 0.6 if _HELPER_SHEET.search(s) else 1.0
-            return _sheet_density(grids[s]) * name_penalty
+            grid = grids[s]
+            data_rows = sum(1 for r in grid if sum(1 for c in r if str(c).strip()) >= 2)
+            if data_rows == 0:
+                return -1.0
+            name_penalty = 0.5 if _HELPER_SHEET.search(s) else 1.0
+            # prefer the sheet with the most actual data; density is only a tie-break,
+            # so a tiny clean junk sheet never beats the large real table.
+            import math
+            return (math.log1p(data_rows) + 0.3 * _sheet_density(grid)) * name_penalty
         best = max(sheets, key=score)
     df, rep = _read_one_sheet(path, best, grids[best], sheets)
     if len(sheets) > 1:
