@@ -514,6 +514,15 @@
 #identity .role.admin{background:#eef4fb;color:#1d3a53}#identity .role.member{background:var(--wash);color:var(--ink-soft)}
 .steps.muted{opacity:.4;transition:opacity .2s}
 .setgear.active{background:var(--navy);color:#fff;border-radius:8px}
+.cf.ai{background:#f3eefb;color:#5b3a8a;border:1px solid #e2d5f2}
+.ai-out{font-size:12px;color:var(--ink)}
+.ai-mode{display:block;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;cursor:pointer;font-size:13.5px}
+.ai-mode b{color:var(--ink)}
+.ai-mode span{color:var(--ink-soft);display:block;font-size:12px;margin-top:2px;margin-left:20px}
+.ai-mode input{margin-right:8px}
+.ai-offer{border:1px solid #e2d5f2;background:#f7f3fc;border-radius:12px;padding:14px 16px;margin:16px 0;font-size:13.5px;color:var(--ink)}.ai-offer b{color:#5b3a8a}.ai-offer-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.run-ai{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);margin:14px 0 2px;cursor:pointer}.run-ai input{margin:0}.run-ai-note{font-size:11.5px;color:var(--faint,#8a9299);margin:0 0 2px 22px}.run-ai-status{font-size:12px;color:var(--navy);margin:4px 0 0 22px}.cf.src{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}.cf.src.ai{background:#f3eefb;color:#5b3a8a}.cf.src.loc{background:var(--wash,#f1f4f7);color:var(--ink-soft,#5a6a7a)}
+.ibtn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--line,#d8dee5);background:#fff;color:var(--navy,#1F3A5F);font-size:10px;font-style:italic;font-weight:700;cursor:pointer;line-height:1;padding:0;margin-left:6px;vertical-align:middle;font-family:Georgia,serif}.ibtn:hover{background:var(--navy,#1F3A5F);color:#fff}.ipop{position:absolute;z-index:10001;max-width:300px;background:#fff;border:1px solid var(--line,#d8dee5);border-radius:10px;box-shadow:0 10px 30px rgba(30,58,95,.18);padding:12px 14px;font-size:12.5px;color:var(--ink,#1A1F24);line-height:1.5}.ipop-t{font-weight:700;margin-bottom:4px}.ipop-b code{background:#f1f4f7;padding:1px 5px;border-radius:5px;font-size:11.5px}
 </style>
 </head>
 <body>
@@ -535,6 +544,7 @@
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
+      <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
       <button class="setgear" onclick="openSettings()">⚙ Settings</button>
     </div>
   </nav>
@@ -574,15 +584,11 @@
       <p class="eyebrow">Step 1 · Columns first</p><h1>These are your columns — check them</h1>
       <p class="lead">Before any value is touched, confirm the columns. We detected each column's name and type from your file; edit any name here. Nothing is cleaned until you confirm.</p>
       <div class="matchtable" id="matchtable">
-        <div class="mh"><span>Name in your file</span><span></span><span>Column name (edit if needed)</span><span>Data type</span></div>
+        <div class="mh"><span>Name in your file</span><span></span><span>Column name (edit if needed)</span><span>Data type <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'data_type')">i</button></span></div>
         <div id="matchrows"></div>
       </div>
       <div class="missing" id="missing" style="display:none"></div>
-      <div class="aitoggle">
-        <div class="txt"><b>Clean with AI assistance?</b><span id="ainote">Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.</span></div>
-        <span class="sp"></span>
-        <label class="switch"><input type="checkbox" id="aiswitch" onchange="toggleAI(this.checked)"><span class="track"></span><span class="knob"></span></label>
-      </div>
+      <div id="ai-context"></div>
       <div class="actbar"><button class="btn" onclick="confirmColumnsAndClean()">Columns look right, clean my data →</button>
         <span class="cnt" style="font-size:12.5px;color:var(--ink-soft)"><b id="matchn" style="font-family:var(--mono);color:var(--navy)">0</b> columns detected</span></div>
     </section>
@@ -664,6 +670,41 @@
     <!-- cleaning / connect overlay -->
     <div class="overlay" id="overlay"></div>
 
+    <!-- AI setup modal (the "magic wand") -->
+    <div class="modal" id="aimodal">
+      <div class="modal-card">
+        <div class="modal-head"><h2>✦ AI setup</h2><button class="x" onclick="closeAIModal()">✕</button></div>
+        <p class="set-sub">The built-in engine always runs locally and does the bulk of the work. AI is optional and only helps where you allow it. Set this once — it's saved and won't ask again.</p>
+
+        <div class="set-sec">
+          <div class="set-h">How much should AI help? <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'ai_scope')">i</button></div>
+          <label class="ai-mode"><input type="radio" name="aimode" value="off"> <b>Off</b> — engine only, fully local. <span>Recommended default.</span></label>
+          <label class="ai-mode"><input type="radio" name="aimode" value="assist"> <b>Assist tricky columns</b> — you can ask AI about a single column the engine can't resolve. <span>One column at a time, masked samples, you approve.</span></label>
+          <label class="ai-mode"><input type="radio" name="aimode" value="structure"> <b>Also help detect structure &amp; types</b> — AI can give a second opinion on the header and column types. <span>Sends the header + a masked sample of rows, so best with a local model.</span></label>
+        </div>
+
+        <div class="set-sec" id="ai-provider-sec">
+          <div class="set-h">Where does AI run?</div>
+          <div class="set-row"><span>Provider</span>
+            <select id="ai-provider" class="set-input" onchange="onAIProviderChange()">
+              <option value="ollama">Local model (Ollama) — stays on this computer</option>
+              <option value="openai">OpenAI (your key)</option>
+              <option value="anthropic">Anthropic · Claude (your key)</option>
+            </select>
+          </div>
+          <div class="set-row"><span id="ai-key-label">Local server URL</span><button type="button" class="ibtn" title="How to get this" onclick="showHelp(event, aiKeyHelpKey())">i</button>
+            <input id="ai-key" class="set-input" placeholder="http://localhost:11434"></div>
+          <div class="set-row"><span>Model</span><input id="ai-model" class="set-input" placeholder="llama3.2"></div>
+          <p class="set-sub" id="ai-priv"></p>
+        </div>
+
+        <div class="modal-foot">
+          <button class="btn ghost" onclick="closeAIModal()">Cancel</button>
+          <button class="btn" onclick="saveAIModal()">Save AI setup</button>
+        </div>
+      </div>
+    </div>
+
     <!-- settings modal -->
     <div class="modal" id="settings">
       <div class="modal-card">
@@ -678,24 +719,8 @@
 
         <div class="set-sec">
           <div class="set-h">AI assistance <span class="set-tag">optional · off by default</span></div>
-          <p class="set-sub">For the hard, meaning-based cases only (e.g. a place not in the list, or synonyms). AI only ever sees column headers and a small sample of values, never full records, and only <b>suggests</b>; its suggestions land in “Needs your attention”, never applied automatically.</p>
-          <label class="set-toggle"><input type="checkbox" id="set-ai" onchange="onAIToggle(this.checked)"> Use AI for hard cases</label>
-          <div id="set-ai-panel" style="display:none">
-            <div class="set-row"><span>Provider</span>
-              <select id="set-provider" class="set-input" onchange="onProviderChange()">
-                <option value="ollama">Local model (Ollama), stays on this computer</option>
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic (Claude)</option>
-                <option value="google">Google (Gemini)</option>
-                <option value="mistral">Mistral</option>
-                <option value="groq">Groq</option>
-              </select>
-            </div>
-            <div class="set-row"><span id="set-key-label">Local server URL</span>
-              <input id="set-key" class="set-input" placeholder="http://localhost:11434">
-            </div>
-            <p class="set-sub" id="set-ai-priv">A local model keeps everything on your machine. Cloud providers need your own API key and send the headers + sample to that provider.</p>
-          </div>
+          <p class="set-sub">AI is managed in one place now. It only ever helps where you allow it, sends masked samples (never full records), and suggests rather than changes.</p>
+          <button class="btn ghost sm" onclick="closeSettings();openAIModal()">✦ Open AI setup</button>
         </div>
 
         <div class="set-sec">
@@ -705,7 +730,7 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h">People &amp; roles</div>
+          <div class="set-h">People &amp; roles <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'roles')">i</button></div>
           <p class="set-sub">The owner is an Administrator and can add members. Members can clean data; administrators can also manage people and settings. Stored on this device.</p>
           <div id="people-list"></div>
           <div id="people-add" style="display:none;margin-top:8px">
@@ -721,7 +746,7 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h">Security</div>
+          <div class="set-h">Security <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'security_pw')">i</button></div>
           <p class="set-sub" id="sec-note"></p>
           <div class="onb-grid" style="margin:6px 0">
             <input id="sec-pass" type="password" placeholder="New password (blank to remove)">
@@ -731,7 +756,7 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h">Version control <span class="set-tag">steps you can reuse</span></div>
+          <div class="set-h">Version control <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'version_control')">i</button> <span class="set-tag">steps you can reuse</span></div>
           <p class="set-sub">Each saved version stores the exact steps taken for a cleaned file — the engine's decisions and your review. Apply one to a new file of the same type and skip the manual review; anything new or left over is still cleaned and shown. Good for speed, transparency and traceability.</p>
           <div id="ver-list"><p class="set-sub">No versions yet. Clean a file, then choose “Save these steps as a version” on the last screen.</p></div>
         </div>
@@ -883,6 +908,34 @@ function isSetup(){ return !!(_pget('prep_setup', false) && getOwner()); }
 
 let ONB={step:0, first:'', last:'', org:'', orgRole:'', sector:null, pass:''};
 
+
+// ---- reusable info buttons (ⓘ) for anything a non-technical user might not know ----
+const HELP={
+  api_key_ollama:{t:'Local model (Ollama)',b:'Ollama runs an AI model on THIS computer, so nothing leaves the device. 1) Install it from ollama.com. 2) In a terminal run: <code>ollama pull llama3.2</code>. 3) Leave the URL as http://localhost:11434. No key or account needed.'},
+  api_key_openai:{t:'OpenAI API key',b:'A key lets the app use OpenAI\'s models with YOUR account. Get one at platform.openai.com \u2192 sign in \u2192 API keys \u2192 \u201cCreate new secret key\u201d. It starts with \u201csk-\u201d. Paste it here; it stays on your machine and is only used for the masked samples the app sends.'},
+  api_key_anthropic:{t:'Anthropic (Claude) API key',b:'A key lets the app use Claude with YOUR account. Get one at console.anthropic.com \u2192 sign in \u2192 API Keys \u2192 \u201cCreate Key\u201d. Paste it here; it stays on your machine and is only used for the masked samples the app sends.'},
+  data_type:{t:'What is a data type?',b:'The kind of value a column holds \u2014 a date, a number/amount, an ID or code, a phone number, an email, a name, a place, yes/no, a category, or free text. Getting this right means each column is cleaned the correct way (e.g. an ID like 007 is kept as text, not turned into the number 7).'},
+  data_type_prior:{t:'Why pick the types you work with?',b:'When a column is ambiguous (say all digits \u2014 an ID or a number?), the tool leans toward the kinds of data you told us you use. Every column is still read from the data itself; this only helps decide the hard cases. Optional.'},
+  ai_scope:{t:'How does AI help here?',b:'The built-in engine (on this computer) does about 80% on its own. If you tick AI, it double-checks only the UNCERTAIN columns \u2014 sending just that column\'s header and a few masked sample values, never full records. It suggests; you approve. Each column shows whether the answer came from the engine or AI.'},
+  version_control:{t:'What is a version?',b:'A saved recipe of the exact steps used to clean a file \u2014 the column names, types and decisions. Apply it to a new file of the same kind and skip the manual review; anything new is still shown. Good for speed and for an audit trail.'},
+  roles:{t:'Administrator vs Member',b:'The Administrator (the owner) can add people and change settings. Members can clean data. Everyone and their role is stored on this computer only.'},
+  security_pw:{t:'Password vs encryption',b:'A password here locks the app when it opens \u2014 a convenience lock, not encryption. For real protection of the files on disk, turn on full-disk encryption: FileVault (Mac) or BitLocker (Windows).'}
+};
+function infoBtn(key){ return '<button type="button" class="ibtn" title="More info" onclick="showHelp(event,\''+key+'\')">i</button>'; }
+function showHelp(ev, key){
+  ev.stopPropagation();
+  const hp=HELP[key]; if(!hp) return;
+  closeHelp();
+  const pop=document.createElement('div'); pop.className='ipop'; pop.id='ipop';
+  pop.innerHTML='<div class="ipop-t">'+hp.t+'</div><div class="ipop-b">'+hp.b+'</div>';
+  document.body.appendChild(pop);
+  const r=ev.currentTarget.getBoundingClientRect();
+  pop.style.top=(window.scrollY+r.bottom+6)+'px';
+  pop.style.left=Math.max(8, Math.min(window.innerWidth-320, r.left))+'px';
+  setTimeout(()=>document.addEventListener('click', closeHelp, {once:true}), 0);
+}
+function closeHelp(){ const p=document.getElementById('ipop'); if(p) p.remove(); }
+
 function bootApp(){
   if(!isSetup()){ startOnboarding(); return; }
   const pw=_pget('prep_pass', null);
@@ -907,7 +960,7 @@ function onbNext(){ ONB.step++; showOnboard(); }
 function onbBack(){ ONB.step=Math.max(0,ONB.step-1); showOnboard(); }
 function showOnboard(){
   const ob=$('#onboard'); ob.style.display='flex';
-  const steps=[obWelcome, obBasics, obSector, obPassword, obDone];
+  const steps=[obWelcome, obBasics, obSector, obTypes, obAIKey, obPassword, obDone];
   ob.querySelector('#onb-body').innerHTML = steps[Math.min(ONB.step,steps.length-1)]();
   const dots=ob.querySelector('#onb-dots');
   if(dots) dots.innerHTML=steps.map((_,i)=>'<i class="'+(i<=ONB.step?'on':'')+'"></i>').join('');
@@ -951,6 +1004,43 @@ function obSector(){
 }
 function onbPickSector(i){ ONB.sector={name:SECTORS[i].name, cols:SECTORS[i].cols}; showOnboard(); }
 function onbPickGeneral(){ ONB.sector={name:'General / other', cols:[]}; showOnboard(); }
+
+const DATA_TYPES=[['date','Dates'],['numeric','Numbers / amounts'],['identifier','IDs & codes'],
+  ['phone','Phone numbers'],['email','Emails'],['name','Names'],['geo','Places / states'],
+  ['gender','Gender'],['boolean','Yes/No'],['categorical','Categories']];
+function obTypes(){
+  ONB.types = ONB.types || [];
+  const cards=DATA_TYPES.map(([k,label])=>{
+    const on=ONB.types.includes(k);
+    return '<div class="onb-sector'+(on?' sel':'')+'" onclick="onbToggleType(\''+k+'\')" style="text-align:left"><b>'+(on?'\u2713 ':'')+esc(label)+'</b></div>';
+  }).join('');
+  return '<div class="onb-card"><p class="eyebrow">Helps the matching</p><h1>What kinds of data do you usually work with? '+infoBtn('data_type_prior')+'</h1>'+
+    '<p class="lead">Tick any that apply. When a column is ambiguous (say all digits \u2014 an ID or a number?), the tool leans toward what you actually work with. Every column is still read from the data itself, so this only sharpens the hard cases. Optional.</p>'+
+    '<div class="onb-sectors" style="grid-template-columns:1fr 1fr">'+cards+'</div>'+
+    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button class="btn" onclick="onbNext()">Continue \u2192</button></div>'+
+    '<p class="onb-skip" onclick="ONB.types=[];onbNext()">Skip \u2014 detect everything automatically</p></div>';
+}
+function onbToggleType(k){ ONB.types=ONB.types||[]; const i=ONB.types.indexOf(k);
+  if(i>=0) ONB.types.splice(i,1); else ONB.types.push(k); showOnboard(); }
+
+function obAIKey(){
+  ONB.aiProvider = ONB.aiProvider || 'ollama';
+  const d=AI_DEFAULTS[ONB.aiProvider]||{};
+  return '<div class="onb-card"><p class="eyebrow">Optional</p><h1>Add an AI key? (you can skip) '+infoBtn(ONB.aiProvider==='openai'?'api_key_openai':ONB.aiProvider==='anthropic'?'api_key_anthropic':'api_key_ollama')+'</h1>'+
+    '<p class="lead"><b>1864 Prep runs locally and handles about 80% of cleaning on its own</b>, with no internet. AI only helps with the trickier cases. You can add a key now so it\u2019s ready, or leave this and add it later \u2014 nothing is required.</p>'+
+    '<div class="set-row"><span>Provider</span><select id="ob-aiprov" class="set-input" onchange="ONB.aiProvider=this.value;showOnboard()">'+
+      '<option value="ollama"'+(ONB.aiProvider==='ollama'?' selected':'')+'>Local model (Ollama) — stays on this computer</option>'+
+      '<option value="openai"'+(ONB.aiProvider==='openai'?' selected':'')+'>OpenAI (your key)</option>'+
+      '<option value="anthropic"'+(ONB.aiProvider==='anthropic'?' selected':'')+'>Anthropic · Claude (your key)</option>'+
+    '</select></div>'+
+    '<div class="set-row"><span>'+(d.local?'Local server URL':'API key')+'</span>'+
+      '<input id="ob-aikey" class="set-input" placeholder="'+(d.local?'http://localhost:11434':'paste your key')+'" value="'+esc(ONB.aiKey||'')+'" oninput="ONB.aiKey=this.value"></div>'+
+    '<p class="set-sub">'+(d.local?'Local — nothing leaves this computer.':'Only masked samples are ever sent to '+ONB.aiProvider+', never full records.')+'</p>'+
+    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button class="btn" onclick="onbNext()">Continue \u2192</button></div>'+
+    '<p class="onb-skip" onclick="ONB.aiKey=\'\';onbNext()">Skip \u2014 I\u2019ll rely on the local engine</p></div>';
+}
 function obPassword(){
   return '<div class="onb-card"><p class="eyebrow">Optional</p><h1>Set a password?</h1>'+
     '<p class="lead">A password locks the app on open. It\u2019s optional \u2014 for real protection also turn on full-disk encryption (FileVault on Mac, BitLocker on Windows). You can set this later in Settings.</p>'+
@@ -964,6 +1054,13 @@ async function onbFinish(){
                orgRole:ONB.orgRole.trim(), role:'admin', created:new Date().toISOString()};
   _pset('prep_owner', owner); _pset('prep_current', owner);
   _pset('prep_sector', ONB.sector||{name:'General / other',cols:[]});
+  _pset('prep_type_prior', ONB.types||[]);
+  if(ONB.aiKey && ONB.aiKey.trim()){
+    const d=AI_DEFAULTS[ONB.aiProvider]||{};
+    SETTINGS.provider=ONB.aiProvider; SETTINGS.key=ONB.aiKey.trim();
+    SETTINGS.model=(d.model||''); SETTINGS.ai_key_ready=true;
+    _pset('prep_settings', SETTINGS);
+  }
   if(ONB.pass && ONB.pass.length){ _pset('prep_pass', await _hash(ONB.pass)); }
   _pset('prep_setup', true);
   ONB.step=4; showOnboard();
@@ -1005,7 +1102,7 @@ function go(n){
   $$('#steps li').forEach(li=>{const s=+li.dataset.s;li.classList.toggle('active',s===n && !inToolkit);li.classList.toggle('done',s<n&&s<=reached&&!inToolkit);});
   const tkNav=$('#tk-nav'); if(tkNav) tkNav.classList.toggle('active', inToolkit);
   $('#gate').style.display=n===5?'flex':'none';
-  if(n===4){ if(COLREVIEW&&COLREVIEW.length) renderColumnReview(); else renderMatch(); }
+  if(n===4){ if(COLREVIEW&&COLREVIEW.length) renderColumnReview(); else renderMatch(); if(typeof refreshAIStatusLine==='function') refreshAIStatusLine(); }
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
   if(n===7)renderExport();
@@ -1098,24 +1195,82 @@ function renderMatch(){
 function setMatch(i,v){RAWS[i].chosen=v;renderMatch();}
 
 /* cleaning overlay -> review */
+// ---- AI setup modal (single source of truth, saved once) ----
+let AI_MODE = (SETTINGS.ai_mode || (SETTINGS.ai ? 'assist' : 'off'));
+function openAIModal(){
+  const m=$('#aimodal'); m.classList.add('on');
+  document.querySelectorAll('input[name=aimode]').forEach(r=>{ r.checked=(r.value===AI_MODE); r.onchange=onAIModeChange; });
+  $('#ai-provider').value=SETTINGS.provider||'ollama';
+  onAIProviderChange(true);
+  $('#ai-key').value=SETTINGS.key||''; $('#ai-model').value=SETTINGS.model||'';
+  onAIModeChange();
+}
+function closeAIModal(){ $('#aimodal').classList.remove('on'); }
+function aiKeyHelpKey(){ const p=($('#ai-provider')||{}).value||'ollama'; return p==='openai'?'api_key_openai':p==='anthropic'?'api_key_anthropic':'api_key_ollama'; }
+function onAIModeChange(){
+  const mode=(document.querySelector('input[name=aimode]:checked')||{}).value||'off';
+  $('#ai-provider-sec').style.display = (mode==='off') ? 'none' : 'block';
+}
+function onAIProviderChange(keep){
+  const p=$('#ai-provider').value, d=AI_DEFAULTS[p]||AI_DEFAULTS.ollama, local=d.local;
+  $('#ai-key-label').textContent=local?'Local server URL':'API key';
+  $('#ai-key').placeholder=local?'http://localhost:11434':('paste your '+p+' API key');
+  $('#ai-model').placeholder=d.model;
+  if(!keep){ $('#ai-key').value=local?d.url:''; $('#ai-model').value=d.model; }
+  $('#ai-priv').innerHTML=local
+    ? '<b>Local — nothing leaves this computer.</b> Runs via Ollama on your machine.'
+    : 'Uses your own '+p+' key. Only masked samples are sent to '+p+', never full records. The tool shows you when data goes off-device.';
+}
+function saveAIModal(){
+  const mode=(document.querySelector('input[name=aimode]:checked')||{}).value||'off';
+  const p=$('#ai-provider').value, d=AI_DEFAULTS[p]||AI_DEFAULTS.ollama;
+  AI_MODE=mode; USE_AI=(mode!=='off');
+  SETTINGS.ai_mode=mode; SETTINGS.ai=USE_AI; SETTINGS.provider=p;
+  SETTINGS.key=$('#ai-key').value||(d.local?d.url:''); SETTINGS.model=$('#ai-model').value||d.model;
+  AI_CONNECTED = USE_AI && !!(SETTINGS.key||d.local);
+  _pset('prep_settings', SETTINGS);
+  closeAIModal();
+  refreshAIStatusLine();
+  if(COLREVIEW && COLREVIEW.length) renderColumnReview();
+  if(AI_PENDING_RUN && mode!=='off'){ AI_PENDING_RUN=false; RUN_AI=true; if(typeof evaluateUncertainWithAI==='function') evaluateUncertainWithAI(); }
+  toast(mode==='off'?'AI off — engine only.':('AI: '+mode+' · '+p+' ('+(d.local?'local':'cloud')+')'), {kind:'good'});
+}
+// keep the columns-screen line in sync with saved AI setup
+function refreshAIStatusLine(){
+  const note=$('#ainote'), sw=$('#aiswitch'); if(!note) return;
+  if(sw) sw.checked = (AI_MODE!=='off');
+  const d=AI_DEFAULTS[SETTINGS.provider]||{};
+  if(AI_MODE==='off'){ note.textContent='Off — the built-in engine does everything on this computer.'; }
+  else { note.innerHTML='✦ AI <b>'+esc(AI_MODE)+'</b> · '+esc(SETTINGS.provider)+' ('+(d.local?'local — nothing leaves this computer':'cloud — masked samples under your key')+'). <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="openAIModal()">change</a>'; }
+}
+
 async function toggleAI(on){
+  // the switch is now just a shortcut to the AI setup modal (single source of truth)
+  if(on && AI_MODE==='off'){ const sw=$('#aiswitch'); if(sw) sw.checked=false; openAIModal(); return; }
+  if(!on){ AI_MODE='off'; USE_AI=false; SETTINGS.ai_mode='off'; SETTINGS.ai=false; _pset('prep_settings',SETTINGS); refreshAIStatusLine(); return; }
+  USE_AI=true; refreshAIStatusLine();
+}
+async function toggleAI_legacy(on){
   USE_AI=on;
   const note=$('#ainote');
-  if(!on){ note.textContent='Off, the built-in engine only. Runs fully on this computer, no account, no internet. Handles the large majority of cleaning on its own.'; return; }
-  note.textContent='Checking for an AI connection…';
+  if(!on){ note.textContent='Off — the built-in engine does everything on this computer.'; SETTINGS.ai=false; _pset('prep_settings',SETTINGS); return; }
+  // right order: to turn AI on you need a configured provider — if none, go set it up first
+  const d=(AI_DEFAULTS[SETTINGS.provider]||{}); const configured = SETTINGS.provider && (SETTINGS.key || d.local);
+  if(!configured){
+    note.innerHTML='First choose where AI runs (a local model, or your OpenAI/Claude key). Opening settings…';
+    const sw=$('#aiswitch'); if(sw) sw.checked=false; USE_AI=false;
+    setTimeout(openSettings, 300); return;
+  }
+  note.textContent='Checking your AI connection…';
   try{
     const s=await (await fetch('/api/ai/status')).json();
-    if(s.available){
-      note.innerHTML='\u2713 AI is connected. It helps only on the hard, meaning-based cases, one column at a time \u2014 only column names and a few sample values are shared, never full records.';
-    }else{
-      USE_AI=false; const sw=$('#aiswitch'); if(sw) sw.checked=false;
-      note.innerHTML='No AI key found, so AI can\u2019t be turned on. Add a key in <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="openSettings()">Settings</a>, or continue with the built-in engine (it handles most cleaning on its own).';
-      toast('No AI key found \u2014 add one in Settings to enable AI.', {sticky:true, kind:'warn'});
-    }
+    const local = !!d.local;
+    SETTINGS.ai=true; _pset('prep_settings',SETTINGS); AI_CONNECTED=true;
+    note.innerHTML='\u2713 AI ready · <b>'+esc(SETTINGS.provider)+'</b> ('+(local?'local — nothing leaves this computer':'cloud — masked samples sent under your key')+'). It will only be used on columns the engine can\u2019t resolve, and you\u2019ll approve each suggestion.';
   }catch(e){
     USE_AI=false; const sw=$('#aiswitch'); if(sw) sw.checked=false;
-    note.textContent='Could not reach the AI service. Continuing with the built-in engine.';
-    toast('AI unavailable right now \u2014 using the built-in engine.');
+    note.textContent='Couldn\u2019t reach the AI service — continuing with the built-in engine.';
+    toast('AI unavailable right now — using the built-in engine.', {kind:'warn'});
   }
 }
 function startCleaning(){
@@ -1640,7 +1795,7 @@ function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSI
   if(lvl==='confirm') toast('Sensitive ID columns left off, switch them on individually if needed'); }
 function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
 
-let SETTINGS={region:'ng',ai:false,provider:'ollama',key:'',contrib:false};
+let SETTINGS=Object.assign({region:'ng',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
 function renderSettingsLists(){
   // People & roles
   const pl=$('#people-list');
@@ -1695,26 +1850,20 @@ async function openSettings(){
     }catch(e){ sel.innerHTML='<option value="generic">Generic / international</option><option value="ng">Nigeria</option>'; }
   }
   $('#set-region').value=SETTINGS.region;
-  $('#set-ai').checked=SETTINGS.ai; onAIToggle(SETTINGS.ai);
-  $('#set-provider').value=SETTINGS.provider; onProviderChange();
-  $('#set-key').value=SETTINGS.key; $('#set-contrib').checked=SETTINGS.contrib;
+  $('#set-contrib').checked=SETTINGS.contrib;
   renderSettingsLists();
 }
 function closeSettings(){ $('#settings').classList.remove('on'); }
-function onAIToggle(on){ $('#set-ai-panel').style.display=on?'block':'none'; }
-function onProviderChange(){
-  const p=$('#set-provider').value, local=(p==='ollama');
-  $('#set-key-label').textContent=local?'Local server URL':'API key';
-  $('#set-key').placeholder=local?'http://localhost:11434':'paste your '+p+' API key';
-  $('#set-ai-priv').innerHTML=local
-    ? 'A local model keeps everything on your machine, nothing is sent to any company.'
-    : 'Uses your own '+p+' API key. Only column headers and a small sample of values are sent to '+p+', never full records.';
-}
+const AI_DEFAULTS={ollama:{url:'http://localhost:11434',model:'llama3.2',local:true},
+                   openai:{url:'',model:'gpt-4o-mini',local:false},
+                   anthropic:{url:'',model:'claude-3-5-haiku-latest',local:false}};
+function onProviderChange(keep){ /* AI provider now configured in the AI setup modal */ }
 function saveSettings(){
-  SETTINGS={region:$('#set-region').value, ai:$('#set-ai').checked, provider:$('#set-provider').value,
-            key:$('#set-key').value, contrib:$('#set-contrib').checked};
+  SETTINGS.region=$('#set-region').value;
+  SETTINGS.contrib=$('#set-contrib').checked;
+  _pset('prep_settings', SETTINGS);                       // persist across sessions
   closeSettings();
-  toast('Settings saved · region: '+SETTINGS.region+(SETTINGS.ai?' · AI on':''));
+  toast('Settings saved', {kind:'good'});
 }
 let TK_TOOLS=null, TK_CUR=null, TK_RESULT=null;
 async function renderToolkit(){
@@ -1905,7 +2054,7 @@ function downloadSample(){
   toast('Sample downloaded. Now drop it in the box above to run the real flow.');
 }
 
-let PENDING_FILE=null, COLREVIEW=[];
+let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[];
 
 // Phase 1: read the file's STRUCTURE only (no cleaning yet), so the person can
 // see and correct the columns first — for every upload, the same way.
@@ -1923,6 +2072,7 @@ async function onRealFile(e){
   const ticker=setInterval(()=>{ if(pi<phases.length){ prog.set(phases[pi][0],phases[pi][1]); pi++; } }, 550);
   try{
     const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
+    fd.append('types_prior', JSON.stringify(_pget('prep_type_prior',[])||[]));
     const res=await fetch('/api/profile',{method:'POST',body:fd,signal:COL_ABORT.signal});
     const data=await res.json();
     clearInterval(ticker); COL_ABORT=null;
@@ -1938,16 +2088,20 @@ async function onRealFile(e){
 function buildColumnReview(data,filename){
   const heads=data.headers||[];
   const cols=data.columns||[];
+  COL_SAMPLE = data.preview || [];
   COLREVIEW=heads.map((h,i)=>{
     const suggestDiffers = h.suggested && h.suggested!==h.original;
+    const conf = (cols[i]&&cols[i].confidence!=null) ? cols[i].confidence : null;
+    const type = (cols[i]&&cols[i].type)||'—';
+    // "below par" = no clear header, or the engine wasn't confident about the type,
+    // or it fell back to free_text (couldn't pin a structured type).
+    const uncertain = !!h.abnormal || (conf!=null && conf < 0.7) || type==='free_text';
     return {
       original:h.original,
-      // keep the person's own header when it's fine; only auto-fill a name for
-      // genuinely abnormal headers (blank, cryptic, a leaked serial).
       name: h.abnormal ? (h.suggested||h.original) : h.original,
       abnormal:!!h.abnormal, reason:h.reason||'',
       suggestion:(suggestDiffers && !h.abnormal) ? h.suggested : '',
-      type:(cols[i]&&cols[i].type)||'—'};
+      type:type, conf:conf, uncertain:uncertain};
   });
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   const rf=$('#rf-file'); if(rf&&data.rows!=null) rf.textContent=data.rows+'×'+(data.cols||cols.length);
@@ -1960,6 +2114,25 @@ const TYPE_LABEL={date:'Date',datetime:'Date & time',numeric:'Number',identifier
 
 function applySuggestion(i){ COLREVIEW[i].name=COLREVIEW[i].suggestion; COLREVIEW[i].suggestion=''; renderColumnReview(); }
 function setColType(i,v){ COLREVIEW[i].type=v; }
+
+// Ask the configured model about ONE column — the concrete, visible embodiment
+// of "AI acts on the current column, only as a suggestion you approve".
+async function askColumnAI(i){
+  const c=COLREVIEW[i]; const out=$('#aiout-'+i); if(!out) return;
+  const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='').slice(0,20);
+  out.textContent=' …asking'; 
+  const d=(AI_DEFAULTS[SETTINGS.provider]||{});
+  try{
+    const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({column:c.original, values:vals, task:'type',
+        provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
+    if(r.ok && r.suggestion){
+      out.innerHTML=' → AI suggests <b>'+esc(TYPE_LABEL[r.suggestion]||r.suggestion)+'</b> <a style="color:var(--navy);cursor:pointer;text-decoration:underline" onclick="setColType('+i+',\''+r.suggestion+'\');renderColumnReview()">use it</a> <span style="color:var(--ink-soft)">('+esc(r.where&&r.where.location||'')+')</span>';
+    } else {
+      out.innerHTML=' <span style="color:#b8863b">AI unavailable'+(r.error?(': '+esc(String(r.error).slice(0,40))):'')+'</span>';
+    }
+  }catch(e){ out.innerHTML=' <span style="color:#b8863b">AI error</span>'; }
+}
 
 const TYPE_ORDER=['identifier','name','date','datetime','numeric','currency','boolean','gender','email','phone','geo','categorical','free_text'];
 function typeSelect(i,cur){
@@ -1975,14 +2148,66 @@ function renderColumnReview(){
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
     else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
     else status=`<span class="cf ok" title="This name is clear — nothing to change">✓ looks good</span>`;
+    const src = c.source==='ai' ? `<span class="cf src ai" title="Type chosen with help from your AI model">via AI</span>`
+              : c.source==='local' ? `<span class="cf src loc" title="Type determined by the built-in engine on this computer">engine</span>` : '';
     return `<div class="mrow ${c.abnormal?'needpick':''}">
       <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
-      <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status}</span>
+      <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status} ${src}</span>
       ${typeSelect(i,c.type)}</div>`;}).join('');
   $('#matchrows').innerHTML=rows;
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
   if(miss){ if(abn){miss.style.display='block';miss.innerHTML=`<b>${abn}</b> column(s) had no clear header — we proposed a name. Everything else is kept exactly as you named it. The <b>data type</b> is our best guess; change it on the right if it's wrong.`;} else {miss.style.display='block';miss.innerHTML=`All ${COLREVIEW.length} columns have clear names. The <b>data type</b> on the right is our best guess — change any if we got it wrong, then continue.`;} }
+  renderAIContext();
+}
+
+// AI is off unless the person ticks it for this file. Even then it's not
+// column-by-column clicking: the engine and AI both weigh in on the uncertain
+// columns, an evaluator keeps the best answer, and each shows its source.
+let RUN_AI=false, AI_EVALUATED=false, AI_PENDING_RUN=false;
+function renderAIContext(){
+  const box=$('#ai-context'); if(!box) return;
+  const shaky=COLREVIEW.filter(c=>c.uncertain).length;
+  const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
+  const note = shaky
+    ? `${shaky} column(s) look uncertain — the engine handled the rest on its own.`
+    : `The engine is confident about every column.`;
+  box.innerHTML = `<label class="run-ai"><input type="checkbox" ${RUN_AI?'checked':''} onchange="onRunAITick(this.checked)">`+
+    `<span>Use AI to double-check the tricky columns for this file`+
+    (configured?``:` (you'll add a key first)`)+`</span></label>`+
+    `<div class="run-ai-note">${note} 1864 Prep is local-first and solves most cases on its own; AI is optional.</div>`+
+    `<div class="run-ai-status" id="ai-run-status"></div>`;
+}
+function onRunAITick(on){
+  RUN_AI=on;
+  const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
+  if(on && !configured){ RUN_AI=false; AI_PENDING_RUN=true; openAIModal(); return; }   // add a key first
+  if(on){ evaluateUncertainWithAI(); }
+  else { COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; }}); renderColumnReview(); }
+}
+// consult AI on the uncertain columns, keep the best of (engine, AI), label source
+async function evaluateUncertainWithAI(){
+  const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
+  const targets=COLREVIEW.map((c,i)=>[c,i]).filter(([c])=>c.uncertain);
+  if(!targets.length){ if(st) st.textContent=''; return; }
+  if(st) st.textContent='Checking '+targets.length+' column(s) with AI…';
+  let used=0;
+  for(const [c,i] of targets){
+    const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='').slice(0,20);
+    try{
+      const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({column:c.original,values:vals,task:'type',provider:SETTINGS.provider,
+          url:(d.local?SETTINGS.key:''),model:SETTINGS.model,api_key:(d.local?'':SETTINGS.key)})})).json();
+      // evaluator: prefer AI only when the engine was unsure and AI gives a concrete type
+      if(r.ok && r.suggestion && r.suggestion!==c.type){
+        c.localType=c.type; c.type=r.suggestion; c.source='ai'; used++;
+      } else { c.source='local'; }
+    }catch(e){ c.source='local'; }
+  }
+  renderColumnReview();
+  const s2=$('#ai-run-status'); if(s2) s2.textContent = used
+    ? ('AI refined '+used+' column(s); the rest kept the engine\u2019s reading. Each column shows its source.')
+    : 'AI agreed with the engine — nothing changed.';
 }
 
 // ---- Version control + History (stored locally in the browser) ----

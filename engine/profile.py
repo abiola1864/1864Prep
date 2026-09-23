@@ -330,9 +330,39 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     return ColumnProfile(name, "free_text", 0.6, "text_normalise", evidence=ev)
 
 
+def _apply_type_prior(result, series, type_prior):
+    """A gentle prior: when the user has said which data types they work with,
+    use it ONLY to break genuine ties on ambiguous columns — never to override a
+    confident call. Ambiguous cases: numeric<->identifier, categorical<->identifier,
+    free_text<->(name|categorical). Strong signals (email, phone, date, gender,
+    boolean, geo) are left untouched."""
+    if not type_prior:
+        return result
+    prior = {t.lower() for t in type_prior}
+    cur = result.semantic_type
+    # only intervene on soft/ambiguous outcomes
+    ambiguous = {
+        "numeric": {"identifier"},
+        "identifier": {"numeric"},
+        "categorical": {"identifier", "name"},
+        "free_text": {"name", "categorical"},
+        "name": {"categorical"},
+    }
+    if cur not in ambiguous:
+        return result
+    # if the user named a competing type that is plausible for this column, prefer it
+    for alt in ambiguous[cur]:
+        if alt in prior and cur not in prior:
+            ev = dict(result.evidence or {}); ev["type_prior"] = alt
+            transform = _TYPE_TO_TRANSFORM.get(alt, ("text_normalise", {}))[0]
+            conf = min(0.85, (result.confidence or 0.6) + 0.05)
+            return ColumnProfile(result.column, alt, conf, transform, evidence=ev)
+    return result
+
+
 def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
                    place_index: dict | None = None, use_ml: bool = False,
-                   use_nlp: bool = False) -> ColumnProfile:
+                   use_nlp: bool = False, type_prior: set | None = None) -> ColumnProfile:
     """Rule-based profiling, optionally rescued by the trained type classifier.
 
     The rules stay authoritative. When `use_ml` is on and the rules land on a
@@ -340,6 +370,9 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
     confident the column is a structured type (numeric, date, phone, …), the
     model's call wins — this is what rescues a mostly-numeric column polluted
     with 'Do not know'. If no model is installed, behaviour is unchanged.
+
+    `type_prior` is the set of data types the user said they work with; it only
+    breaks ties on ambiguous columns (see _apply_type_prior).
     """
     result = _profile_column_rules(series, name, gazetteers, place_index)
     if use_nlp and result.semantic_type in {"categorical", "name", "free_text"}:
@@ -355,11 +388,11 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
         except Exception:
             pass
     if not use_ml or result.semantic_type not in {"categorical", "name", "free_text", "identifier"}:
-        return result
+        return _apply_type_prior(result, series, type_prior)
     try:
         from .ml.predict import predict_detail
     except Exception:
-        return result
+        return _apply_type_prior(result, series, type_prior)
     vals = _clean_vals(series)
     ml_type, ml_conf, ml_margin = predict_detail(vals)
     rescuable = {"numeric", "date", "datetime", "phone", "email", "boolean", "gender"}
@@ -376,12 +409,13 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
         transform = _TYPE_TO_TRANSFORM.get(ml_type, ("text_normalise", {}))[0]
         ev = dict(result.evidence or {}); ev["ml_assist"] = {ml_type: round(ml_conf, 2)}
         return ColumnProfile(name, ml_type, ml_conf, transform, evidence=ev)
-    return result
+    return _apply_type_prior(result, series, type_prior)
 
 
 def profile_dataframe(df: pd.DataFrame, gazetteers: dict | None = None,
-                      place_index: dict | None = None, use_ml: bool = False, use_nlp: bool = False) -> list[ColumnProfile]:
-    return [profile_column(df[c], c, gazetteers, place_index, use_ml, use_nlp) for c in df.columns]
+                      place_index: dict | None = None, use_ml: bool = False, use_nlp: bool = False,
+                      type_prior: set | None = None) -> list[ColumnProfile]:
+    return [profile_column(df[c], c, gazetteers, place_index, use_ml, use_nlp, type_prior) for c in df.columns]
 
 
 # --- turn profiles into an executable, review-ready plan -------------------

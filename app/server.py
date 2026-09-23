@@ -89,17 +89,22 @@ def _dup_payload(df):
 
 
 @app.post("/api/profile")
-async def api_profile(file: UploadFile = File(...), region: str = Form(None)):
+async def api_profile(file: UploadFile = File(...), region: str = Form(None), types_prior: str = Form("[]")):
     if region:
         _regions.set_active_region(region)
     path = _save(file)
+    import json as _json
+    try:
+        _prior = set(_json.loads(types_prior)) if types_prior else set()
+    except Exception:
+        _prior = set()
     try:
         df, rep = read_any(path)
         _ref = _regions.load_reference()
         # columns-first is a FAST structural pass: rule-based typing only, no ML/NLP
         # or embeddings load, so "Reading the columns" returns in a moment even on
         # large files. The heavy work happens later, during the actual clean.
-        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=False, use_nlp=False)
+        profs = profile_dataframe(df, _ref["gazetteers"], _ref["place_index"], use_ml=False, use_nlp=False, type_prior=_prior)
         from engine.headers import propose_headers, abnormal_count
         from engine import domains as _D
         _doms = [_D.detect_domain(df[c].head(300).tolist(), str(c)) for c in df.columns]
@@ -450,6 +455,60 @@ async def api_tool_download(rid: str, fmt: str = "csv"):
     return _FR(str(out), media_type=media, filename=out.name)
 
 
+@app.post("/api/ai/ask")
+async def ai_ask(payload: dict):
+    """Real AI assist for ONE column, privacy-first. Body:
+    {column, values, task?, mode?, provider?, url?, model?, api_key?}.
+    Builds the masked, per-column prompt (never full rows), sends it to the chosen
+    model, and returns the suggestion plus a clear note on where the data went."""
+    from engine.ai_privacy import build_column_query, is_full_dataset
+    from engine.ai_client import ask, parse_suggestion, classify_endpoint
+    column = payload.get("column", "")
+    values = payload.get("values", [])
+    if not isinstance(values, list):
+        return {"error": "values must be a list from a single column"}
+    q = build_column_query(column, values, task=payload.get("task", "type"), mode=payload.get("mode"))
+    q["single_column_guaranteed"] = not is_full_dataset(q)
+    provider = payload.get("provider", "ollama"); url = payload.get("url", ""); model = payload.get("model", "")
+    where = classify_endpoint(provider, url, model)
+    # what actually gets sent to the model — the masked question + sample values
+    prompt = (q["question"] + "\nSample values: " + ", ".join(map(str, q["sent_values"]))
+              + "\nAnswer with one data type (date, numeric, identifier, phone, email, gender, geo, categorical, name, free_text).")
+    res = ask(prompt, provider=provider, url=url, model=model, api_key=payload.get("api_key", ""))
+    parsed = parse_suggestion(res.get("text", "")) if res.get("ok") else {"suggestion": "", "raw": ""}
+    return {"sent": q, "where": where, "ok": res.get("ok", False),
+            "error": res.get("error"), "suggestion": parsed["suggestion"], "raw": parsed["raw"]}
+
+
+@app.post("/api/ai/structure")
+async def ai_structure(payload: dict):
+    """Opt-in: ask the model for a SECOND OPINION on the table's structure — which
+    row is the header and each column's type. Sends the header row + a small,
+    masked sample of rows (never the full file). Returns suggestions the user
+    applies in the review; the engine's own detection remains the default."""
+    from engine.ai_privacy import _mask, looks_sensitive
+    from engine.ai_client import ask, classify_endpoint
+    headers = payload.get("headers", [])
+    sample_rows = payload.get("sample", [])[:8]
+    provider = payload.get("provider", "ollama"); url = payload.get("url", ""); model = payload.get("model", "")
+    where = classify_endpoint(provider, url, model)
+    # mask sensitive-looking columns in the sample before it leaves
+    masked = []
+    for row in sample_rows:
+        mr = {}
+        for k, v in (row or {}).items():
+            mr[k] = _mask(str(v)) if looks_sensitive(str(k)) else v
+        masked.append(mr)
+    import json as _json
+    prompt = ("Given this table header and a few sample rows, say which columns look like "
+              "date, numeric, identifier, phone, email, gender, geo, categorical, name or free_text. "
+              "Reply as 'column: type' lines.\nHeaders: " + ", ".join(map(str, headers))
+              + "\nSample: " + _json.dumps(masked)[:1500])
+    res = ask(prompt, provider=provider, url=url, model=model, api_key=payload.get("api_key", ""))
+    return {"where": where, "ok": res.get("ok", False), "error": res.get("error"),
+            "raw": (res.get("text", "") or "")[:1200]}
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True}
@@ -573,7 +632,8 @@ async def tool_dupe_confusion(payload: dict):
     return {"warnings": dedupe_confusion(df, subset)}
 
 
-# --- AI assist (optional, off by default; the base tool is fully offline) ---@app.get("/api/ai/status")
+# --- AI assist (optional, off by default; the base tool is fully offline) ---
+@app.get("/api/ai/status")
 async def ai_status():
     """The interface uses this to show an online/offline switch. AI assist is
     off unless a key is present AND the user turns it on; enabling it goes
