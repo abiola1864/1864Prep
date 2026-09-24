@@ -1,7 +1,7 @@
 """Desktop shell for 1864 Prep.
 
 Runs the engine web service on localhost and shows it in a native window, so the
-whole product is a single offline app — no cloud, data never leaves the machine.
+whole product is a single offline app - no cloud, data never leaves the machine.
 If the native window library isn't available, it falls back to the default
 browser so the app still works. Package into a Mac .app / Windows .exe with the
 bundled 1864Prep.spec (see docs/DEPLOY.md).
@@ -66,11 +66,11 @@ def main():
         print("Engine did not start in time; opening anyway:", url)
 
     try:
-        import webview  # pywebview — native window
+        import webview  # pywebview - native window
         webview.create_window("1864 Prep", url, width=1200, height=820)
         webview.start()
     except Exception:
-        # no native window available — use the browser, keep the server alive
+        # no native window available - use the browser, keep the server alive
         print("Native window unavailable; opening in your browser:", url)
         webbrowser.open(url)
         try:

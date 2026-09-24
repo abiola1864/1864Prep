@@ -8,7 +8,7 @@ This is genuine ML: a trained neural network turned into vectors, run on your
 own machine (via `sentence-transformers`). It's OPTIONAL and gated:
   * If the library + model are present, `available()` is True and `embed()`
     returns vectors; callers can group by cosine similarity.
-  * If not, everything degrades to the string algorithms — no crash, no network.
+  * If not, everything degrades to the string algorithms - no crash, no network.
 
 Note: the model weights download once, on first use, on the user's machine
 (they were NOT downloadable in the build sandbox, so this path is shipped to run

@@ -3,7 +3,7 @@
 This is an OPTIONAL assist. The rule-based profiler stays in charge; the
 classifier is consulted to break ties or rescue columns the rules mis-read
 (e.g. mostly-numbers polluted with worded junk). If the model file is absent,
-everything degrades to the rules — no hard dependency.
+everything degrades to the rules - no hard dependency.
 """
 from __future__ import annotations
 

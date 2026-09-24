@@ -2,8 +2,8 @@
 
 ## The three components (keep them separate)
 
-The brief describes two things an institution runs — a **Tool** that standardises
-data and an **adapter** that answers questions — plus the shared network. In code
+The brief describes two things an institution runs - a **Tool** that standardises
+data and an **adapter** that answers questions - plus the shared network. In code
 these are three distinct components, deliberately kept apart:
 
 | Component | What it does | This repo? | Suggested licence |
@@ -16,7 +16,7 @@ Keep the word **"engine"** for the local cleaner and **"adapter"** for the
 network node. Using "engine" for both will confuse a dev team.
 
 The cleaning engine ends its job at a clean local file (plus, optionally, wiring
-that file to the adapter). The adapter never reads raw data — only the
+that file to the adapter). The adapter never reads raw data - only the
 standardised output, in place, returning only answers.
 
 ## The AI mapping ladder
@@ -36,7 +36,7 @@ technical design:
    is the real proprietary asset.
 4. **Bring your own, off by default.** An agency can configure its own endpoint
    (an internal ministry model, or a hosted model). Even then, only headers +
-   samples are ever sent — see `mapper.sample_payload()`.
+   samples are ever sent - see `mapper.sample_payload()`.
 
 ### What is open, and what is not
 
@@ -46,7 +46,7 @@ technical design:
 - **Not open:** the **fine-tuning dataset** built from real agencies' confirmed
   mappings. It is cheap to build, hard to copy (it comes from doing the work),
   and it is where the durable advantage sits. Do **not** pretrain a foundation
-  model — it costs millions, needs a specialist team, and produces something
+  model - it costs millions, needs a specialist team, and produces something
   worse than a free open-weight model for this narrow task.
 
 ## Enforcing the data-never-leaves promise
@@ -56,7 +56,7 @@ Two mechanisms carry the trust story and both belong in CI:
 1. **A "what gets sent" preview.** `sample_payload()` returns exactly what would
    leave the machine. The UI must show it before anything is sent.
 2. **A build-failing test.** A test should assert that no code path passes a full
-   DataFrame to any network client — the guarantee is enforced by the test
+   DataFrame to any network client - the guarantee is enforced by the test
    suite, not by a promise in a README.
 
 ## Packaging (for the installable app, separate repo)
@@ -64,7 +64,7 @@ Two mechanisms carry the trust story and both belong in CI:
 - **UI:** the web front-end (the mockup), rendered inside a desktop shell.
 - **Local engine:** this repo, bundled and invoked in-process or via a small
   local FastAPI service on `localhost`. It reads the file from local disk.
-- **Shell:** **Tauri** recommended over Electron — smaller installer, stronger
+- **Shell:** **Tauri** recommended over Electron - smaller installer, stronger
   security posture (which matters for a government pitch). Produces a signed
   `.msi`/`.exe` for Windows and a notarised `.dmg` for Mac.
 - **Testing without deploying:** run the front-end dev server and the engine on

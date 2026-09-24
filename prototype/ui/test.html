@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1864 Prep — Engine diagnostics</title>
+<title>1864 Prep - Engine diagnostics</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -79,10 +79,10 @@
   <header class="top">
     <div>
       <h1>Feature scoreboard</h1>
-      <p class="lede">How each part of the engine performs, measured on labelled test cases. Every number is from a live run — nothing is hand-entered.</p>
+      <p class="lede">How each part of the engine performs, measured on labelled test cases. Every number is from a live run - nothing is hand-entered.</p>
     </div>
     <div class="gauge">
-      <div class="big" id="gauge-num">—</div>
+      <div class="big" id="gauge-num">-</div>
       <div class="glabel">average accuracy · measured features</div>
       <div class="gmeter"><i id="gauge-bar" style="width:0%"></i></div>
     </div>
@@ -101,10 +101,10 @@
   </div>
 
   <section class="defs"><h2>How to read this</h2><dl>
-    <dt>Accuracy</dt><dd>Share of test cases the feature got exactly right — correct answers ÷ all cases.</dd>
+    <dt>Accuracy</dt><dd>Share of test cases the feature got exactly right - correct answers ÷ all cases.</dd>
     <dt>Precision</dt><dd>When the feature makes a positive call, how often it's right. Low precision means false positives (calling an address a “country”).</dd>
     <dt>Recall</dt><dd>Of the cases that should have been caught, how many were. Low recall means misses (a real country left unresolved).</dd>
-    <dt>False positive</dt><dd>Saying “yes / this type” when the truth is “no” — the costliest error, because it can change data silently.</dd>
+    <dt>False positive</dt><dd>Saying “yes / this type” when the truth is “no” - the costliest error, because it can change data silently.</dd>
     <dt>n</dt><dd>Number of labelled cases behind the score. A small n means the number is indicative, not definitive.</dd>
     <dt>Sentinel</dt><dd>A placeholder like -1, 999, or N/A that stands for “missing / refused”, not a real value.</dd>
   </dl></section>

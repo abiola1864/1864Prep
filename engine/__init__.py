@@ -1,4 +1,4 @@
-"""1864 Prep cleaning engine — local, deterministic, auditable."""
+"""1864 Prep cleaning engine - local, deterministic, auditable."""
 from .pipeline import CleaningReport, clean_file, load_plan, read_table, run_plan
 from .transforms import get_transform, list_transforms
 

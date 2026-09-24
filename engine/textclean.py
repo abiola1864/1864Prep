@@ -22,7 +22,7 @@ _NA_TOKENS = {"", "na", "n/a", "n.a.", "#n/a", "nan", "null", "none", "nil",
 _ZERO_WIDTH = dict.fromkeys(map(ord, "\u200b\u200c\u200d\ufeff\u2060"), None)
 _QUOTES = {"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"',
            "\u2032": "'", "\u2033": '"'}
-_DASHES = {"\u2013": "-", "\u2014": "-", "\u2212": "-"}
+_DASHES = {"\u2014": "-", "\u2013": "-", "\u2212": "-"}   # em / en / minus in DATA -> plain hyphen
 _WS = re.compile(r"\s+")
 _CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 

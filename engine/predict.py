@@ -133,7 +133,7 @@ def predict_field(series: pd.Series, source_column: str,
                 "This is an 11-digit ID. Is it a NIN, a BVN, or another 11-digit identifier? "
                 "(format alone can't tell them apart)")
         else:
-            spec.questions.append(f"Treat as an identifier of {length} digits — correct?")
+            spec.questions.append(f"Treat as an identifier of {length} digits - correct?")
 
     elif t == "date":
         spec.questions.append("Are these dates day-first (DD/MM) or month-first (MM/DD)? "
@@ -168,10 +168,10 @@ def predict_field(series: pd.Series, source_column: str,
         spec.questions.append(f"{len(distinct)} distinct values: {learned} resolved from what "
                               f"you've taught me, {review} to confirm.")
         if unresolved_vals:
-            spec.questions.append(f"{len(unresolved_vals)} I can't place — e.g. {unresolved_vals[:5]}. "
+            spec.questions.append(f"{len(unresolved_vals)} I can't place - e.g. {unresolved_vals[:5]}. "
                                   "Tell me the state for each and I'll remember it.")
         if conflicts:
-            spec.questions.append(f"{len(conflicts)} conflict(s) from past data — e.g. "
+            spec.questions.append(f"{len(conflicts)} conflict(s) from past data - e.g. "
                                   f"{conflicts[0][0]} could be {conflicts[0][1]}. Which is right?")
 
     elif t == "categorical":

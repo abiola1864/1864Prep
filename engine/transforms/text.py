@@ -73,7 +73,7 @@ class GenderTransform(Transform):
 class EmailTransform(Transform):
     """Validate + normalise emails via `email_validator` (syntax + normalised
     form), falling back to a regex if the library is unavailable. No network /
-    deliverability checks — fully offline."""
+    deliverability checks - fully offline."""
     name = "email"
     _re = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -177,7 +177,7 @@ class TextNormaliseTransform(Transform):
             pass
         s = (s.replace("\u2018", "'").replace("\u2019", "'")
               .replace("\u201c", '"').replace("\u201d", '"')
-              .replace("\u2013", "-").replace("\u2014", "-"))
+              .replace("-", "-").replace(" - ", "-"))
         return _clean_str(s), False, ""
 
 

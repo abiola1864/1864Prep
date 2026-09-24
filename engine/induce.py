@@ -1,5 +1,5 @@
 """Vocabulary induction: collapse the SAME category written differently into one
-standard label — without ever merging categories that actually differ.
+standard label - without ever merging categories that actually differ.
 
 Two hard rules, learned from real failures:
 
@@ -26,7 +26,7 @@ _NUM = re.compile(r"\d+")
 
 
 def _numbers(s: str) -> tuple:
-    """The sequence of numbers in a value — its meaning-bearing fingerprint."""
+    """The sequence of numbers in a value - its meaning-bearing fingerprint."""
     return tuple(int(n) for n in _NUM.findall(s))
 
 
@@ -88,7 +88,7 @@ def induce_vocabulary(values, threshold: float = 0.86) -> InducedVocab:
     `threshold` is kept for API compatibility but exact same-meaning keying is
     used (no fuzzy merging across different words/numbers), because that is what
     makes the result safe. Fuzzy *suggestions* for genuinely different spellings
-    live in engine/dedupe.group_similar, which only proposes — never applies.
+    live in engine/dedupe.group_similar, which only proposes - never applies.
     """
     counts = Counter(str(v).strip() for v in values if str(v).strip())
     groups: dict[str, list[str]] = {}

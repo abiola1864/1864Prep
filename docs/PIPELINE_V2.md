@@ -1,4 +1,4 @@
-# 1864 Prep — the robust pipeline (v2)
+# 1864 Prep - the robust pipeline (v2)
 
 The v1 pipeline decided with chains of `if` conditions, which fight each other on
 odd files. v2 replaces that with one principle applied everywhere:
@@ -9,7 +9,7 @@ odd files. v2 replaces that with one principle applied everywhere:
 
 Nothing is ever decided by one signal. Every stage produces *candidates with
 scores and reasons*, a *winner*, and a *confidence*. Low confidence is not a
-failure — it routes to review with the candidates shown. This removes the
+failure - it routes to review with the candidates shown. This removes the
 contradictions, because signals are combined, not chained.
 
 Two things still flow end to end (from v1): the **Context** object and the
@@ -22,7 +22,7 @@ detect ─▶ score ─▶ commit (high conf)  ┐
 
 ---
 
-## Part A — The universal resolver
+## Part A - The universal resolver
 
 Every decision in the engine (encoding, delimiter, header row, orientation,
 column type, a value fix) uses the same shape:
@@ -37,7 +37,7 @@ Resolve(candidates, threshold):
         review(candidates)               # show options, let the person choose
 ```
 
-- **Scores are additive evidence**, capped and normalised — not booleans. A date
+- **Scores are additive evidence**, capped and normalised - not booleans. A date
   order gets +weight for each row that fits, −weight for each that breaks it.
 - **Precedence is encoded as weights**, so a strong signal (an Excel merged-cell
   range; an explicit `sep=;` line; a BOM) simply outweighs weak ones, instead of
@@ -52,7 +52,7 @@ maze of conditions.
 
 ---
 
-## Part B — The hazard catalogs (all the data worries)
+## Part B - The hazard catalogs (all the data worries)
 
 The resolver is only as good as the signals it knows to look for. These are the
 real-world problems the engine must detect, per format.
@@ -98,7 +98,7 @@ real-world problems the engine must detect, per format.
 - Multiple sheets; picking the primary table vs helper sheets ("check", "notes",
   "pivot"); **processing each sheet separately, never merged**.
 - Legacy `.xls` (BIFF) and macro `.xlsm`; password-protected → clear message.
-- **Merged cells** — group headers stored only top-left; vertically merged row
+- **Merged cells** - group headers stored only top-left; vertically merged row
   labels → un-merge/fill from the real ranges.
 - Multi-row / multi-level headers (2–3 stacked rows, some merged).
 - Formula cells → read the computed value; cached vs needing recompute; `#REF!`,
@@ -150,10 +150,10 @@ real-world problems the engine must detect, per format.
 
 ---
 
-## Part C — The stages, made robust
+## Part C - The stages, made robust
 
 Each stage is the resolver over the relevant hazards. Order is fixed;
-*within* a stage nothing is chained — signals are scored together.
+*within* a stage nothing is chained - signals are scored together.
 
 ### Stage 0 · Acquire & sniff
 Read bytes (streaming if large). Resolve **encoding** and **line endings** (B1).
@@ -161,7 +161,7 @@ For a container (`.zip`, `.gz`) unwrap first. Output: clean text/grid + encoding
 confidence.
 
 ### Stage 1 · Format & shape
-Resolve the **format** (extension is a hint, not proof — sniff magic bytes) and
+Resolve the **format** (extension is a hint, not proof - sniff magic bytes) and
 its top-level **shape** (B2/B3/B4/B5): which sheets, is JSON an array or wrapped,
 is the PDF scanned. Per Excel sheet and per JSON records-array, continue
 independently.
@@ -169,13 +169,13 @@ independently.
 ### Stage 2 · Table extent & structure
 Resolve, by score, in this dependency order (each feeds the next, no back-and-forth):
 1. **Delimiter/columns** (CSV) or grid (Excel/PDF/JSON).
-2. **Data region** — where do real records start (mixed text+numbers, confirmed by
+2. **Data region** - where do real records start (mixed text+numbers, confirmed by
    neighbours), skipping banners/footers/totals.
-3. **Header band** — the rows just above data; exclude banner-width rows; use
+3. **Header band** - the rows just above data; exclude banner-width rows; use
    merged-cell ranges and auto-filter extent as strong hints.
-4. **Orientation** — normal / transposed / form, from width-vs-height, first-column
+4. **Orientation** - normal / transposed / form, from width-vs-height, first-column
    label-ness, and type homogeneity down columns vs across rows.
-5. **Compose headers** — merge multi-row headers into one clear name per column.
+5. **Compose headers** - merge multi-row headers into one clear name per column.
 6. **Drop** blank spacer rows/columns; **split** stacked tables.
 Low confidence at any step → the structure-review screen, candidates shown.
 
@@ -209,7 +209,7 @@ so the next file of the same shape skips to review.
   and testable, not a per-case `if` thicket.
 - **Signals combine, they don't override each other.** A strong structural fact
   (merged ranges, `sep=`, BOM) is a large weight, not a short-circuit; weak signals
-  still contribute. No two conditions can contradict — they add into one score.
+  still contribute. No two conditions can contradict - they add into one score.
 - **Confidence + margin gate every commit.** Ties and weak wins go to the person
   instead of guessing, which is exactly where v1 produced nonsense.
 - **The whole column, always.** Types and formats are decided from the full column,
@@ -223,7 +223,7 @@ so the next file of the same shape skips to review.
 
 1. The **universal resolver** (Candidate/score/gate) + Confidence in the ledger.
 2. Re-express existing detectors (encoding, delimiter, header, orientation, type)
-   as resolvers feeding it — removing the chained `if`s.
+   as resolvers feeding it - removing the chained `if`s.
 3. Fill the **hazard catalogs** as scored signals, format by format
    (CSV → Excel → JSON → PDF), each with tests built from the catalog.
 4. Wire **structure-review + header-review** as the low-confidence destination.

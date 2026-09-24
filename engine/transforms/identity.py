@@ -24,7 +24,7 @@ def _digits_only(value: Any) -> str:
 class NINTransform(Transform):
     """Nigerian National Identification Number: exactly 11 digits.
 
-    Non-conforming values are kept as-is but flagged, never silently dropped —
+    Non-conforming values are kept as-is but flagged, never silently dropped -
     a bad NIN means the row cannot be matched, which is a decision for a human,
     not the cleaner.
     """

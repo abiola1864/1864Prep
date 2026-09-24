@@ -1,8 +1,8 @@
-"""Data Toolkit — self-serve operations agencies reach for after cleaning.
+"""Data Toolkit - self-serve operations agencies reach for after cleaning.
 
 Each function is deterministic and returns (result, summary): `result` is either
 a DataFrame (a dataset to download) or a report dict; `summary` is a short,
-plain-language description for the preview. Nothing is destructive — inputs are
+plain-language description for the preview. Nothing is destructive - inputs are
 never mutated.
 """
 from __future__ import annotations
@@ -92,7 +92,7 @@ def outlier_evaluate(df: pd.DataFrame, columns: list[str] | None = None) -> list
             continue
         q1, q3, med = vals.quantile(0.25), vals.quantile(0.75), vals.median()
         skew = float(vals.skew()) if len(vals) > 2 else 0.0
-        method = "IQR — best for skewed data" if abs(skew) >= 1 else "Z-score — best for bell-shaped data"
+        method = "IQR - best for skewed data" if abs(skew) >= 1 else "Z-score - best for bell-shaped data"
         out.append({
             "column": c, "count": int(len(vals)), "missing": int(s.isna().sum()),
             "min": round(float(vals.min()), 3), "q1": round(float(q1), 3),
@@ -226,7 +226,7 @@ TOOLS = {
     "outliers": ("Find outliers", "List numeric values that fall outside the normal range.", "report"),
     "match": ("Match & merge files", "Upload several files; auto-detects a shared ID and joins them.", "dataset"),
     "validate": ("Validate data", "Check required fields, valid emails/phones; download an issues report.", "report"),
-    "summarise": ("Summarise / profile", "Per-column type, filled %, distinct, example — a data-quality report.", "report"),
+    "summarise": ("Summarise / profile", "Per-column type, filled %, distinct, example - a data-quality report.", "report"),
     "dedupe": ("Remove duplicates", "Produce a cleaned file with duplicate rows removed.", "dataset"),
 }
 

@@ -1,7 +1,7 @@
-/* delight.js — tiny helpers for the shared animation layer.
+/* delight.js - tiny helpers for the shared animation layer.
  * No dependencies. Import once; call where a moment of delight helps.
  * Keep it sparing: a count-up on a headline number, a bar reveal, a step
- * transition, a one-line welcome typer. That is enough — more would distract.
+ * transition, a one-line welcome typer. That is enough - more would distract.
  */
 const Delight = {
   // Count a number up to `to` in ~0.9s. el: element, to: number, suffix optional.

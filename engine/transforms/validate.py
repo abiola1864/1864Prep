@@ -39,7 +39,7 @@ class SentinelNATransform(Transform):
 
 class RangeCheckTransform(Transform):
     """params: min, max (numeric bounds). Flags values outside the range (keeps
-    them). Useful for ages, counts, years — e.g. age 0..120."""
+    them). Useful for ages, counts, years - e.g. age 0..120."""
     name = "range_check"
 
     def __init__(self, **params):

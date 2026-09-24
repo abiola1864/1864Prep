@@ -332,7 +332,7 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
 
 def _apply_type_prior(result, series, type_prior):
     """A gentle prior: when the user has said which data types they work with,
-    use it ONLY to break genuine ties on ambiguous columns — never to override a
+    use it ONLY to break genuine ties on ambiguous columns - never to override a
     confident call. Ambiguous cases: numeric<->identifier, categorical<->identifier,
     free_text<->(name|categorical). Strong signals (email, phone, date, gender,
     boolean, geo) are left untouched."""
@@ -368,7 +368,7 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
     The rules stay authoritative. When `use_ml` is on and the rules land on a
     soft type (categorical / name / free_text) but the trained model is
     confident the column is a structured type (numeric, date, phone, …), the
-    model's call wins — this is what rescues a mostly-numeric column polluted
+    model's call wins - this is what rescues a mostly-numeric column polluted
     with 'Do not know'. If no model is installed, behaviour is unchanged.
 
     `type_prior` is the set of data types the user said they work with; it only

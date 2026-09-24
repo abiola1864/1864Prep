@@ -3,11 +3,11 @@
 This is the first rung of the mapping ladder from the technical design: before
 any model is involved, an alias dictionary plus light fuzzy matching resolves
 most columns. It looks only at column *headers* and a few sample values to pick
-a target field and transform — it never scans the full dataset. The output is a
+a target field and transform - it never scans the full dataset. The output is a
 plan (the same JSON the pipeline executes and a human can edit).
 
 When a header is ambiguous or unknown, the column is left unmapped and reported,
-so a person (or, later, a local model — rung 2) can decide. Nothing is guessed
+so a person (or, later, a local model - rung 2) can decide. Nothing is guessed
 silently.
 """
 from __future__ import annotations
@@ -105,7 +105,7 @@ def _mapping(src, tgt, tf, params, conf, score) -> dict:
 
 def sample_payload(df: pd.DataFrame, n_rows: int = 3) -> dict:
     """The ONLY thing a model would ever see (rung 2+): headers and a few
-    sample values. Provided here so it is explicit and inspectable — the "what
+    sample values. Provided here so it is explicit and inspectable - the "what
     gets sent" preview the technical doc requires. The full dataset is never
     part of this payload.
     """

@@ -1,7 +1,7 @@
 """The cleaning pipeline.
 
-Reads a *plan* (JSON) — a list of column mappings, each naming a source column,
-a target field, a transform, and its parameters — and executes it over a
+Reads a *plan* (JSON) - a list of column mappings, each naming a source column,
+a target field, a transform, and its parameters - and executes it over a
 DataFrame. It runs entirely locally; nothing leaves the machine. It returns the
 standardised table, a structured audit log, and the subset of rows that any
 transform flagged for human review.

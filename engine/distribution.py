@@ -1,4 +1,4 @@
-"""Distribution insight — the 'wow' before value cleaning and after.
+"""Distribution insight - the 'wow' before value cleaning and after.
 
 Gives the interface everything it needs to show a person the shape of their data:
 a histogram, the mean/median, and flagged outliers, for each column that a
@@ -100,7 +100,7 @@ def _digits(v: str) -> str:
 
 def _looks_identifier(non_empty) -> bool:
     """True for phone numbers, IDs, account/reference codes: long digit strings,
-    leading-zero codes, or phone-punctuation — things where an average or a
+    leading-zero codes, or phone-punctuation - things where an average or a
     frequency chart says nothing useful."""
     vals = [str(v).strip() for v in non_empty.tolist()[:500] if str(v).strip()]
     if not vals:
@@ -116,7 +116,7 @@ def _looks_identifier(non_empty) -> bool:
 
 
 def _identifier_profile(series, col, kind_hint="identifier") -> dict:
-    """Completeness + validity for phone/ID/code columns — no average, no chart of
+    """Completeness + validity for phone/ID/code columns - no average, no chart of
     unique values, because neither is meaningful. Formatting is stripped first."""
     s = series.astype(str).str.strip()
     non_empty = s[s.ne("") & s.str.lower().ne("nan") & s.ne("-")]
@@ -134,7 +134,7 @@ def _identifier_profile(series, col, kind_hint="identifier") -> dict:
         "unique_share": round(distinct / filled, 3) if filled else 0.0,
         "valid_format_share": round(phone_like / filled, 3) if filled else 0.0,
         "common_length": common_len,
-        "note": "identifier / contact — analysed for completeness and format, not as a number",
+        "note": "identifier / contact - analysed for completeness and format, not as a number",
     }
 
 
@@ -145,7 +145,7 @@ def distribution_profile(df: pd.DataFrame, min_numeric_share: float = 0.6,
 
     - Real numbers (quantities): histogram + mean/median/outliers.
     - Phone / ID / code: completeness + format validity + distinct (no average,
-      no frequency chart — those mislead for identifiers).
+      no frequency chart - those mislead for identifiers).
     - Categories: top-values frequency chart.
     - High-cardinality text (mostly unique): treated like an identifier summary.
     Formatting is stripped before any numeric reading.
@@ -161,7 +161,7 @@ def distribution_profile(df: pd.DataFrame, min_numeric_share: float = 0.6,
                 break
             continue
 
-        # identifiers/phones/codes first — never treat these as quantities
+        # identifiers/phones/codes first - never treat these as quantities
         if _looks_identifier(non_empty):
             out.append(_identifier_profile(df[col], col))
         else:

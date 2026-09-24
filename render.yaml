@@ -1,14 +1,25 @@
-# Deploy the live DEMO (synthetic data only) to Render's free tier.
-# In Render: New > Blueprint > point at this repo. Free instances sleep when idle.
+# Render deployment for the 1864 Prep demo (cloud test environment).
+# This keeps the cloud demo in lockstep with the repo: every push to the
+# connected branch rebuilds from this file, so what testers see == the code.
+#
+# NOTE: the demo is a hosted TEST environment. The real product is the local
+# desktop app (data never leaves the machine). Keep only synthetic/sample data
+# on the demo.
 services:
   - type: web
-    name: 1864prep-demo
+    name: one864prep-demo
     runtime: python
     plan: free
-    buildCommand: "pip install -e .[web]"
+    # install the engine + web extras (pulls all core deps from pyproject)
+    buildCommand: "pip install --upgrade pip && pip install -e '.[web]'"
+    # Render provides $PORT; bind 0.0.0.0 so the service is reachable
     startCommand: "uvicorn app.server:app --host 0.0.0.0 --port $PORT"
+    autoDeploy: true          # redeploy automatically on every push
     envVars:
       - key: PYTHON_VERSION
-        value: "3.12.4"
+        value: "3.11.9"
       - key: PREP_REGION
-        value: "ng"   # the demo runs as Nigeria; the engine itself defaults to generic
+        value: "ng"
+      # AI stays off on the demo unless a key is set here (leave unset = engine only)
+      # - key: OPENAI_API_KEY
+      #   value: ""

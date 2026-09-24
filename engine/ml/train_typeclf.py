@@ -1,10 +1,10 @@
 """Train the column-type classifier on SYNTHETIC data (never real data).
 
-We generate many small, deliberately-varied columns for each type — including
-messy ones with a share of junk/blank values — extract shape features, and train
+We generate many small, deliberately-varied columns for each type - including
+messy ones with a share of junk/blank values - extract shape features, and train
 a small classifier. Crucially, numeric/date columns are generated *with* a chunk
 of worded junk ("Do not know", "N/A", "ditto") so the model learns to still call
-them numeric/date instead of giving up — the exact failure seen on real files.
+them numeric/date instead of giving up - the exact failure seen on real files.
 
 Run:  python -m engine.ml.train_typeclf   ->  writes engine/ml/typeclf.joblib
 """

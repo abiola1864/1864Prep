@@ -9,7 +9,7 @@ Two things the column-by-column pass doesn't catch on its own:
     record, so the reviewer can drop repeats.
 
 Both are deterministic (fuzzy + phonetic string similarity, no model) and both
-only *propose* — nothing is merged or deleted without the person's say-so. They
+only *propose* - nothing is merged or deleted without the person's say-so. They
 feed the "needs your attention" worklist rather than changing data silently.
 """
 from __future__ import annotations
@@ -132,12 +132,12 @@ def _sim_guarded(a: str, b: str) -> float:
 
 def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False,
                     domain: str | None = None) -> list[dict]:
-    """Group values that MIGHT be the same, graded by confidence — no merging.
+    """Group values that MIGHT be the same, graded by confidence - no merging.
 
     Instead of one yes/no cutoff, values are linked when similar, then each
     cluster is scored by how tightly its members hang together:
-      * confidence 'high'   — very likely the same (tight variants)
-      * 'medium' / 'low'    — possibly the same (looser; for a human to judge)
+      * confidence 'high'   - very likely the same (tight variants)
+      * 'medium' / 'low'    - possibly the same (looser; for a human to judge)
     Each cluster carries a suggested single name (most frequent, most complete).
     Different numbers never link. If `domain` is given (e.g. 'country'), two
     values that map to DIFFERENT canonical entities are never linked, even if

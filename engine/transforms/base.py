@@ -4,7 +4,7 @@ Base classes for cleaning transforms.
 Every transform takes a pandas Series (one column), returns a cleaned Series
 plus a structured record of what it did: how many values changed, how many
 were flagged for review, and a few before/after examples. That record is what
-makes a run auditable — a reviewer can see exactly which rule touched which
+makes a run auditable - a reviewer can see exactly which rule touched which
 values, without ever seeing the person the row belongs to.
 
 Design intent (deterministic by construction):

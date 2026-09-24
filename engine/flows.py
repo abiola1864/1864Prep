@@ -47,7 +47,7 @@ FLOWS: dict[str, list[dict]] = {
         {"id": "evaluate", "label": "Look at the spread", "kind": "evaluate",
          "why": "See each column's shape (min, median, max, skew) before flagging anything."},
         {"id": "method", "label": "Choose how strict", "kind": "choose",
-         "options": ["IQR — best for skewed data", "Z-score — best for bell-shaped data"],
+         "options": ["IQR - best for skewed data", "Z-score - best for bell-shaped data"],
          "why": "Skewed data (most real data) suits the IQR rule; evenly spread data suits Z-score."},
         {"id": "review", "label": "Review what was flagged", "kind": "review",
          "why": "Look at each flagged value. Is it a genuine error, or a real extreme worth keeping?"},

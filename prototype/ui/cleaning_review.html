@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cleaning review — verify before saving</title>
+<title>Cleaning review - verify before saving</title>
 <style>
   :root{
     --ink:#1b2431; --ink-soft:#5a6675; --faint:#9aa4b2;
@@ -107,7 +107,7 @@
        written to your file until you approve.</p>
     <div class="consent-note"><span>✓</span>
       <div><b>Your data isn't changed yet.</b> These are suggestions. Anything uncertain is flagged,
-      not applied. You can approve, or reject and adjust — the choice, and the data, stay yours.</div>
+      not applied. You can approve, or reject and adjust - the choice, and the data, stay yours.</div>
     </div>
   </header>
 
@@ -216,8 +216,8 @@
   // ---- consent gate ----
   $('#reviewed').onchange = e => $('#approve').disabled = !e.target.checked;
   function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
-  window.approve = ()=>toast('Approved — cleaned file would be saved now.');
-  window.reject  = ()=>toast('Rejected — nothing saved. Adjust the mappings and re-run.');
+  window.approve = ()=>toast('Approved - cleaned file would be saved now.');
+  window.reject  = ()=>toast('Rejected - nothing saved. Adjust the mappings and re-run.');
 
   draw();
 </script>

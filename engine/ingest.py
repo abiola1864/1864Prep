@@ -1,4 +1,4 @@
-"""Robust ingestion — read messy inputs of many kinds into a clean DataFrame.
+"""Robust ingestion - read messy inputs of many kinds into a clean DataFrame.
 
 Real agency files are rarely tidy: unknown encodings, odd delimiters, banner
 rows before the real header, multi-sheet workbooks, nested JSON exports, and
@@ -116,7 +116,7 @@ def _find_data_start(rows: list[list[str]]) -> int:
 def _row_width(row) -> int:
     """How 'header-like' a row is. Normally the count of non-empty cells, but a
     single value smeared across many cells (a merged title banner) collapses to 1
-    — so a banner never out-scores a real header, yet a genuine header with a
+    - so a banner never out-scores a real header, yet a genuine header with a
     repeated group label ('Score','Score') keeps its full width."""
     vals = [str(c).strip() for c in row if str(c).strip()]
     if not vals:
@@ -128,7 +128,7 @@ def _row_width(row) -> int:
 
 def _is_subheader_row(row) -> bool:
     """A secondary header row (e.g. 'Term1, Term2' under merged 'Score'): a couple
-    of short, mostly non-numeric labels — not a data row, not a 1-cell divider."""
+    of short, mostly non-numeric labels - not a data row, not a 1-cell divider."""
     vals = [str(c).strip() for c in row if str(c).strip()]
     if len(vals) < 2:
         return False
@@ -497,7 +497,7 @@ def read_pdf(path: Path) -> tuple[pd.DataFrame, IngestReport]:
                     tables.append(t)
     rep = IngestReport(str(path), "pdf", pages=npages, tables_found=len(tables))
     if not tables:
-        # no ruled tables — fall back to whitespace-delimited text lines
+        # no ruled tables - fall back to whitespace-delimited text lines
         with pdfplumber.open(path) as pdf:
             lines = []
             for page in pdf.pages:

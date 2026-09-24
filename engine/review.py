@@ -65,7 +65,7 @@ def column_overview(original: pd.DataFrame, cleaned: pd.DataFrame,
                    for (b, a), c in sorted(distinct.items(), key=lambda kv: kv[1], reverse=True)][:max_changes]
         out.append(asdict(ColumnChange(
             column=col,
-            read_as=types.get(col, "—"),
+            read_as=types.get(col, "-"),
             n_total=n,
             n_changed=n_changed,
             n_flagged=int(flags.get(col, 0)),

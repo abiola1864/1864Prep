@@ -2,8 +2,8 @@
 
 Two things the pipeline carries end to end (see docs/PIPELINE.md):
 
-  * Context — what we know about the dataset and each column, growing as we go.
-  * Decisions — every proposed or taken action, with a concrete before -> after,
+  * Context - what we know about the dataset and each column, growing as we go.
+  * Decisions - every proposed or taken action, with a concrete before -> after,
     a safety label, and a status. Nothing reaches export that is not in here, and
     the review shows every entry.
 """

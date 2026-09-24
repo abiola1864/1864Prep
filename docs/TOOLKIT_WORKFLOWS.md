@@ -47,8 +47,8 @@ Step counts differ by tool because the tasks differ:
 
 Removing outliers blindly biases the data. Best practice is: **see the shape**,
 choose a method that fits it, **look at what got flagged**, judge whether each is a
-real value or an error, then decide treatment — keep and document, cap
-(winsorise), or remove — and record what changed. The engine now backs the
+real value or an error, then decide treatment - keep and document, cap
+(winsorise), or remove - and record what changed. The engine now backs the
 "see the shape" step with `outlier_evaluate()`, which returns each column's count,
 missing, min, quartiles, max, skew, and a suggested method
 (`POST /api/tool/outliers/evaluate`).
@@ -65,9 +65,9 @@ pick which record to keep.
 
 ## What was built now
 
-- `engine/flows.py` — declarative per-tool step specs + `get_flow(tool)`.
-- `engine/toolkit.py` — `outlier_evaluate()` and `dedupe_confusion()` helpers.
-- `app/server.py` — `GET /api/tool/{name}/flow`, `POST /api/tool/outliers/evaluate`,
+- `engine/flows.py` - declarative per-tool step specs + `get_flow(tool)`.
+- `engine/toolkit.py` - `outlier_evaluate()` and `dedupe_confusion()` helpers.
+- `app/server.py` - `GET /api/tool/{name}/flow`, `POST /api/tool/outliers/evaluate`,
   `POST /api/tool/duplicates/confusion`.
 - Tests in `tests/test_flows.py` (all suites pass).
 

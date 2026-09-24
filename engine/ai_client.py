@@ -1,11 +1,11 @@
-"""AI client — the actual model call, kept separate from the privacy layer.
+"""AI client - the actual model call, kept separate from the privacy layer.
 
 engine/ai_privacy.py decides WHAT may be sent (a minimal, masked, per-column
-prompt). This module SENDS it — and does so honestly about where the data goes:
+prompt). This module SENDS it - and does so honestly about where the data goes:
 
-  * local  — a model on the user's own machine (Ollama at 127.0.0.1). Nothing
+  * local  - a model on the user's own machine (Ollama at 127.0.0.1). Nothing
              leaves the device.
-  * cloud  — Ollama cloud, OpenAI, or Anthropic. The masked prompt leaves the
+  * cloud  - Ollama cloud, OpenAI, or Anthropic. The masked prompt leaves the
              device to that provider, under the user's own key/account.
 
 `classify_endpoint` lets the UI warn before anything off-device happens.
@@ -30,17 +30,17 @@ def classify_endpoint(provider: str, url: str = "", model: str = "") -> dict:
         # and require an account, so name detection matters.
         if model.endswith("-cloud") or "ollama.com" in (url or ""):
             return {"location": "cloud", "leaves_device": True,
-                    "note": "Ollama cloud model — the masked prompt is sent to Ollama's servers under your account."}
+                    "note": "Ollama cloud model - the masked prompt is sent to Ollama's servers under your account."}
         if host_local:
             return {"location": "local", "leaves_device": False,
-                    "note": "Local model on this computer — nothing leaves the device."}
+                    "note": "Local model on this computer - nothing leaves the device."}
         return {"location": "cloud", "leaves_device": True,
-                "note": "Remote Ollama host — the masked prompt is sent off this device."}
+                "note": "Remote Ollama host - the masked prompt is sent off this device."}
     if provider in ("openai", "anthropic"):
         return {"location": "cloud", "leaves_device": True,
-                "note": f"{provider.title()} — the masked prompt is sent to {provider} under your API key."}
+                "note": f"{provider.title()} - the masked prompt is sent to {provider} under your API key."}
     return {"location": "unknown", "leaves_device": True,
-            "note": "Unknown provider — treat as off-device."}
+            "note": "Unknown provider - treat as off-device."}
 
 
 def _post(url: str, payload: dict, headers: dict, timeout: float = 30.0) -> dict:
