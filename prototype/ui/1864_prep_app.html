@@ -524,6 +524,7 @@
 .run-ai{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);margin:14px 0 2px;cursor:pointer}.run-ai input{margin:0}.run-ai-note{font-size:11.5px;color:var(--faint,#8a9299);margin:0 0 2px 22px}.run-ai-status{font-size:12px;color:var(--navy);margin:4px 0 0 22px}.cf.src{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}.cf.src.ai{background:#f3eefb;color:#5b3a8a}.cf.src.loc{background:var(--wash,#f1f4f7);color:var(--ink-soft,#5a6a7a)}
 .ibtn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--line,#d8dee5);background:#fff;color:var(--navy,#1F3A5F);font-size:10px;font-style:italic;font-weight:700;cursor:pointer;line-height:1;padding:0;margin-left:6px;vertical-align:middle;font-family:Georgia,serif}.ibtn:hover{background:var(--navy,#1F3A5F);color:#fff}.ipop{position:absolute;z-index:10001;max-width:300px;background:#fff;border:1px solid var(--line,#d8dee5);border-radius:10px;box-shadow:0 10px 30px rgba(30,58,95,.18);padding:12px 14px;font-size:12.5px;color:var(--ink,#1A1F24);line-height:1.5}.ipop-t{font-weight:700;margin-bottom:4px}.ipop-b code{background:#f1f4f7;padding:1px 5px;border-radius:5px;font-size:11.5px}
 .modal-card.aim{max-width:520px}.aim-step{margin:16px 0}.aim-q{font-size:15px;font-weight:650;color:var(--ink,#1A1F24);margin-bottom:10px;display:flex;align-items:center;gap:6px}.aim-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}@media(max-width:520px){.aim-opts{grid-template-columns:1fr}}.aim-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1.5px solid var(--line,#e4eaf1);background:#fff;border-radius:12px;padding:14px 13px;cursor:pointer;transition:.15s}.aim-opt:hover{border-color:var(--teal,#2C7A8C);transform:translateY(-1px)}.aim-opt.sel{border-color:var(--navy,#1F3A5F);background:#f0f4f8;box-shadow:0 0 0 1px var(--navy,#1F3A5F) inset}.aim-opt .ico{font-size:18px}.aim-opt .lab{font-weight:650;font-size:13.5px}.aim-opt .hint{font-size:11.5px;color:var(--ink-soft,#5a6675);line-height:1.35}.aim-field{display:flex;flex-direction:column;gap:5px;margin:10px 0}.aim-field label{font-size:12px;font-weight:600;color:var(--ink-soft,#5a6675);display:flex;align-items:center;gap:6px}.aim-priv{font-size:12px;color:var(--ink-soft,#5a6675);margin-top:8px;line-height:1.45}#aim-provseg{margin-bottom:6px}
+.modal-card .modal-foot{position:sticky;bottom:-2px;background:var(--paper,#f5f8fb);padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--line,#e4eaf1);display:flex;gap:10px;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -543,7 +544,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.23 · AI setup, info, versions</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v6 (init-order fix, verified)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -793,6 +794,10 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// State that other top-level code and handlers depend on — declared FIRST so
+// there is no temporal-dead-zone error during load (which previously aborted the
+// script and left the toolkit + AI setup non-functional).
+let SETTINGS=Object.assign({region:'ng',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function toast(m, opts){
@@ -951,7 +956,17 @@ function showHelp(ev, key){
 }
 function closeHelp(){ const p=document.getElementById('ipop'); if(p) p.remove(); }
 
-function bootApp(){
+async function bootApp(){
+  // On the hosted demo, every reload starts fresh (no leftover profile from the
+  // previous visitor). The local desktop app remembers setup as normal.
+  try{
+    const cfg = await (await fetch('/api/config')).json();
+    if(cfg && cfg.demo){
+      ['prep_setup','prep_owner','prep_current','prep_sector','prep_type_prior','prep_pass','prep_settings']
+        .forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+      window.__DEMO__ = true;
+    }
+  }catch(e){ /* static hosting or offline: behave like the normal app */ }
   if(!isSetup()){ startOnboarding(); return; }
   const pw=_pget('prep_pass', null);
   if(pw){ askPassword(); } else { enterApp(); }
@@ -1225,8 +1240,15 @@ function aiKeyHelpKey(){ return AIM_PROV==='openai'?'api_key_openai':AIM_PROV===
 function pickAIMode(m){ AIM_MODE=m; paintAIMode(); }
 function paintAIMode(){
   document.querySelectorAll('#aim-opts .aim-opt').forEach(b=>b.classList.toggle('sel', b.dataset.mode===AIM_MODE));
-  // progressive disclosure: only reveal "where it runs" once AI is actually on
-  $('#ai-provider-sec').style.display = (AIM_MODE==='off') ? 'none' : 'block';
+  var sec=document.getElementById('ai-provider-sec');
+  if(sec){
+    if(AIM_MODE==='off'){ sec.style.display='none'; }
+    else {
+      sec.style.display='block';
+      paintAIProvider(true);                     // make sure the fields are populated
+      setTimeout(function(){ try{ sec.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }, 30);
+    }
+  }
 }
 function pickAIProvider(p){ AIM_PROV=p; paintAIProvider(false); }
 function paintAIProvider(keep){
@@ -1813,7 +1835,7 @@ function permAll(lvl){ FIELDS.forEach(f=>{ PERM[f.name]= (lvl==='confirm'&&SENSI
   if(lvl==='confirm') toast('Sensitive ID columns left off, switch them on individually if needed'); }
 function publishNet(){ const n=FIELDS.filter(f=>PERM[f.name]!=='off').length; toast('(mockup) published '+n+' columns to the Open Network'); }
 
-let SETTINGS=Object.assign({region:'ng',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
+// (SETTINGS declared at top of script)
 function renderSettingsLists(){
   // People & roles
   const pl=$('#people-list');
@@ -1893,13 +1915,27 @@ let TK_TOOLS=null, TK_CUR=null, TK_RESULT=null;
 async function renderToolkit(){
   const box=$('#toolkit'); if(!box) return;
   TK_CUR=null; TK_RESULT=null;
-  if(!TK_TOOLS){
-    try{ TK_TOOLS=(await (await fetch('/api/tools')).json()).tools; }
-    catch(e){ box.innerHTML='<div class="wl-empty">Toolkit needs the live engine (run on the server or desktop app).</div>'; return; }
+  box.innerHTML='<div class="wl-empty">Loading tools…</div>';
+  try{
+    if(!TK_TOOLS){
+      const res=await fetch('/api/tools');
+      if(!res.ok) throw new Error('tools '+res.status);
+      const data=await res.json();
+      TK_TOOLS = data.tools || data || [];
+    }
+    if(!Array.isArray(TK_TOOLS) || !TK_TOOLS.length){
+      box.innerHTML='<div class="wl-empty">No tools returned by the engine.</div>'; return;
+    }
+    box.innerHTML='<div class="tk-grid">'+TK_TOOLS.map(function(t){
+      return '<div class="tk-card" onclick="openTool(\''+t.id+'\')">'+
+        '<div class="tk-name">'+esc(t.name||t.id)+'</div>'+
+        '<div class="tk-desc">'+esc(t.desc||'')+'</div>'+
+        '<div class="tk-kind">'+(t.kind==='report'?'report':'dataset')+'</div></div>';
+    }).join('')+'</div>';
+  }catch(e){
+    box.innerHTML='<div class="wl-empty">Could not load tools: '+esc(e.message||String(e))+
+      '<br><button class="btn sm ghost" onclick="TK_TOOLS=null;renderToolkit()">Retry</button></div>';
   }
-  box.innerHTML='<div class="tk-grid">'+TK_TOOLS.map(t=>
-    '<div class="tk-card" onclick="openTool(\''+t.id+'\')"><div class="tk-name">'+esc(t.name)+'</div>'+
-    '<div class="tk-desc">'+esc(t.desc)+'</div><div class="tk-kind">'+(t.kind==='report'?'report':'dataset')+'</div></div>').join('')+'</div>';
 }
 async function openTool(id){
   TK_CUR=TK_TOOLS.find(t=>t.id===id); TK_RESULT=null;
@@ -2402,6 +2438,9 @@ function buildFieldsFromAPI(data, filename){
     const rf=$('#rf-file'); if(rf) rf.textContent = m ? (m[1]+'×'+m[2]+' · '+ext) : data.ingest; }
 }
 bootApp();
+</script>
+<script>
+window.addEventListener('error',function(e){try{if(window.toast)toast('JS error: '+(e.message||'')+' @'+(e.filename||'').split('/').pop()+':'+(e.lineno||''),{sticky:true,kind:'warn'});}catch(_){}});window.addEventListener('unhandledrejection',function(e){try{var m=(e.reason&&(e.reason.message||e.reason))||'promise';if(window.toast)toast('Async error: '+m,{sticky:true,kind:'warn'});}catch(_){}});
 </script>
 </body>
 </html>

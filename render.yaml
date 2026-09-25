@@ -20,6 +20,8 @@ services:
         value: "3.11.9"
       - key: PREP_REGION
         value: "ng"
+      - key: PREP_DEMO
+        value: "1"          # hosted demo: start fresh each reload (no saved profile)
       # AI stays off on the demo unless a key is set here (leave unset = engine only)
       # - key: OPENAI_API_KEY
       #   value: ""

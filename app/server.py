@@ -512,6 +512,13 @@ async def ai_structure(payload: dict):
             "raw": (res.get("text", "") or "")[:1200]}
 
 
+@app.get("/api/config")
+async def api_config():
+    """Front-end reads this at boot. On the hosted demo (PREP_DEMO=1) the app
+    starts fresh each load; the local desktop app remembers setup."""
+    return {"demo": bool(os.environ.get("PREP_DEMO"))}
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True}
