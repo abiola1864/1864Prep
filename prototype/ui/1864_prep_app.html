@@ -526,6 +526,8 @@
 .modal-card.aim{max-width:520px}.aim-step{margin:16px 0}.aim-q{font-size:15px;font-weight:650;color:var(--ink,#1A1F24);margin-bottom:10px;display:flex;align-items:center;gap:6px}.aim-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}@media(max-width:520px){.aim-opts{grid-template-columns:1fr}}.aim-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1.5px solid var(--line,#e4eaf1);background:#fff;border-radius:12px;padding:14px 13px;cursor:pointer;transition:.15s}.aim-opt:hover{border-color:var(--teal,#2C7A8C);transform:translateY(-1px)}.aim-opt.sel{border-color:var(--navy,#1F3A5F);background:#f0f4f8;box-shadow:0 0 0 1px var(--navy,#1F3A5F) inset}.aim-opt .ico{font-size:18px}.aim-opt .lab{font-weight:650;font-size:13.5px}.aim-opt .hint{font-size:11.5px;color:var(--ink-soft,#5a6675);line-height:1.35}.aim-field{display:flex;flex-direction:column;gap:5px;margin:10px 0}.aim-field label{font-size:12px;font-weight:600;color:var(--ink-soft,#5a6675);display:flex;align-items:center;gap:6px}.aim-priv{font-size:12px;color:var(--ink-soft,#5a6675);margin-top:8px;line-height:1.45}#aim-provseg{margin-bottom:6px}
 .modal-card .modal-foot{position:sticky;bottom:-2px;background:var(--paper,#f5f8fb);padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--line,#e4eaf1);display:flex;gap:10px;justify-content:flex-end}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line,#e4eaf1);border-top-color:var(--navy,#1F3A5F);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:4px}@keyframes spin{to{transform:rotate(360deg)}}.dl-card{border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:6px 14px;margin:12px 0;max-width:520px}.dl-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line,#eef2f6)}.dl-row:last-child{border-bottom:0}.dl-lab{font-weight:600;font-size:13.5px}.dl-btns{display:flex;gap:8px}.dl-log{margin:8px 0;max-width:640px}.dl-log summary{cursor:pointer;font-size:13px;color:var(--navy,#1F3A5F);font-weight:600;padding:6px 0}
+.ibtn.src-ai{border-color:#d9c9ef;color:#6a3fb0}
+.done-card{border:1px solid var(--line,#e4eaf1);border-radius:14px;background:#fff;padding:20px;max-width:720px;box-shadow:0 4px 16px rgba(30,58,95,.05)}.done-line{display:flex;align-items:center;gap:10px;margin:16px 0;max-width:720px;flex-wrap:wrap}.done-sec{max-width:720px;border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:12px 16px;margin:10px 0}.done-sec>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink,#1A1F24);list-style:none;display:flex;align-items:center;gap:8px}.done-sec>summary::-webkit-details-marker{display:none}.done-sec>summary::before{content:'▸';color:var(--ink-soft,#5a6675);transition:.15s}.done-sec[open]>summary::before{transform:rotate(90deg)}.sec-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5a6675);background:var(--wash,#f1f4f7);padding:2px 7px;border-radius:20px}
 </style>
 </head>
 <body>
@@ -545,7 +547,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v7 (downloads + AI feedback + declutter)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v9 (Done page redesign)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -622,39 +624,42 @@
 
     <!-- 7 export -->
     <section class="screen" data-screen="7">
-      <p class="eyebrow">Done</p><h1>Your file is ready</h1>
-      <p class="lead">Only what you approved gets applied. Your file stays on your computer.</p>
-      <div class="kpis" id="expkpis"></div>
-      <div style="display:flex;gap:12px;margin-top:12px">
-        <button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button>
-      </div>
-      <div id="expout" style="margin-top:14px"></div>
-      <div style="margin-top:12px"><button class="btn ghost sm" onclick="saveCurrentAsVersion()">⭑ Save these steps as a version</button>
-        <span class="set-sub" style="font-size:12px">Reuse this exact cleaning on future files of the same type, from Settings.</span></div>
+      <p class="eyebrow">Done</p><h1>Your cleaned file is ready</h1>
+      <p class="lead">Only what you approved was applied. Everything stayed on this computer.</p>
 
-      <div id="distpanel" style="margin-top:22px;display:none">
-        <h3 style="margin:0 0 4px">See your data's shape</h3>
-        <p class="lead" style="font-size:13px;margin:0 0 12px">The distribution of your numeric columns after cleaning, mean, median, and any flagged outliers.</p>
-        <div class="distgrid" id="distgrid"></div>
+      <div class="done-card">
+        <div class="kpis" id="expkpis"></div>
+        <div id="expout"><button class="btn" id="expbtn" onclick="doExport()">Produce cleaned file</button></div>
       </div>
 
-      <div class="aitoggle" style="max-width:860px;margin-top:24px">
-        <div class="txt"><b>Share to the Open Network?</b><span id="netnote">Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.</span></div>
-        <span class="sp"></span>
-        <label class="switch net"><input type="checkbox" id="netswitch" onchange="toggleNet(this.checked)"><span class="track"></span><span class="knob"></span></label>
+      <div class="done-line">
+        <button class="btn ghost sm" onclick="saveCurrentAsVersion()">⭑ Save these steps as a version</button>
+        <span class="set-sub" style="font-size:12px">Reuse this cleaning on future files of the same type.</span>
       </div>
 
-      <div id="netpanel" style="display:none">
-        <div class="netperm">
-          <div class="np-bar"><b>Choose which columns can be asked about</b><span class="sp" style="flex:1"></span>
-            <button class="btn ghost sm" onclick="permAll('off')">None</button>
-            <button class="btn ghost sm" onclick="permAll('confirm')">Confirm all</button></div>
-          <div id="permlist"></div>
-          <div class="np-foot"><span id="permsummary"></span><span class="sp"></span>
-            <button class="btn" id="publishbtn" onclick="publishNet()">Publish to network</button></div>
+      <details class="done-sec" id="distpanel" style="display:none">
+        <summary>See your data’s shape</summary>
+        <div class="distgrid" id="distgrid" style="margin-top:12px"></div>
+      </details>
+
+      <details class="done-sec">
+        <summary>Share to the Open Network <span class="sec-tag">advanced</span></summary>
+        <div style="margin-top:12px">
+          <p class="set-sub">Let other authorised agencies ask verified questions about these records. You choose which columns; only a verified answer is returned, never the raw record.</p>
+          <div id="netpanel">
+            <div class="netperm">
+              <div class="np-bar"><b>Which columns can be asked about</b><span class="sp" style="flex:1"></span>
+                <button class="btn ghost sm" onclick="permAll('off')">None</button>
+                <button class="btn ghost sm" onclick="permAll('confirm')">Confirm all</button></div>
+              <div id="permlist"></div>
+              <div class="np-foot"><span id="permsummary"></span><span class="sp"></span>
+                <button class="btn" id="publishbtn" onclick="publishNet()">Publish to network</button></div>
+            </div>
+            <p class="np-note">🔒 Your data never moves. The network carries a <b>question</b> and a <b>verified answer</b>; the record is read in place and only the answer is sent. Nothing is shared until you publish, and you can revoke any column anytime.</p>
+          </div>
         </div>
-        <p class="np-note">🔒 Your data never moves. The network carries a <b>question</b> and a <b>verified answer</b>; the record is read in place on this computer and only the answer is sent. Nothing is shared until you publish, and you can revoke any column at any time.</p>
-      </div>
+      </details>
+      <input type="checkbox" id="netswitch" style="display:none" checked onchange="toggleNet(this.checked)">
     </section>
 
     <div class="gate" id="gate" style="display:none !important">
@@ -940,7 +945,7 @@ const HELP={
   ai_scope:{t:'How does AI help here?',b:'The built-in engine (on this computer) does about 80% on its own. If you tick AI, it double-checks only the UNCERTAIN columns, sending just that column\'s header and a few masked sample values, never full records. It suggests; you approve. Each column shows whether the answer came from the engine or AI.'},
   version_control:{t:'What is a version?',b:'A saved recipe of the exact steps used to clean a file, the column names, types and decisions. Apply it to a new file of the same kind and skip the manual review; anything new is still shown. Good for speed and for an audit trail.'},
   roles:{t:'Administrator vs Member',b:'The Administrator (the owner) can add people and change settings. Members can clean data. Everyone and their role is stored on this computer only.'},
-  security_pw:{t:'Password vs encryption',b:'A password here locks the app when it opens, a convenience lock, not encryption. For real protection of the files on disk, turn on full-disk encryption: FileVault (Mac) or BitLocker (Windows).'}
+  src_ai:{t:'Chosen with AI',b:'The data type for this column was suggested by your AI model (masked samples only) and you can still change it.'},src_engine:{t:'Chosen by the engine',b:'The built-in engine determined this column\u2019s type locally on this computer. You can change it if it\u2019s wrong.'},security_pw:{t:'Password vs encryption',b:'A password here locks the app when it opens, a convenience lock, not encryption. For real protection of the files on disk, turn on full-disk encryption: FileVault (Mac) or BitLocker (Windows).'}
 };
 function infoBtn(key){ return '<button type="button" class="ibtn" title="More info" onclick="showHelp(event,\''+key+'\')">i</button>'; }
 function showHelp(ev, key){
@@ -1820,10 +1825,10 @@ function renderExport(){
   if(dp){ if(DIST!=null){ dp.style.display='block'; renderDistribution($('#distgrid'), DIST); } else dp.style.display='none'; }
 }
 const SENSITIVE=new Set(['identifier']);
-function toggleNet(on){ $('#netpanel').style.display=on?'block':'none';
-  $('#netnote').textContent = on
+function toggleNet(on){ const p=$('#netpanel'); if(p) p.style.display=on?'block':'none';
+  const n=$('#netnote'); if(n){ n.textContent = on
     ? 'On, pick the columns other agencies may ask about. Only a verified answer is returned; the record never leaves this computer.'
-    : 'Off, the cleaned file stays with you. Turn on to let other authorised agencies ask verified questions about these records. You choose exactly which columns, and only a verified answer is ever returned, never the raw record.';
+    : 'Off, the cleaned file stays with you.'; }
 }
 function renderPerm(){
   const box=$('#permlist'); if(!box) return;
@@ -2132,7 +2137,11 @@ function cancelColumnRead(){ if(COL_ABORT){ COL_ABORT.abort(); } }
 async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
+  // fresh start for every upload: drop any prior file's columns, samples, AI state
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false;
+  try{ SESSION_ID=null; }catch(_){}
   PENDING_FILE=file;
+  try{ e.target.value=''; }catch(_){}   // allow re-selecting the same file later
   const ov=$('#overlay'); ov.classList.add('on');
   const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+"</b> before any cleaning.");
   prog.showCancel(); COL_ABORT=new AbortController();
@@ -2217,8 +2226,8 @@ function renderColumnReview(){
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
     else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
     else status=`<span class="cf ok" title="This name is clear, nothing to change">✓ looks good</span>`;
-    const src = c.source==='ai' ? `<span class="cf src ai" title="Type chosen with help from your AI model">via AI</span>`
-              : c.source==='local' ? `<span class="cf src loc" title="Type determined by the built-in engine on this computer">engine</span>` : '';
+    const src = c.source==='ai' ? `<button type="button" class="ibtn src-ai" title="This type was chosen with help from your AI model" onclick="showHelp(event,'src_ai')">i</button>`
+              : c.source==='local' ? `<button type="button" class="ibtn" title="This type was determined by the built-in engine on this computer" onclick="showHelp(event,'src_engine')">i</button>` : '';
     return `<div class="mrow ${c.abnormal?'needpick':''}">
       <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
       <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status} ${src}</span>
