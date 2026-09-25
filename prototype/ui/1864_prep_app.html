@@ -525,6 +525,7 @@
 .ibtn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--line,#d8dee5);background:#fff;color:var(--navy,#1F3A5F);font-size:10px;font-style:italic;font-weight:700;cursor:pointer;line-height:1;padding:0;margin-left:6px;vertical-align:middle;font-family:Georgia,serif}.ibtn:hover{background:var(--navy,#1F3A5F);color:#fff}.ipop{position:absolute;z-index:10001;max-width:300px;background:#fff;border:1px solid var(--line,#d8dee5);border-radius:10px;box-shadow:0 10px 30px rgba(30,58,95,.18);padding:12px 14px;font-size:12.5px;color:var(--ink,#1A1F24);line-height:1.5}.ipop-t{font-weight:700;margin-bottom:4px}.ipop-b code{background:#f1f4f7;padding:1px 5px;border-radius:5px;font-size:11.5px}
 .modal-card.aim{max-width:520px}.aim-step{margin:16px 0}.aim-q{font-size:15px;font-weight:650;color:var(--ink,#1A1F24);margin-bottom:10px;display:flex;align-items:center;gap:6px}.aim-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}@media(max-width:520px){.aim-opts{grid-template-columns:1fr}}.aim-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1.5px solid var(--line,#e4eaf1);background:#fff;border-radius:12px;padding:14px 13px;cursor:pointer;transition:.15s}.aim-opt:hover{border-color:var(--teal,#2C7A8C);transform:translateY(-1px)}.aim-opt.sel{border-color:var(--navy,#1F3A5F);background:#f0f4f8;box-shadow:0 0 0 1px var(--navy,#1F3A5F) inset}.aim-opt .ico{font-size:18px}.aim-opt .lab{font-weight:650;font-size:13.5px}.aim-opt .hint{font-size:11.5px;color:var(--ink-soft,#5a6675);line-height:1.35}.aim-field{display:flex;flex-direction:column;gap:5px;margin:10px 0}.aim-field label{font-size:12px;font-weight:600;color:var(--ink-soft,#5a6675);display:flex;align-items:center;gap:6px}.aim-priv{font-size:12px;color:var(--ink-soft,#5a6675);margin-top:8px;line-height:1.45}#aim-provseg{margin-bottom:6px}
 .modal-card .modal-foot{position:sticky;bottom:-2px;background:var(--paper,#f5f8fb);padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--line,#e4eaf1);display:flex;gap:10px;justify-content:flex-end}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line,#e4eaf1);border-top-color:var(--navy,#1F3A5F);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:4px}@keyframes spin{to{transform:rotate(360deg)}}.dl-card{border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:6px 14px;margin:12px 0;max-width:520px}.dl-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line,#eef2f6)}.dl-row:last-child{border-bottom:0}.dl-lab{font-weight:600;font-size:13.5px}.dl-btns{display:flex;gap:8px}.dl-log{margin:8px 0;max-width:640px}.dl-log summary{cursor:pointer;font-size:13px;color:var(--navy,#1F3A5F);font-weight:600;padding:6px 0}
 </style>
 </head>
 <body>
@@ -544,7 +545,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v6 (init-order fix, verified)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v7 (downloads + AI feedback + declutter)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1786,21 +1787,29 @@ async function doExport(){
     const d=await res.json();
     if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
     let html='<div class="tk-summary"><b>'+d.rows_out+'</b> rows · <b>'+d.cols_out+'</b> columns · <b>'+d.changes_total+'</b> changes applied</div>';
-    html+='<div class="tk-dl"><span>Download cleaned data:</span>'+
-      '<button class="btn sm" onclick="expDL(\''+d.result_id+'\',\'xlsx\')">Excel</button>'+
+    html+='<div class="dl-card"><div class="dl-row"><span class="dl-lab">Cleaned data</span>'+
+      '<span class="dl-btns"><button class="btn sm" onclick="expDL(\''+d.result_id+'\',\'xlsx\')">Excel</button>'+
       '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'csv\')">CSV</button>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></div>';
-    html+='<div class="tk-dl"><span>Change log:</span>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\')">Excel</button></div>';
+      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></span></div>'+
+      '<div class="dl-row"><span class="dl-lab">Change log</span>'+
+      '<span class="dl-btns"><button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button></span></div></div>';
     if(d.audit&&d.audit.length){
-      html+='<div class="tk-tablewrap" style="margin-top:10px"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>rows</th></tr></thead><tbody>'+
-        d.audit.map(a=>'<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+esc(String(a.count))+'</td></tr>').join('')+'</tbody></table></div>';
+      html+='<details class="dl-log"><summary>View change log ('+d.audit.length+' entries)</summary>'+
+        '<div class="tk-tablewrap"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>rows</th></tr></thead><tbody>'+
+        d.audit.map(a=>'<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+esc(String(a.count))+'</td></tr>').join('')+'</tbody></table></div></details>';
     }
     out.innerHTML=html;
   }catch(err){ out.innerHTML='<div class="wl-empty">Could not produce the file: '+esc(err.message)+'</div>'; }
 }
-function expDL(id,fmt){ window.open('/api/tool/download/'+id+'?fmt='+fmt,'_blank'); }
+function expDL(id,fmt){
+  // anchor-download works in the browser and desktop; the server sends the file
+  // with an attachment filename so it saves instead of navigating.
+  const url='/api/tool/download/'+id+'?fmt='+fmt;
+  const a=document.createElement('a'); a.href=url; a.setAttribute('download','');
+  document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0);
+  toast('Preparing your '+fmt.toUpperCase()+' download…', {duration:4000});
+}
 function renderExport(){
   let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
   $('#expkpis').innerHTML=[['#2f6f57',acc,'columns cleaned & applied'],['#a83a3a',rej,'columns kept as-is'],['#b5761c',outl,'values flagged for follow-up'],['#1d3a53',FIELDS.length,'columns reviewed']]
@@ -2248,26 +2257,34 @@ function onRunAITick(on){
 // consult AI on the uncertain columns, keep the best of (engine, AI), label source
 async function evaluateUncertainWithAI(){
   const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
+  const where=d.local?'local model':(SETTINGS.provider);
   const targets=COLREVIEW.map((c,i)=>[c,i]).filter(([c])=>c.uncertain);
-  if(!targets.length){ if(st) st.textContent=''; return; }
-  if(st) st.textContent='Checking '+targets.length+' column(s) with AI…';
-  let used=0;
-  for(const [c,i] of targets){
+  if(!targets.length){ if(st) st.textContent='No uncertain columns to check.'; return; }
+  let used=0, ok=0, failMsg='';
+  for(let k=0;k<targets.length;k++){
+    const [c,i]=targets[k];
+    if(st) st.innerHTML='<span class="spin"></span> Asking '+esc(where)+' about <b>'+esc(c.original)+'</b> ('+(k+1)+' of '+targets.length+')…';
     const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='').slice(0,20);
     try{
       const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({column:c.original,values:vals,task:'type',provider:SETTINGS.provider,
           url:(d.local?SETTINGS.key:''),model:SETTINGS.model,api_key:(d.local?'':SETTINGS.key)})})).json();
-      // evaluator: prefer AI only when the engine was unsure and AI gives a concrete type
-      if(r.ok && r.suggestion && r.suggestion!==c.type){
-        c.localType=c.type; c.type=r.suggestion; c.source='ai'; used++;
-      } else { c.source='local'; }
-    }catch(e){ c.source='local'; }
+      if(r.ok){ ok++;
+        if(r.suggestion && r.suggestion!==c.type){ c.localType=c.type; c.type=r.suggestion; c.source='ai'; used++; }
+        else { c.source='local'; }
+      } else { failMsg=r.error||'no response'; c.source='local'; }
+    }catch(e){ failMsg=e.message||'request failed'; c.source='local'; }
   }
   renderColumnReview();
-  const s2=$('#ai-run-status'); if(s2) s2.textContent = used
-    ? ('AI refined '+used+' column(s); the rest kept the engine\u2019s reading. Each column shows its source.')
-    : 'AI agreed with the engine, nothing changed.';
+  const s2=$('#ai-run-status'); if(!s2) return;
+  if(ok===0){
+    s2.innerHTML='⚠︎ Couldn\u2019t reach the AI ('+esc(where)+(failMsg?': '+esc(String(failMsg).slice(0,60)):'')+
+      '). Kept the engine\u2019s reading. '+(d.local?'Is Ollama running?':'Check your key in ✦ AI setup.');
+  } else if(used){
+    s2.innerHTML='✓ AI ('+esc(where)+') refined <b>'+used+'</b> of '+targets.length+' column(s). Each shows its source below.';
+  } else {
+    s2.innerHTML='✓ AI ('+esc(where)+') checked '+targets.length+' column(s) and agreed with the engine.';
+  }
 }
 
 // ---- Version control + History (stored locally in the browser) ----
