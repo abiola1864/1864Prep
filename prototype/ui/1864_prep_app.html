@@ -490,6 +490,7 @@
 .onb-dots i{width:26px;height:5px;border-radius:20px;background:var(--line)}.onb-dots i.on{background:var(--teal)}
 .onb-hero{text-align:center}
 .onb-logo{width:64px;height:64px;border-radius:16px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px}
+.onb-logo.mark{background:transparent}
 .onb-logo.done{background:var(--ok,#2f6f57)}
 .onb-hero h1,.onb-card h1{font-size:25px;margin:4px 0 6px}
 .onb-tour{display:flex;flex-direction:column;gap:10px;text-align:left;margin:18px 0}
@@ -537,7 +538,7 @@
 <div class="app">
   <nav class="rail">
     <div class="brand">
-      <svg viewBox="0 0 40 40" fill="none"><path d="M12 6h16M12 34h16M14 6c0 7 12 10 12 14s-12 7-12 14M26 6c0 7-12 10-12 14s12 7 12 14" stroke="#8fb4dc" stroke-width="2.2" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 40 40" fill="none"><rect x="4" y="4" width="32" height="32" rx="9" fill="#16263F"/><path d="M16 13l-4.5 7 4.5 7" stroke="#EAF1F8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 13l4.5 7-4.5 7" stroke="#10B5A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div><b>1864 PREP</b><span>wizard</span></div>
     </div>
     <ol class="steps" id="steps">
@@ -547,7 +548,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v9 (Done page redesign)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.24 · v10 (onboarding loop fix + logo)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1002,7 +1003,7 @@ function showOnboard(){
   if(dots) dots.innerHTML=steps.map((_,i)=>'<i class="'+(i<=ONB.step?'on':'')+'"></i>').join('');
 }
 function obWelcome(){
-  return '<div class="onb-hero"><div class="onb-logo">\u2B22</div>'+
+  return '<div class="onb-hero"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#16263F"/><path d="M26 20l-8 12 8 12" stroke="#EAF1F8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 20l8 12-8 12" stroke="#10B5A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
     '<h1>Welcome to 1864 Prep</h1>'+
     '<p class="lead">Clean any agency\u2019s messy records into trustworthy data, right here on this computer. Nothing is uploaded.</p>'+
     '<div class="onb-tour">'+
@@ -1099,7 +1100,7 @@ async function onbFinish(){
   }
   if(ONB.pass && ONB.pass.length){ _pset('prep_pass', await _hash(ONB.pass)); }
   _pset('prep_setup', true);
-  ONB.step=4; showOnboard();
+  ONB.step=6; showOnboard();   // go to the "You're all set" (Done) step, not back to AI-key
 }
 function obDone(){
   const passNote = _pget('prep_pass',null) ? 'Password set.' : 'No password (you can add one in Settings).';
@@ -1116,7 +1117,7 @@ function onbSkipAll(){
 function askPassword(){
   const ob=$('#onboard'); ob.style.display='flex';
   ob.querySelector('#onb-dots').innerHTML='';
-  ob.querySelector('#onb-body').innerHTML='<div class="onb-card center"><div class="onb-logo">\u2B22</div>'+
+  ob.querySelector('#onb-body').innerHTML='<div class="onb-card center"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#16263F"/><path d="M26 20l-8 12 8 12" stroke="#EAF1F8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 20l8 12-8 12" stroke="#10B5A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
     '<h1>Welcome back</h1><p class="lead">Enter your password to open 1864 Prep.</p>'+
     '<div class="field"><input id="ob-unlock" type="password" placeholder="Password" onkeydown="if(event.key===\'Enter\')tryUnlock()"></div>'+
     '<div class="onb-actions"><button class="btn" onclick="tryUnlock()">Open \u2192</button></div>'+
