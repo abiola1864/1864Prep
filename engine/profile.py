@@ -242,6 +242,25 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
             return ColumnProfile(name, "identifier", 0.9, "fixed_id",
                                  params={"length": mode_len}, evidence=ev)
 
+    # ROOT-CAUSE RULE: a column of plain integers (no leading zeros, no letters) is
+    # a NUMBER/measure by default — NOT an identifier and NOT a date — even when the
+    # values are uniform-length and highly unique. Identifiers need a positive signal:
+    # leading zeros (handled above), letters (handled below), an 11-digit NIN, or an
+    # id/code header hint. Without one of those, classifying uniform unique integers
+    # as "ID" (or letting the date parser treat bare years as dates) is what made
+    # identical integer columns scatter across ID / date / text. This keeps them
+    # consistent and correct. Users can still override on the review screen.
+    if pure_digits and len(pure_digits) / len(vals) >= 0.8:
+        lens = [len(v) for v in pure_digits]
+        mode_len = max(set(lens), key=lens.count)
+        id_hint = any(k in name.lower() for k in
+                      ("id", "code", "no.", "no_", "num", "ref", "acct", "account",
+                       "msisdn", "nin", "bvn", "reg", "serial", "pin"))
+        if not id_hint and mode_len != 11:
+            r = round(len(pure_digits) / len(vals), 2)
+            return ColumnProfile(name, "numeric", max(0.8, r), "numeric",
+                                 evidence={**ev, "plain_integer": True})
+
     # mixed digit + alphanumeric codes (e.g. account nos "1234567890" alongside
     # "ABC123") are identifiers, never phones or measures.
     if letter_share >= 0.15 and alnum_rate >= 0.85 and numeric_rate < 0.85 and date_rate < 0.5:
@@ -412,10 +431,60 @@ def profile_column(series: pd.Series, name: str, gazetteers: dict | None = None,
     return _apply_type_prior(result, series, type_prior)
 
 
+def _col_signature(series):
+    """Coarse shape signature so look-alike columns can be harmonised."""
+    vals = [str(v).strip() for v in series.dropna().tolist() if str(v).strip()!=""]
+    vals = vals[:200]
+    if not vals:
+        return None
+    import re as _re
+    all_int = all(_re.fullmatch(r"\d+", v) for v in vals)
+    lens = [len(v) for v in vals]
+    mode_len = max(set(lens), key=lens.count) if lens else 0
+    lead0 = any(v[0]=="0" and len(v)>1 for v in vals)
+    year_like = all_int and mode_len==4 and all(1900<=int(v)<=2099 for v in vals if v.isdigit())
+    return ("year",) if year_like else (all_int, mode_len, lead0)
+
+
+def harmonize_types(df, profiles):
+    """After independent profiling, make columns that clearly look alike share a
+    type. Fixes cases like a row of year columns getting numeric/text/date/id at
+    random. Conservative: only groups of >=3 look-alike columns, and pure year
+    columns are set to numeric."""
+    groups = {}
+    for p in profiles:
+        try:
+            sig = _col_signature(df[p.column])
+        except Exception:
+            sig = None
+        if sig is None:
+            continue
+        groups.setdefault(sig, []).append(p)
+    for sig, members in groups.items():
+        if len(members) < 3:
+            continue
+        if sig == ("year",):
+            target = "numeric"
+        else:
+            counts = {}
+            for m in members:
+                counts[m.semantic_type] = counts.get(m.semantic_type, 0) + 1
+            target = max(counts, key=lambda t: (counts[t], sum(x.confidence for x in members if x.semantic_type==t)))
+        transform = _TYPE_TO_TRANSFORM.get(target, ("text_normalise", {}))[0]
+        for m in members:
+            if m.semantic_type != target:
+                m.semantic_type = target
+                m.transform = transform
+                ev = dict(m.evidence or {}); ev["harmonised"] = f"matched {len(members)} look-alike columns"
+                m.evidence = ev
+    return profiles
+
+
 def profile_dataframe(df: pd.DataFrame, gazetteers: dict | None = None,
                       place_index: dict | None = None, use_ml: bool = False, use_nlp: bool = False,
                       type_prior: set | None = None) -> list[ColumnProfile]:
-    return [profile_column(df[c], c, gazetteers, place_index, use_ml, use_nlp, type_prior) for c in df.columns]
+    profs = [profile_column(df[c], c, gazetteers, place_index, use_ml, use_nlp, type_prior) for c in df.columns]
+    return harmonize_types(df, profs)
 
 
 # --- turn profiles into an executable, review-ready plan -------------------

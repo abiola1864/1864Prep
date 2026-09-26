@@ -135,7 +135,7 @@ def review(headers, sample_rows, provider="ollama", url="", model="", timeout=90
         out["error"]="Whole-file AI review runs only on a local model (nothing leaves the device). Choose Local (Ollama) in AI setup."
         return out
     hdr=", ".join(str(h) for h in (headers or []))
-    sample=json.dumps(sample_rows[:15])[:4000]
+    sample=json.dumps(sample_rows[:8])[:3000]
     prompt=("You are a data analyst. Given a table's header and sample rows, identify each "
             "column's best data type. Types: date, datetime, numeric, identifier, boolean, gender, "
             "email, phone, geo, currency, categorical, name, free_text. Reply ONLY with JSON: "

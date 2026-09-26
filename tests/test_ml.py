@@ -12,8 +12,11 @@ def test_model_present():
 
 
 def test_rescues_numeric_with_junk():
-    age = pd.Series(["34","41","29","Do not know","52","N/A","38","45","unknown","27","33","61","40","22"])
-    # rules alone: soft type; with ML assist: numeric
+    # Mostly spelled-out numbers + some digits: rules can't call this numeric
+    # (under half are pure integers, so the plain-integer rule does not fire),
+    # but the ML classifier recognises it as numeric. This keeps the ML-rescue
+    # path under test after the rules were strengthened for plain integers.
+    age = pd.Series(["34","forty","52","fifty","thirty","45","sixty","27","twenty","41","seventy","33"])
     rules = profile_column(age, "How old are you?", use_ml=False)
     ml = profile_column(age, "How old are you?", use_ml=True)
     assert ml.semantic_type == "numeric"

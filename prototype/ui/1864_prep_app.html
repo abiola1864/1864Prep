@@ -548,7 +548,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v12 (whole-file AI review)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v14 (root-cause type fix)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2270,7 +2270,7 @@ async function runWholeFileReview(){
   const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
   if(!d.local){ if(st) st.innerHTML='\u26A0\uFE0E Whole-file review needs a <b>local</b> model. Choose Local (Ollama) in \u2726 AI setup.'; return; }
   const headers=COLREVIEW.map(c=>c.original);
-  const sample=(COL_SAMPLE||[]).slice(0,15);
+  const sample=(COL_SAMPLE||[]).slice(0,8);
   if(st) st.innerHTML='<span class="spin"></span> AI is reviewing your whole file (local model \u2014 this can take up to a minute)\u2026';
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},
