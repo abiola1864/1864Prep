@@ -50,6 +50,12 @@ def _post(url: str, payload: dict, headers: dict, timeout: float = 30.0) -> dict
         return json.loads(r.read().decode())
 
 
+def _get(url: str, timeout: float = 10.0) -> dict:
+    req = urllib.request.Request(url, headers={"Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+
 def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
         api_key: str = "", timeout: float = 30.0) -> dict:
     """Send an already-safe, masked prompt to the chosen model and return the text.
@@ -59,9 +65,21 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
     try:
         provider = (provider or "ollama").lower()
         if provider == "ollama":
-            base = url or "http://127.0.0.1:11434"
-            resp = _post(base.rstrip("/") + "/api/generate",
-                         {"model": model or "llama3.2", "prompt": question, "stream": False},
+            base = (url or "http://127.0.0.1:11434").rstrip("/")
+            model = model or "llama3.2"
+            # check the model is actually installed, so we can give a clear message
+            try:
+                tags = _get(base + "/api/tags", timeout=5)
+                names = [m.get("name","") for m in (tags.get("models") or [])]
+                base_names = [n.split(":")[0] for n in names]
+                if names and model not in names and model.split(":")[0] not in base_names:
+                    out["error"] = ("model '%s' is not installed in Ollama. Installed: %s. "
+                                    "Run:  ollama pull %s" % (model, ", ".join(names) or "(none)", model))
+                    return out
+            except Exception:
+                pass  # if /api/tags fails, fall through and let the generate call report
+            resp = _post(base + "/api/generate",
+                         {"model": model, "prompt": question, "stream": False},
                          {}, timeout)
             out["text"] = (resp.get("response") or "").strip(); out["ok"] = True
         elif provider == "openai":
