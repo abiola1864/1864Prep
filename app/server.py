@@ -512,6 +512,24 @@ async def ai_structure(payload: dict):
             "raw": (res.get("text", "") or "")[:1200]}
 
 
+@app.post("/api/ai/review")
+async def ai_review(payload: dict):
+    """ONE whole-file AI pass, LOCAL ONLY. Body: {headers, sample, provider, url, model}.
+    Masks sensitive columns, sends header + compact sample once, returns per-column verdicts."""
+    from engine.ai_privacy import _mask, looks_sensitive
+    from engine.ai_client import review
+    headers = payload.get("headers", [])
+    sample = payload.get("sample", [])[:15]
+    masked = []
+    for row in sample:
+        mr = {}
+        for k, v in (row or {}).items():
+            mr[k] = _mask(str(v)) if looks_sensitive(str(k)) else v
+        masked.append(mr)
+    return review(headers, masked, provider=payload.get("provider", "ollama"),
+                  url=payload.get("url", ""), model=payload.get("model", ""))
+
+
 @app.get("/api/config")
 async def api_config():
     """Front-end reads this at boot. On the hosted demo (PREP_DEMO=1) the app

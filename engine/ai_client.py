@@ -101,6 +101,54 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
     return out
 
 
+def parse_review(text: str) -> dict:
+    """Pull per-column verdicts out of a whole-file reply, tolerantly (JSON or lines)."""
+    import re as _re
+    cols=[]; note=""
+    if not text: return {"columns": [], "note": ""}
+    try:
+        s=text.index("{"); e=text.rindex("}")+1; obj=json.loads(text[s:e])
+        if isinstance(obj, dict):
+            note=str(obj.get("note",""))[:300]
+            for c in (obj.get("columns") or obj.get("fields") or []):
+                if isinstance(c, dict):
+                    cols.append({"name":str(c.get("name","")),
+                                 "suggested_type":str(c.get("type") or c.get("suggested_type") or "").lower(),
+                                 "reason":str(c.get("reason",""))[:160]})
+            if cols: return {"columns": cols, "note": note}
+    except Exception:
+        pass
+    for line in text.splitlines():
+        m=_re.match(r"\s*[-*]?\s*(.+?)\s*[:\-]\s*(date|datetime|numeric|number|identifier|id|boolean|gender|email|phone|geo|place|currency|categorical|category|name|free[_ ]?text)\b", line, _re.I)
+        if m:
+            t=m.group(2).lower().replace(" ","_")
+            t={"number":"numeric","id":"identifier","place":"geo","category":"categorical"}.get(t,t)
+            cols.append({"name":m.group(1).strip(),"suggested_type":t,"reason":""})
+    return {"columns": cols, "note": note}
+
+
+def review(headers, sample_rows, provider="ollama", url="", model="", timeout=90.0) -> dict:
+    """ONE whole-file pass. Local-only: refuses if the endpoint would leave the device."""
+    loc=classify_endpoint(provider, url, model)
+    out={"ok": False, "columns": [], "note": "", "raw": "", **loc}
+    if loc.get("leaves_device"):
+        out["error"]="Whole-file AI review runs only on a local model (nothing leaves the device). Choose Local (Ollama) in AI setup."
+        return out
+    hdr=", ".join(str(h) for h in (headers or []))
+    sample=json.dumps(sample_rows[:15])[:4000]
+    prompt=("You are a data analyst. Given a table's header and sample rows, identify each "
+            "column's best data type. Types: date, datetime, numeric, identifier, boolean, gender, "
+            "email, phone, geo, currency, categorical, name, free_text. Reply ONLY with JSON: "
+            "{\"columns\":[{\"name\":\"...\",\"type\":\"...\",\"reason\":\"...\"}],\"note\":\"...\"}.\n"
+            "Header: "+hdr+"\nSample rows: "+sample)
+    res=ask(prompt, provider=provider, url=url, model=model, timeout=timeout)
+    out["ok"]=res.get("ok", False); out["raw"]=(res.get("text") or "")[:1500]
+    if res.get("error"): out["error"]=res["error"]
+    if out["ok"]:
+        p=parse_review(res.get("text","")); out["columns"]=p["columns"]; out["note"]=p["note"]
+    return out
+
+
 def parse_suggestion(text: str) -> dict:
     """Pull a structured hint out of the model's reply, tolerantly. Expects the
     model to answer with a type/label; falls back to the raw text."""

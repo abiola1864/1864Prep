@@ -548,7 +548,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v11 (ollama model check)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v12 (whole-file AI review)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2139,7 +2139,7 @@ async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
   // fresh start for every upload: drop any prior file's columns, samples, AI state
-  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false;
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false;
   try{ SESSION_ID=null; }catch(_){}
   PENDING_FILE=file;
   try{ e.target.value=''; }catch(_){}   // allow re-selecting the same file later
@@ -2243,7 +2243,7 @@ function renderColumnReview(){
 // AI is off unless the person ticks it for this file. Even then it's not
 // column-by-column clicking: the engine and AI both weigh in on the uncertain
 // columns, an evaluator keeps the best answer, and each shows its source.
-let RUN_AI=false, AI_EVALUATED=false, AI_PENDING_RUN=false;
+let RUN_AI=false, AI_EVALUATED=false, AI_PENDING_RUN=false, AI_RECO_SHOWN=false;
 function renderAIContext(){
   const box=$('#ai-context'); if(!box) return;
   const shaky=COLREVIEW.filter(c=>c.uncertain).length;
@@ -2261,41 +2261,49 @@ function onRunAITick(on){
   RUN_AI=on;
   const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
   if(on && !configured){ RUN_AI=false; AI_PENDING_RUN=true; openAIModal(); return; }   // add a key first
-  if(on){ evaluateUncertainWithAI(); }
+  if(on){ runWholeFileReview(); }
   else { COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; }}); renderColumnReview(); }
 }
-// consult AI on the uncertain columns, keep the best of (engine, AI), label source
-async function evaluateUncertainWithAI(){
+// ONE whole-file pass (local-only). Sends header + a compact sample once, applies
+// per-column suggestions as annotations the user can keep or change.
+async function runWholeFileReview(){
   const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
-  const where=d.local?'local model':(SETTINGS.provider);
-  const targets=COLREVIEW.map((c,i)=>[c,i]).filter(([c])=>c.uncertain);
-  if(!targets.length){ if(st) st.textContent='No uncertain columns to check.'; return; }
-  let used=0, ok=0, failMsg='';
-  for(let k=0;k<targets.length;k++){
-    const [c,i]=targets[k];
-    if(st) st.innerHTML='<span class="spin"></span> Asking '+esc(where)+' about <b>'+esc(c.original)+'</b> ('+(k+1)+' of '+targets.length+')…';
-    const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='').slice(0,20);
-    try{
-      const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({column:c.original,values:vals,task:'type',provider:SETTINGS.provider,
-          url:(d.local?SETTINGS.key:''),model:SETTINGS.model,api_key:(d.local?'':SETTINGS.key)})})).json();
-      if(r.ok){ ok++;
-        if(r.suggestion && r.suggestion!==c.type){ c.localType=c.type; c.type=r.suggestion; c.source='ai'; used++; }
-        else { c.source='local'; }
-      } else { failMsg=r.error||'no response'; c.source='local'; }
-    }catch(e){ failMsg=e.message||'request failed'; c.source='local'; }
-  }
-  renderColumnReview();
-  const s2=$('#ai-run-status'); if(!s2) return;
-  if(ok===0){
-    s2.innerHTML='⚠︎ Couldn\u2019t reach the AI ('+esc(where)+(failMsg?': '+esc(String(failMsg).slice(0,60)):'')+
-      '). Kept the engine\u2019s reading. '+(d.local?'Is Ollama running?':'Check your key in ✦ AI setup.');
-  } else if(used){
-    s2.innerHTML='✓ AI ('+esc(where)+') refined <b>'+used+'</b> of '+targets.length+' column(s). Each shows its source below.';
-  } else {
-    s2.innerHTML='✓ AI ('+esc(where)+') checked '+targets.length+' column(s) and agreed with the engine.';
-  }
+  if(!d.local){ if(st) st.innerHTML='\u26A0\uFE0E Whole-file review needs a <b>local</b> model. Choose Local (Ollama) in \u2726 AI setup.'; return; }
+  const headers=COLREVIEW.map(c=>c.original);
+  const sample=(COL_SAMPLE||[]).slice(0,15);
+  if(st) st.innerHTML='<span class="spin"></span> AI is reviewing your whole file (local model \u2014 this can take up to a minute)\u2026';
+  try{
+    const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:SETTINGS.key, model:SETTINGS.model})})).json();
+    if(!r.ok){ if(st) st.innerHTML='\u26A0\uFE0E Could not complete the review'+(r.error?': '+esc(String(r.error).slice(0,90)):'')+'. Kept the engine reading.'; return; }
+    let changed=0; const byName={};
+    (r.columns||[]).forEach(c=>{ if(c.name) byName[String(c.name).toLowerCase().trim()]=c; });
+    COLREVIEW.forEach(col=>{ const v=byName[String(col.original).toLowerCase().trim()];
+      if(v && v.suggested_type){ col.aiReason=v.reason||'';
+        if(v.suggested_type!==col.type){ col.localType=col.type; col.type=v.suggested_type; col.source='ai'; changed++; }
+        else { col.source=col.source||'local'; } } });
+    renderColumnReview();
+    const s2=$('#ai-run-status'); if(s2){ s2.innerHTML='\u2713 AI reviewed the whole file'+(r.note?': '+esc(String(r.note).slice(0,120)):'')+'. '+(changed?('Suggested changes to <b>'+changed+'</b> column(s) \u2014 marked below.'):'It agreed with the engine.'); }
+  }catch(e){ if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
 }
+
+// After upload, recommend AI only if the engine is genuinely unsure AND a local model is set up.
+function maybeRecommendAI(){
+  if(AI_RECO_SHOWN) return;
+  const shaky=COLREVIEW.filter(c=>c.uncertain).length;
+  const d=AI_DEFAULTS[SETTINGS.provider]||{};
+  if(shaky>=3 && d.local && SETTINGS.key){ AI_RECO_SHOWN=true; showAIReco(shaky); }
+}
+function showAIReco(n){
+  let m=$('#aireco'); if(!m){ m=document.createElement('div'); m.id='aireco'; m.className='modal'; document.body.appendChild(m); }
+  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>Want AI to review this file?</h2>'+
+    '<button class="x" onclick="closeAIReco()">\u2715</button></div>'+
+    '<p class="set-sub"><b>'+n+' columns look uncertain.</b> A local model can review the whole file once and suggest a cleaner structure. Nothing leaves your computer.</p>'+
+    '<div class="modal-foot"><button class="btn ghost" onclick="closeAIReco()">No, I will do it myself</button>'+
+    '<button class="btn" onclick="closeAIReco(); RUN_AI=true; renderAIContext(); runWholeFileReview()">Review with AI</button></div></div>';
+  m.classList.add('on');
+}
+function closeAIReco(){ const m=$('#aireco'); if(m) m.classList.remove('on'); }
 
 // ---- Version control + History (stored locally in the browser) ----
 function _lsGet(k,def){ try{ return JSON.parse(localStorage.getItem(k))||def; }catch(e){ return def; } }
