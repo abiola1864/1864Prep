@@ -6,9 +6,9 @@
 <title>1864 Prep, wizard (prototype)</title>
 <style>
   :root{
-    --ink:#1b2431;--ink-soft:#586475;--faint:#98a2b1;--paper:#f7f6f2;--card:#fff;--line:#e7e3da;--line-soft:#f1eee7;
-    --navy:#1d3a53;--navy-d:#142a3d;--ok:#2f6f57;--ok-bg:#e7f1ec;--warn:#b5761c;--warn-bg:#f8efdc;--stop:#a83a3a;--stop-bg:#f7e7e5;
-    --mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;--sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --ink:#0F1A2E;--ink-soft:#5A6675;--faint:#94A0B1;--paper:#F6F8FB;--card:#FFFFFF;--line:#E4EAF1;--line-soft:#EEF2F6;
+    --navy:#16263F;--navy-d:#0E1B2E;--accent:#10B5A6;--ok:#1E8A6B;--ok-bg:#E3F3EE;--warn:#B7791F;--warn-bg:#FBF1DE;--stop:#C2452F;--stop-bg:#FBE9E6;
+    --mono:"Inter","SF Pro Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--sans:"Inter","SF Pro Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box} html,body{margin:0;height:100%}
   body{font-family:var(--sans);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;font-size:14px}
@@ -532,6 +532,7 @@
 .set-types{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.set-type{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#e4eaf1);border-radius:20px;padding:6px 12px;font-size:12.5px;cursor:pointer;background:#fff}.set-type.on{border-color:var(--navy,#16263F);background:#f0f4f8;font-weight:600}.set-type input{margin:0}
 .ai-done{color:#5b3a8a;font-weight:600}
 .sheet-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;max-height:300px;overflow:auto}.sheet-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#e4eaf1);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13.5px}.sheet-name{font-weight:600}.sheet-meta{color:var(--ink-soft,#5a6675);font-size:12px;margin-left:auto}.next-sheet{margin-top:14px;padding:12px 14px;border:1px dashed var(--teal,#2C7A8C);border-radius:10px;font-size:13.5px}.next-sheet .btn{margin-left:8px}
+.hint-bar{max-width:100%;border-radius:10px;padding:10px 14px;font-size:13px;margin:14px 0}.hint-bar.warn{background:var(--warn-bg);color:#7a5313;border:1px solid #f0dcae}
 </style>
 </head>
 <body>
@@ -551,7 +552,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v18 (multi-sheet picker + combine)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v19 (design refresh: palette + type)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2351,7 +2352,7 @@ function renderColumnReview(){
     let status;
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
     else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
-    else status=`<span class="cf ok" title="This name is clear, nothing to change">✓ looks good</span>`;
+    else status=``;   // clean names need no badge — quiet by default (only flag what needs attention)
     const src = c.source==='ai' ? `<button type="button" class="ibtn src-ai" title="This type was chosen with help from your AI model" onclick="showHelp(event,'src_ai')">i</button>`
               : c.source==='local' ? `<button type="button" class="ibtn" title="This type was determined by the built-in engine on this computer" onclick="showHelp(event,'src_engine')">i</button>` : '';
     return `<div class="mrow ${c.abnormal?'needpick':''}">
@@ -2361,7 +2362,11 @@ function renderColumnReview(){
   $('#matchrows').innerHTML=rows;
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
-  if(miss){ if(abn){miss.style.display='block';miss.innerHTML=`<b>${abn}</b> column(s) had no clear header, we proposed a name. Everything else is kept exactly as you named it. The <b>data type</b> is our best guess; change it on the right if it's wrong.`;} else {miss.style.display='block';miss.innerHTML=`All ${COLREVIEW.length} columns have clear names. The <b>data type</b> on the right is our best guess, change any if we got it wrong, then continue.`;} }
+  if(miss){
+    if(abn){ miss.style.display='block'; miss.className='hint-bar warn';
+      miss.innerHTML=`<b>${abn}</b> column${abn>1?'s':''} need a name — marked below. Set the <b>type</b> on the right if any looks wrong.`; }
+    else { miss.style.display='none'; }   // all clean → no banner at all
+  }
   renderAIContext();
 }
 
