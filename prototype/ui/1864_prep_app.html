@@ -533,6 +533,7 @@
 .ai-done{color:#5b3a8a;font-weight:600}
 .sheet-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;max-height:300px;overflow:auto}.sheet-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#e4eaf1);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13.5px}.sheet-name{font-weight:600}.sheet-meta{color:var(--ink-soft,#5a6675);font-size:12px;margin-left:auto}.next-sheet{margin-top:14px;padding:12px 14px;border:1px dashed var(--teal,#2C7A8C);border-radius:10px;font-size:13.5px}.next-sheet .btn{margin-left:8px}
 .hint-bar{max-width:100%;border-radius:10px;padding:10px 14px;font-size:13px;margin:14px 0}.hint-bar.warn{background:var(--warn-bg);color:#7a5313;border:1px solid #f0dcae}
+.onb-panel{max-width:560px;padding:40px 40px 30px}.onb-hero h1{font-size:28px;letter-spacing:-0.02em;font-weight:700;margin:14px 0 8px}.onb-hero .lead{font-size:15.5px;color:var(--ink-soft);max-width:44ch;margin:0 auto 24px;line-height:1.55}.feat-grid{display:flex;flex-direction:column;gap:10px;text-align:left;margin:0 0 26px}.feat{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--card);transition:.15s}.feat:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(16,181,166,.08)}.feat-ic{flex:0 0 34px;height:34px;border-radius:10px;background:#eef4f8;color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:16px}.feat b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}.feat span{font-size:13px;color:var(--ink-soft);line-height:1.45}.btn.lg{padding:13px 28px;font-size:15px;border-radius:12px}.onb-logo.mark svg{filter:drop-shadow(0 6px 16px rgba(22,38,63,.22))}
 </style>
 </head>
 <body>
@@ -552,7 +553,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v19 (design refresh: palette + type)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v20 (messy-panel detect + onboarding polish)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1015,13 +1016,13 @@ function showOnboard(){
 function obWelcome(){
   return '<div class="onb-hero"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#16263F"/><path d="M26 20l-8 12 8 12" stroke="#EAF1F8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 20l8 12-8 12" stroke="#10B5A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
     '<h1>Welcome to 1864 Prep</h1>'+
-    '<p class="lead">Clean any agency\u2019s messy records into trustworthy data, right here on this computer. Nothing is uploaded.</p>'+
-    '<div class="onb-tour">'+
-      '<div class="onb-t"><b>Columns first</b><span>See and confirm your columns before anything is cleaned.</span></div>'+
-      '<div class="onb-t"><b>You approve every change</b><span>The engine proposes; you decide. Every step is logged.</span></div>'+
-      '<div class="onb-t"><b>Reusable steps</b><span>Save a cleanup as a version and reuse it on future files.</span></div>'+
+    '<p class="lead">Turn any agency\u2019s messy records into clean, trustworthy data \u2014 entirely on this computer.</p>'+
+    '<div class="feat-grid">'+
+      '<div class="feat"><div class="feat-ic">\u25A6</div><div><b>Columns first</b><span>Confirm your columns before anything is cleaned.</span></div></div>'+
+      '<div class="feat"><div class="feat-ic">\u2713</div><div><b>You approve every change</b><span>The engine proposes; you decide. Every step is logged.</span></div></div>'+
+      '<div class="feat"><div class="feat-ic">\u21BB</div><div><b>Reusable steps</b><span>Save a cleanup and reuse it on future files.</span></div></div>'+
     '</div>'+
-    '<div class="onb-actions"><button class="btn" onclick="onbNext()">Get started \u2192</button></div>'+
+    '<div class="onb-actions" style="justify-content:center"><button class="btn lg" onclick="onbNext()">Get started \u2192</button></div>'+
     '<p class="onb-skip" onclick="onbSkipAll()">Skip setup, just let me upload</p></div>';
 }
 function obBasics(){
