@@ -3,11 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1864 Prep, wizard (prototype)</title>
+<title>1864 Prep</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 40 40%22%3E%3Crect width=%2240%22 height=%2240%22 rx=%229%22 fill=%22%233E4E5E%22/%3E%3Crect x=%2214%22 y=%2210%22 width=%2212%22 height=%223.2%22 rx=%221%22 fill=%22%23C99A4E%22/%3E%3Crect x=%2218.4%22 y=%2213%22 width=%223.2%22 height=%2214%22 fill=%22%23EFE7D6%22/%3E%3Crect x=%2213%22 y=%2227%22 width=%2214%22 height=%223.4%22 rx=%221%22 fill=%22%23C99A4E%22/%3E%3C/svg%3E">
 <style>
   :root{
-    --ink:#0F1A2E;--ink-soft:#5A6675;--faint:#94A0B1;--paper:#F6F8FB;--card:#FFFFFF;--line:#E4EAF1;--line-soft:#EEF2F6;
-    --navy:#16263F;--navy-d:#0E1B2E;--accent:#10B5A6;--ok:#1E8A6B;--ok-bg:#E3F3EE;--warn:#B7791F;--warn-bg:#FBF1DE;--stop:#C2452F;--stop-bg:#FBE9E6;
+    --ink:#2B3742;--ink-soft:#5C6773;--faint:#9AA4AE;--paper:#F4F1EA;--card:#FFFFFF;--line:#E3DECF;--line-soft:#EFEBE0;
+    --navy:#3E4E5E;--navy-d:#333F4B;--accent:#C99A4E;--accent-d:#A8823F;--terra:#B5623C;
+    --ok:#4B7B5A;--ok-bg:#E7F0E9;--warn:#B5761C;--warn-bg:#F7EDD8;--stop:#B5623C;--stop-bg:#F3E4DC;
     --mono:"Inter","SF Pro Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--sans:"Inter","SF Pro Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box} html,body{margin:0;height:100%}
@@ -65,10 +67,12 @@
 
   /* match / unify */
   .matchtable{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;max-width:860px}
-  .mh,.mrow{display:grid;grid-template-columns:1fr 30px 1fr 120px;gap:12px;align-items:center;padding:10px 16px}
+  .mh,.mrow{display:grid;grid-template-columns:1fr 30px 1.1fr 130px;gap:14px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line-soft);transition:background .12s}
+.mrow:hover{background:#fafcfe}
+.mrow:last-child{border-bottom:0}
   .mh{background:#f5f8fb;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700}
   .mrow{border-top:1px solid var(--line-soft)}
-  .mrow .raw{font-family:var(--mono);font-size:13px;font-weight:600}
+  .mrow .raw{font-size:13.5px;font-weight:600;color:var(--ink)}
   .mrow .arr{color:#5b91c0;text-align:center}
   .mrow select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:#fff}
   .mrow.ignore{opacity:.55}
@@ -515,25 +519,31 @@
 #identity .role.admin{background:#eef4fb;color:#1d3a53}#identity .role.member{background:var(--wash);color:var(--ink-soft)}
 .steps.muted{opacity:.4;transition:opacity .2s}
 .setgear.active{background:var(--navy);color:#fff;border-radius:8px}
-.cf.ai{background:#f3eefb;color:#5b3a8a;border:1px solid #e2d5f2}
+.cf.ai{background:#F3E4DC;color:#B5623C;border:1px solid #e2d5f2}
 .ai-out{font-size:12px;color:var(--ink)}
 .ai-mode{display:block;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;cursor:pointer;font-size:13.5px}
 .ai-mode b{color:var(--ink)}
 .ai-mode span{color:var(--ink-soft);display:block;font-size:12px;margin-top:2px;margin-left:20px}
 .ai-mode input{margin-right:8px}
-.ai-offer{border:1px solid #e2d5f2;background:#f7f3fc;border-radius:12px;padding:14px 16px;margin:16px 0;font-size:13.5px;color:var(--ink)}.ai-offer b{color:#5b3a8a}.ai-offer-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
-.run-ai{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);margin:14px 0 2px;cursor:pointer}.run-ai input{margin:0}.run-ai-note{font-size:11.5px;color:var(--faint,#8a9299);margin:0 0 2px 22px}.run-ai-status{font-size:12px;color:var(--navy);margin:4px 0 0 22px}.cf.src{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}.cf.src.ai{background:#f3eefb;color:#5b3a8a}.cf.src.loc{background:var(--wash,#f1f4f7);color:var(--ink-soft,#5a6a7a)}
+.ai-offer{border:1px solid #e2d5f2;background:#f7f3fc;border-radius:12px;padding:14px 16px;margin:16px 0;font-size:13.5px;color:var(--ink)}.ai-offer b{color:#B5623C}.ai-offer-actions{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.run-ai{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);margin:14px 0 2px;cursor:pointer}.run-ai input{margin:0}.run-ai-note{font-size:11.5px;color:var(--faint,#8a9299);margin:0 0 2px 22px}.run-ai-status{font-size:12px;color:var(--navy);margin:4px 0 0 22px}.cf.src{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}.cf.src.ai{background:#F3E4DC;color:#B5623C}.cf.src.loc{background:var(--wash,#f1f4f7);color:var(--ink-soft,#5a6a7a)}
 .ibtn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--line,#d8dee5);background:#fff;color:var(--navy,#1F3A5F);font-size:10px;font-style:italic;font-weight:700;cursor:pointer;line-height:1;padding:0;margin-left:6px;vertical-align:middle;font-family:Georgia,serif}.ibtn:hover{background:var(--navy,#1F3A5F);color:#fff}.ipop{position:absolute;z-index:10001;max-width:300px;background:#fff;border:1px solid var(--line,#d8dee5);border-radius:10px;box-shadow:0 10px 30px rgba(30,58,95,.18);padding:12px 14px;font-size:12.5px;color:var(--ink,#1A1F24);line-height:1.5}.ipop-t{font-weight:700;margin-bottom:4px}.ipop-b code{background:#f1f4f7;padding:1px 5px;border-radius:5px;font-size:11.5px}
 .modal-card.aim{max-width:520px}.aim-step{margin:16px 0}.aim-q{font-size:15px;font-weight:650;color:var(--ink,#1A1F24);margin-bottom:10px;display:flex;align-items:center;gap:6px}.aim-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}@media(max-width:520px){.aim-opts{grid-template-columns:1fr}}.aim-opt{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1.5px solid var(--line,#e4eaf1);background:#fff;border-radius:12px;padding:14px 13px;cursor:pointer;transition:.15s}.aim-opt:hover{border-color:var(--teal,#2C7A8C);transform:translateY(-1px)}.aim-opt.sel{border-color:var(--navy,#1F3A5F);background:#f0f4f8;box-shadow:0 0 0 1px var(--navy,#1F3A5F) inset}.aim-opt .ico{font-size:18px}.aim-opt .lab{font-weight:650;font-size:13.5px}.aim-opt .hint{font-size:11.5px;color:var(--ink-soft,#5a6675);line-height:1.35}.aim-field{display:flex;flex-direction:column;gap:5px;margin:10px 0}.aim-field label{font-size:12px;font-weight:600;color:var(--ink-soft,#5a6675);display:flex;align-items:center;gap:6px}.aim-priv{font-size:12px;color:var(--ink-soft,#5a6675);margin-top:8px;line-height:1.45}#aim-provseg{margin-bottom:6px}
 .modal-card .modal-foot{position:sticky;bottom:-2px;background:var(--paper,#f5f8fb);padding:12px 0 2px;margin-top:10px;border-top:1px solid var(--line,#e4eaf1);display:flex;gap:10px;justify-content:flex-end}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line,#e4eaf1);border-top-color:var(--navy,#1F3A5F);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:4px}@keyframes spin{to{transform:rotate(360deg)}}.dl-card{border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:6px 14px;margin:12px 0;max-width:520px}.dl-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line,#eef2f6)}.dl-row:last-child{border-bottom:0}.dl-lab{font-weight:600;font-size:13.5px}.dl-btns{display:flex;gap:8px}.dl-log{margin:8px 0;max-width:640px}.dl-log summary{cursor:pointer;font-size:13px;color:var(--navy,#1F3A5F);font-weight:600;padding:6px 0}
-.ibtn.src-ai{border-color:#d9c9ef;color:#6a3fb0}
+.ibtn.src-ai{border-color:#e6cbbd;color:#B5623C}
 .done-card{border:1px solid var(--line,#e4eaf1);border-radius:14px;background:#fff;padding:20px;max-width:720px;box-shadow:0 4px 16px rgba(30,58,95,.05)}.done-line{display:flex;align-items:center;gap:10px;margin:16px 0;max-width:720px;flex-wrap:wrap}.done-sec{max-width:720px;border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:12px 16px;margin:10px 0}.done-sec>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink,#1A1F24);list-style:none;display:flex;align-items:center;gap:8px}.done-sec>summary::-webkit-details-marker{display:none}.done-sec>summary::before{content:'▸';color:var(--ink-soft,#5a6675);transition:.15s}.done-sec[open]>summary::before{transform:rotate(90deg)}.sec-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5a6675);background:var(--wash,#f1f4f7);padding:2px 7px;border-radius:20px}
 .set-types{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.set-type{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#e4eaf1);border-radius:20px;padding:6px 12px;font-size:12.5px;cursor:pointer;background:#fff}.set-type.on{border-color:var(--navy,#16263F);background:#f0f4f8;font-weight:600}.set-type input{margin:0}
-.ai-done{color:#5b3a8a;font-weight:600}
+.ai-done{color:#B5623C;font-weight:600}
 .sheet-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;max-height:300px;overflow:auto}.sheet-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#e4eaf1);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13.5px}.sheet-name{font-weight:600}.sheet-meta{color:var(--ink-soft,#5a6675);font-size:12px;margin-left:auto}.next-sheet{margin-top:14px;padding:12px 14px;border:1px dashed var(--teal,#2C7A8C);border-radius:10px;font-size:13.5px}.next-sheet .btn{margin-left:8px}
 .hint-bar{max-width:100%;border-radius:10px;padding:10px 14px;font-size:13px;margin:14px 0}.hint-bar.warn{background:var(--warn-bg);color:#7a5313;border:1px solid #f0dcae}
 .onb-panel{max-width:560px;padding:40px 40px 30px}.onb-hero h1{font-size:28px;letter-spacing:-0.02em;font-weight:700;margin:14px 0 8px}.onb-hero .lead{font-size:15.5px;color:var(--ink-soft);max-width:44ch;margin:0 auto 24px;line-height:1.55}.feat-grid{display:flex;flex-direction:column;gap:10px;text-align:left;margin:0 0 26px}.feat{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--card);transition:.15s}.feat:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(16,181,166,.08)}.feat-ic{flex:0 0 34px;height:34px;border-radius:10px;background:#eef4f8;color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:16px}.feat b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}.feat span{font-size:13px;color:var(--ink-soft);line-height:1.45}.btn.lg{padding:13px 28px;font-size:15px;border-radius:12px}.onb-logo.mark svg{filter:drop-shadow(0 6px 16px rgba(22,38,63,.22))}
+.ai-tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;color:#B5623C;background:#F3E4DC;border:1px solid #e6cbbd;border-radius:20px;padding:2px 8px}.mrow.ai-row{box-shadow:inset 3px 0 0 var(--accent,#10B5A6)}.ai-done{color:#B5623C;font-weight:600}.ai-swatch{color:#B5623C;font-weight:700}
+.ver-sid{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#B5623C;background:#F3E4DC;border-radius:6px;padding:1px 6px;margin-left:6px}
+.log-item{display:flex;align-items:flex-start;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-soft);font-size:13px}.log-ic{flex:0 0 20px;text-align:center}.log-d{flex:1}.log-d b{font-weight:600;color:var(--ink)}.log-file{color:var(--ink-soft);font-weight:400}.log-when{color:var(--faint);font-size:11.5px;white-space:nowrap}.log-sid{font-family:ui-monospace,Menlo,monospace;color:var(--faint)}
+.act-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line-soft);font-size:13px}.act-row:last-child{border-bottom:0}.act-ic{flex:0 0 20px;text-align:center;color:var(--accent,#10B5A6)}.act-tx{flex:1;color:var(--ink)}.act-tm{color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
+.by-you{font-size:11px;color:var(--ink-soft);background:var(--wash,#f1f4f7);border-radius:20px;padding:2px 8px}.by-eng{font-size:11px;color:var(--faint)}
+.screen h1{font-weight:800;letter-spacing:-0.02em}.eyebrow{color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px}.btn{background:var(--navy);color:#fff}.btn:hover{background:var(--navy-d)}.brand b{letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -543,8 +553,8 @@
 <div class="app">
   <nav class="rail">
     <div class="brand">
-      <svg viewBox="0 0 40 40" fill="none"><rect x="4" y="4" width="32" height="32" rx="9" fill="#16263F"/><path d="M16 13l-4.5 7 4.5 7" stroke="#EAF1F8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M24 13l4.5 7-4.5 7" stroke="#10B5A6" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div><b>1864 PREP</b><span>wizard</span></div>
+      <svg viewBox="0 0 40 40" fill="none"><rect x="4" y="4" width="32" height="32" rx="9" fill="#3E4E5E"/><rect x="14" y="10" width="12" height="3.2" rx="1" fill="#C99A4E"/><rect x="18.4" y="13" width="3.2" height="14" fill="#EFE7D6"/><rect x="13" y="27" width="14" height="3.4" rx="1" fill="#C99A4E"/></svg>
+      <div><b style="color:#EFE7D6">1864 PREP</b><span style="color:var(--accent)">wizard</span></div>
     </div>
     <ol class="steps" id="steps">
       <li data-s="3"><span class="n"><span>1</span></span> Upload</li>
@@ -553,7 +563,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v21 (fix reference-clean crash)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v26 (brand icon + theme)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -593,8 +603,8 @@
 
     <!-- 4 match names -->
     <section class="screen" data-screen="4">
-      <p class="eyebrow">Step 1 · Columns first</p><h1>These are your columns, check them</h1>
-      <p class="lead">Before any value is touched, confirm the columns. We detected each column's name and type from your file; edit any name here. Nothing is cleaned until you confirm.</p>
+      <p class="eyebrow">Step 1 · Columns first</p><h1>Check your columns</h1>
+      <p class="lead">Confirm names and types before any value is touched. Nothing is cleaned until you continue.</p>
       <div class="matchtable" id="matchtable">
         <div class="mh"><span>Name in your file</span><span></span><span>Column name (edit if needed)</span><span>Data type <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'data_type')">i</button></span></div>
         <div id="matchrows"></div>
@@ -642,6 +652,12 @@
         <button class="btn ghost sm" onclick="saveCurrentAsVersion()">⭑ Save these steps as a version</button>
         <span class="set-sub" style="font-size:12px">Reuse this cleaning on future files of the same type.</span>
       </div>
+
+      <details class="done-sec" id="activitypanel">
+        <summary>Activity log <span class="sec-tag">everything you did</span></summary>
+        <div style="margin-top:10px"><div id="activity-list"></div>
+          <button class="btn ghost sm" style="margin-top:10px" onclick="downloadActivityLog()">Download activity log (.txt)</button></div>
+      </details>
 
       <details class="done-sec" id="distpanel" style="display:none">
         <summary>See your data’s shape</summary>
@@ -790,9 +806,10 @@
         </div>
 
         <div class="set-sec">
-          <div class="set-h">History</div>
-          <p class="set-sub">What you've cleaned recently, and which version (if any) was used.</p>
-          <div id="hist-list"><p class="set-sub">Nothing yet.</p></div>
+          <div class="set-h">Activity log <span class="set-tag">audit trail</span></div>
+          <p class="set-sub">Every action on this computer, uploads, reshapes, column and type changes, AI use, cleans, versions, and downloads, with timestamps.</p>
+          <div id="log-list"><p class="set-sub">Nothing logged yet.</p></div>
+          <button class="btn ghost sm" style="margin-top:10px" onclick="exportActivityLog()">⬇ Export log (CSV)</button>
         </div>
 
         <div class="set-sec">
@@ -812,7 +829,7 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// State that other top-level code and handlers depend on — declared FIRST so
+// State that other top-level code and handlers depend on, declared FIRST so
 // there is no temporal-dead-zone error during load (which previously aborted the
 // script and left the toolkit + AI setup non-functional).
 let SETTINGS=Object.assign({region:'ng',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
@@ -979,6 +996,7 @@ async function bootApp(){
   // previous visitor). The local desktop app remembers setup as normal.
   try{
     const cfg = await (await fetch('/api/config')).json();
+    if(cfg && cfg.desktop){ window.__DESKTOP__ = true; }
     if(cfg && cfg.demo){
       ['prep_setup','prep_owner','prep_current','prep_sector','prep_type_prior','prep_pass','prep_settings']
         .forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
@@ -1014,9 +1032,9 @@ function showOnboard(){
   if(dots) dots.innerHTML=steps.map((_,i)=>'<i class="'+(i<=ONB.step?'on':'')+'"></i>').join('');
 }
 function obWelcome(){
-  return '<div class="onb-hero"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#16263F"/><path d="M26 20l-8 12 8 12" stroke="#EAF1F8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 20l8 12-8 12" stroke="#10B5A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
+  return '<div class="onb-hero"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#3E4E5E"/><rect x="22" y="15" width="20" height="5" rx="1.5" fill="#C99A4E"/><rect x="29" y="20" width="6" height="24" fill="#EFE7D6"/><rect x="20" y="44" width="24" height="5.5" rx="1.5" fill="#C99A4E"/></svg></div>'+
     '<h1>Welcome to 1864 Prep</h1>'+
-    '<p class="lead">Turn any agency\u2019s messy records into clean, trustworthy data \u2014 entirely on this computer.</p>'+
+    '<p class="lead">Turn any agency\u2019s messy records into clean, trustworthy data  entirely on this computer.</p>'+
     '<div class="feat-grid">'+
       '<div class="feat"><div class="feat-ic">\u25A6</div><div><b>Columns first</b><span>Confirm your columns before anything is cleaned.</span></div></div>'+
       '<div class="feat"><div class="feat-ic">\u2713</div><div><b>You approve every change</b><span>The engine proposes; you decide. Every step is logged.</span></div></div>'+
@@ -1128,7 +1146,7 @@ function onbSkipAll(){
 function askPassword(){
   const ob=$('#onboard'); ob.style.display='flex';
   ob.querySelector('#onb-dots').innerHTML='';
-  ob.querySelector('#onb-body').innerHTML='<div class="onb-card center"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#16263F"/><path d="M26 20l-8 12 8 12" stroke="#EAF1F8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 20l8 12-8 12" stroke="#10B5A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'+
+  ob.querySelector('#onb-body').innerHTML='<div class="onb-card center"><div class="onb-logo mark"><svg viewBox="0 0 64 64" width="64" height="64" fill="none"><rect x="2" y="2" width="60" height="60" rx="16" fill="#3E4E5E"/><rect x="22" y="15" width="20" height="5" rx="1.5" fill="#C99A4E"/><rect x="29" y="20" width="6" height="24" fill="#EFE7D6"/><rect x="20" y="44" width="24" height="5.5" rx="1.5" fill="#C99A4E"/></svg></div>'+
     '<h1>Welcome back</h1><p class="lead">Enter your password to open 1864 Prep.</p>'+
     '<div class="field"><input id="ob-unlock" type="password" placeholder="Password" onkeydown="if(event.key===\'Enter\')tryUnlock()"></div>'+
     '<div class="onb-actions"><button class="btn" onclick="tryUnlock()">Open \u2192</button></div>'+
@@ -1153,7 +1171,7 @@ function go(n){
   if(n===4){ if(COLREVIEW&&COLREVIEW.length) renderColumnReview(); else renderMatch(); if(typeof refreshAIStatusLine==='function') refreshAIStatusLine(); }
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
-  if(n===7)renderExport();
+  if(n===7){renderExport(); if(typeof renderActivity==="function") renderActivity();}
   if(n===8)renderToolkit();
 }
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
@@ -1800,9 +1818,12 @@ async function doExport(){
   makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
   try{
     const fd=new FormData(); fd.append('session_id',SESSION_ID); fd.append('decisions',JSON.stringify(decisions));
+    fd.append('ai_cols', JSON.stringify(window.__AI_COLS__||[]));
     const res=await fetch('/api/export',{method:'POST',body:fd});
     const d=await res.json();
     if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
+    try{ logEvent('clean', d.changes_total+' change(s) applied across '+d.cols_out+' columns'); }catch(e){}
+    logEvent('\u2713','Cleaned data  '+d.changes_total+' change(s) applied across '+d.cols_out+' columns');
     let html='<div class="tk-summary"><b>'+d.rows_out+'</b> rows · <b>'+d.cols_out+'</b> columns · <b>'+d.changes_total+'</b> changes applied</div>';
     html+='<div class="dl-card"><div class="dl-row"><span class="dl-lab">Cleaned data</span>'+
       '<span class="dl-btns"><button class="btn sm" onclick="expDL(\''+d.result_id+'\',\'xlsx\')">Excel</button>'+
@@ -1813,8 +1834,9 @@ async function doExport(){
       '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button></span></div></div>';
     if(d.audit&&d.audit.length){
       html+='<details class="dl-log"><summary>View change log ('+d.audit.length+' entries)</summary>'+
-        '<div class="tk-tablewrap"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>rows</th></tr></thead><tbody>'+
-        d.audit.map(a=>'<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+esc(String(a.count))+'</td></tr>').join('')+'</tbody></table></div></details>';
+        '<div class="tk-tablewrap"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>by</th><th>rows</th></tr></thead><tbody>'+
+        d.audit.map(a=>{ const by=a.by||'engine'; const bytag = by==='AI'?'<span class="ai-tag">✦ AI</span>':(by==='you'?'<span class="by-you">you</span>':'<span class="by-eng">engine</span>');
+          return '<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+bytag+'</td><td>'+esc(String(a.count))+'</td></tr>'; }).join('')+'</tbody></table></div></details>';
     }
     // multi-sheet: record this sheet's result; if more sheets are queued, offer to continue
     if(CURRENT_SHEET){
@@ -1846,13 +1868,25 @@ async function downloadAllSheets(){
     else toast('Could not combine sheets'+(r.error?': '+r.error:''));
   }catch(e){ toast('Combine failed: '+e.message); }
 }
-function expDL(id,fmt){
-  // anchor-download works in the browser and desktop; the server sends the file
-  // with an attachment filename so it saves instead of navigating.
+async function expDL(id,fmt){
+  // Desktop can't trigger a browser download, so save straight to Downloads and
+  // tell the user where. In the browser/Render, use the normal download.
+  if(window.__DESKTOP__){
+    toast('Saving your '+fmt.toUpperCase()+'…', {duration:3000});
+    try{
+      const r=await (await fetch('/api/save_to_disk',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({result_id:id, fmt:fmt})})).json();
+      if(r.saved){ toast('✓ Saved to '+r.saved, {kind:'good', sticky:true}); try{ logEvent('download', fmt.toUpperCase()+' saved to '+r.saved); }catch(e){} }
+      else { toast('Could not save'+(r.error?': '+r.error:''), {kind:'warn', sticky:true}); }
+    }catch(e){ toast('Save failed: '+e.message, {kind:'warn', sticky:true}); }
+    return;
+  }
   const url='/api/tool/download/'+id+'?fmt='+fmt;
   const a=document.createElement('a'); a.href=url; a.setAttribute('download','');
   document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0);
+  try{ logEvent('download', fmt.toUpperCase()+' downloaded'); }catch(e){}
   toast('Preparing your '+fmt.toUpperCase()+' download…', {duration:4000});
+  try{ logEvent('↓','Downloaded '+fmt.toUpperCase()+' file'); }catch(e){}
 }
 function renderExport(){
   let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
@@ -1911,11 +1945,12 @@ function renderSettingsLists(){
     : 'No password set. The app opens straight to work.';
   // versions + history
   const vl=$('#ver-list'); if(vl){ const vs=getVersions();
-    vl.innerHTML = vs.length ? vs.map(v=>'<div class="ver-item"><div><b>'+esc(v.name)+'</b>'+
-      '<div class="vmeta">'+((v.columns||[]).length)+' columns · '+new Date(v.created).toLocaleDateString()+'</div></div>'+
+    vl.innerHTML = vs.length ? vs.map(v=>'<div class="ver-item"><div><b>'+esc(v.name)+'</b>'+(v.sid?' <span class="ver-sid">#'+esc(v.sid)+'</span>':'')+
+      '<div class="vmeta">'+((v.columns||[]).length)+' columns · '+new Date(v.created).toLocaleDateString()+(v.ai_cols&&v.ai_cols.length?(' · ✦ AI helped on '+v.ai_cols.length):'')+'</div></div>'+
       '<div><button class="btn sm" onclick="applyVersion(\''+v.id+'\')">Apply to new file</button> '+
       '<button class="btn sm ghost" onclick="deleteVersion(\''+v.id+'\')">Delete</button></div></div>').join('')
       : '<p class="set-sub">No versions yet. Clean a file, then choose \u201cSave these steps as a version\u201d on the last screen.</p>'; }
+  if(typeof renderActivityLog==='function') renderActivityLog();
   const hl=$('#hist-list'); if(hl){ const h=getHistory();
     hl.innerHTML = h.length ? h.slice(0,20).map(x=>'<div class="hist-item"><span>'+esc(x.file)+' · '+x.cols+' cols'+(x.version?(' · via \u201c'+esc(x.version)+'\u201d'):'')+'</span><span class="vmeta">'+new Date(x.when).toLocaleString()+'</span></div>').join('')
       : '<p class="set-sub">Nothing yet.</p>'; }
@@ -2192,7 +2227,9 @@ async function onRealFile(e){
   // fresh start for every upload: drop any prior file's columns, samples, AI state
   COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false;
   CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[];
+  ACTIVITY=[];
   try{ SESSION_ID=null; }catch(_){}
+  logEvent('\u2191','Uploaded '+file.name);
   PENDING_FILE=file;
   try{ e.target.value=''; }catch(_){}   // allow re-selecting the same file later
   // Multi-sheet workbook? let the user pick which sheet(s) to clean before anything else.
@@ -2264,7 +2301,7 @@ function offerReshape(data, file){
   m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>📊 Looks like panel data</h2></div>'+
     '<p class="set-sub">Your file has <b>'+n+' '+esc(axis)+' columns</b> across the top (like 1960–2019). '+
     'That\u2019s a time variable, not '+n+' separate columns. Reshape to <b>long format</b> so each '+esc(axis)+' becomes a row? This is the tidy shape most tools expect.</p>'+
-    '<div class="modal-foot"><button class="btn ghost" onclick="closeReshape(); buildColumnReview(window.__PROFILE__,window.__FILE__.name); go(4);">Keep wide</button>'+
+    '<div class="modal-foot"><button class="btn ghost" onclick="closeReshape(); try{logEvent(\'skip\',\'Kept wide format (declined reshape)\');}catch(e){} buildColumnReview(window.__PROFILE__,window.__FILE__.name); go(4);">Keep wide</button>'+
     '<button class="btn" onclick="doReshape()">Reshape to long</button></div></div>';
   window.__PROFILE__=data; window.__FILE__=file;
   m.classList.add('on');
@@ -2284,7 +2321,7 @@ async function doReshape(){
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on');
       if(r.error){ toast('Could not reshape: '+r.error); buildColumnReview(data,file.name); }
-      else { toast('Reshaped to long — '+r.rows+' rows.', {kind:'good'}); buildColumnReview(r,file.name); }
+      else { toast('Reshaped to long, '+r.rows+' rows.', {kind:'good'}); try{ logEvent('reshape','Reshaped panel to long ('+r.rows+' rows)'); }catch(e){} buildColumnReview(r,file.name); }
       reached=Math.max(reached,4); go(4);
     },300);
   }catch(e){ ov.classList.remove('on'); toast('Reshape failed: '+e.message); buildColumnReview(data,file.name); go(4); }
@@ -2312,6 +2349,8 @@ function buildColumnReview(data,filename){
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   const rf=$('#rf-file'); if(rf&&data.rows!=null) rf.textContent=data.rows+'×'+(data.cols||cols.length);
   renderColumnReview();
+  try{ logEvent('upload', ((data.rows!=null?data.rows:COLREVIEW.length))+' rows × '+((data.cols!=null?data.cols:cols.length))+' columns read'); }catch(e){}
+  if(typeof maybeRecommendAI==='function') maybeRecommendAI();
 }
 
 const TYPE_LABEL={date:'Date',datetime:'Date & time',numeric:'Number',identifier:'ID / code',
@@ -2319,7 +2358,7 @@ const TYPE_LABEL={date:'Date',datetime:'Date & time',numeric:'Number',identifier
   categorical:'Category',name:'Name',free_text:'Text'};
 
 function applySuggestion(i){ COLREVIEW[i].name=COLREVIEW[i].suggestion; COLREVIEW[i].suggestion=''; renderColumnReview(); }
-function setColType(i,v){ COLREVIEW[i].type=v; }
+function setColType(i,v){ const c=COLREVIEW[i]; if(c && c.type!==v){ logEvent('\u270E','Changed type of "'+c.original+'" to '+(TYPE_LABEL[v]||v)+' (you)'); } if(c) c.type=v; }
 
 // Ask the configured model about ONE column, the concrete, visible embodiment
 // of "AI acts on the current column, only as a suggestion you approve".
@@ -2353,19 +2392,18 @@ function renderColumnReview(){
     let status;
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
     else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
-    else status=``;   // clean names need no badge — quiet by default (only flag what needs attention)
-    const src = c.source==='ai' ? `<button type="button" class="ibtn src-ai" title="This type was chosen with help from your AI model" onclick="showHelp(event,'src_ai')">i</button>`
-              : c.source==='local' ? `<button type="button" class="ibtn" title="This type was determined by the built-in engine on this computer" onclick="showHelp(event,'src_engine')">i</button>` : '';
-    return `<div class="mrow ${c.abnormal?'needpick':''}">
+    else status=``;   // clean names need no badge, quiet by default (only flag what needs attention)
+    const src = c.source==='ai' ? `<span class="ai-tag" title="Type suggested by AI, teal means AI helped">✦ AI</span>` : '';
+    return `<div class="mrow ${c.abnormal?'needpick':''} ${c.source==='ai'?'ai-row':''}">
       <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
-      <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status} ${src}</span>
+      <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" onchange="if(this.value!==COLREVIEW[${i}].original)logEvent('\u270E','Renamed \u201c'+COLREVIEW[${i}].original+'\u201d to \u201c'+this.value+'\u201d')" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status} ${src}</span>
       ${typeSelect(i,c.type)}</div>`;}).join('');
   $('#matchrows').innerHTML=rows;
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
   if(miss){
     if(abn){ miss.style.display='block'; miss.className='hint-bar warn';
-      miss.innerHTML=`<b>${abn}</b> column${abn>1?'s':''} need a name — marked below. Set the <b>type</b> on the right if any looks wrong.`; }
+      miss.innerHTML=`<b>${abn}</b> column${abn>1?'s':''} need a name, marked below. Set the <b>type</b> on the right if any looks wrong.`; }
     else { miss.style.display='none'; }   // all clean → no banner at all
   }
   renderAIContext();
@@ -2402,7 +2440,7 @@ async function runWholeFileReview(){
   if(!d.local){ if(st) st.innerHTML='\u26A0\uFE0E Whole-file review needs a <b>local</b> model. Choose Local (Ollama) in \u2726 AI setup.'; return; }
   const headers=COLREVIEW.map(c=>c.original);
   const sample=(COL_SAMPLE||[]).slice(0,8);
-  if(st) st.innerHTML='<span class="spin"></span> AI is reviewing your whole file (local model \u2014 this can take up to a minute)\u2026';
+  if(st) st.innerHTML='<span class="spin"></span> AI is reviewing your whole file (local model  this can take up to a minute)\u2026';
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:SETTINGS.key, model:SETTINGS.model})})).json();
@@ -2413,10 +2451,13 @@ async function runWholeFileReview(){
       if(v && v.suggested_type){ col.aiReason=v.reason||'';
         if(v.suggested_type!==col.type){ col.localType=col.type; col.type=v.suggested_type; col.source='ai'; changed++; }
         else { col.source=col.source||'local'; } } });
+    window.__AI_COLS__ = COLREVIEW.filter(c=>c.source==='ai').map(c=>c.original);
+    logEvent('\u2726','AI reviewed the file, refined '+changed+' column(s)'+(changed?': '+window.__AI_COLS__.join(', '):''));
+    try{ logEvent('ai', changed? ('AI refined '+changed+' column(s): '+window.__AI_COLS__.join(', ')) : 'AI reviewed, agreed with engine'); }catch(e){}
     renderColumnReview();
     const s2=$('#ai-run-status'); if(s2){
-      if(changed){ s2.innerHTML='<span class="ai-done">✦ AI refined <b>'+changed+'</b> column'+(changed>1?'s':'')+'</span> — marked with ✦ below. Tap any to see why.'; }
-      else { s2.innerHTML='<span class="ai-done">✦ AI agreed with the engine</span> — nothing to change.'; }
+      if(changed){ s2.innerHTML='<span class="ai-done">✦ AI refined <b>'+changed+'</b> column'+(changed>1?'s':'')+'</span>, shown in <span class="ai-swatch">teal</span> below.'; }
+      else { s2.innerHTML='<span class="ai-done">✦ AI agreed with the engine</span>, nothing to change.'; }
     }
   }catch(e){ if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
 }
@@ -2447,6 +2488,58 @@ function saveVersion(v){ const all=getVersions(); all.unshift(v); _lsSet('prep_v
 function deleteVersion(id){ _lsSet('prep_versions', getVersions().filter(v=>v.id!==id)); renderSettingsLists(); }
 function getHistory(){ return _lsGet('prep_history',[]); }
 function addHistory(h){ const all=getHistory(); all.unshift(h); _lsSet('prep_history',all.slice(0,100)); }
+// Full activity log: a timestamped record of everything in a session, uploads,
+// reshape, renames, type changes (engine vs AI), AI runs, cleans, saves, downloads.
+let ACTIVITY=[];
+function logEvent(icon, text){
+  const e={when:new Date().toISOString(), icon:icon, text:text};
+  ACTIVITY.push(e);
+  // also persist a compact line to long-term history
+  addHistory({when:e.when, file:(PENDING_FILE&&PENDING_FILE.name)||'', text:(icon+' '+text)});
+  const box=$('#activity-list'); if(box) renderActivity();
+}
+function renderActivity(){
+  const box=$('#activity-list'); if(!box) return;
+  box.innerHTML = ACTIVITY.length ? ACTIVITY.slice().reverse().map(e=>
+    '<div class="act-row"><span class="act-ic">'+esc(e.icon)+'</span><span class="act-tx">'+esc(e.text)+'</span>'+
+    '<span class="act-tm">'+new Date(e.when).toLocaleTimeString()+'</span></div>').join('')
+    : '<div class="set-sub">No activity yet.</div>';
+}
+function downloadActivityLog(){
+  const lines=ACTIVITY.map(e=>new Date(e.when).toLocaleString()+'  '+e.icon+'  '+e.text);
+  const header='1864 Prep, activity log\nFile: '+((PENDING_FILE&&PENDING_FILE.name)||'')+'\nGenerated: '+new Date().toLocaleString()+'\n\n';
+  const blob=new Blob([header+lines.join('\n')+'\n'],{type:'text/plain'});
+  const url=URL.createObjectURL(blob); const a=document.createElement('a');
+  a.href=url; a.download='1864Prep_activity_log.txt'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{a.remove(); URL.revokeObjectURL(url);},0);
+  toast('Activity log downloaded.', {kind:'good'});
+}
+// --- activity log: an audit trail of every meaningful action (with or without AI) ---
+function getLog(){ return _lsGet('prep_activity',[]); }
+function logEvent(kind, detail){
+  const all=getLog();
+  all.unshift({id:Math.random().toString(16).slice(2,7), t:kind, d:detail||'', when:new Date().toISOString(),
+               file:(PENDING_FILE&&PENDING_FILE.name)||'', sheet:CURRENT_SHEET||''});
+  _lsSet('prep_activity', all.slice(0,500));
+  if(typeof renderSettingsLists==='function' && $('#log-list')) renderActivityLog();
+}
+const LOG_ICON={upload:'📄',reshape:'📊',rename:'✎',retype:'⇄',ai:'✦',clean:'🧹',version:'⭑',download:'⬇',setup:'⚙',skip:','};
+function renderActivityLog(){
+  const box=$('#log-list'); if(!box) return; const items=getLog();
+  if(!items.length){ box.innerHTML='<p class="set-sub">Nothing logged yet. Actions you take will appear here.</p>'; return; }
+  box.innerHTML=items.slice(0,200).map(function(x){
+    return '<div class="log-item"><span class="log-ic">'+(LOG_ICON[x.t]||'•')+'</span>'+
+      '<span class="log-d"><b>'+esc(x.d||x.t)+'</b>'+(x.file?'<span class="log-file"> · '+esc(x.file)+(x.sheet?(' / '+esc(x.sheet)):'')+'</span>':'')+'</span>'+
+      '<span class="log-when">'+new Date(x.when).toLocaleString()+' <span class="log-sid">#'+x.id+'</span></span></div>';
+  }).join('');
+}
+function exportActivityLog(){
+  const items=getLog(); if(!items.length){ toast('Nothing to export yet.'); return; }
+  const rows=[['when','action','detail','file','sheet','id']].concat(items.map(x=>[x.when,x.t,(x.d||'').replace(/,/g,';'),x.file,x.sheet,x.id]));
+  const csv=rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='1864prep_activity_log.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0);
+}
 
 let CURRENT_RECIPE=null;
 let APPLIED_VERSION=null;
@@ -2491,12 +2584,18 @@ function applyVersion(id){
   inp.click();
 }
 
+function shortId(){ return Math.random().toString(16).slice(2,7); }   // 5-char git-like id
 function saveCurrentAsVersion(){
   if(!CURRENT_RECIPE){ toast('Clean a file first, then save it as a version.'); return; }
   const name=prompt('Name this version (e.g. "Monthly enrolment file")');
   if(!name) return;
-  saveVersion(Object.assign({id:'v'+Date.now(), name:name, created:new Date().toISOString()}, CURRENT_RECIPE));
-  toast('Saved version “'+name+'”. Find it in Settings → Version control.', {kind:'good'});
+  const sid=shortId();
+  const changed = (CURRENT_RECIPE.types? Object.keys(CURRENT_RECIPE.types).length : 0);
+  saveVersion(Object.assign({id:'v'+Date.now(), sid:sid, name:name, created:new Date().toISOString(),
+    n_changed:changed, ai_cols:(window.__AI_COLS__||[])}, CURRENT_RECIPE));
+  try{ logEvent('version','Saved version #'+sid+' “'+name+'”'); }catch(e){}
+  try{ logEvent('★','Saved version #'+sid+' “'+name+'”'); }catch(e){}
+  toast('Saved version #'+sid+' “'+name+'”. Find it in Settings → Version control.', {kind:'good'});
 }
 
 let overlayCancelFn=null;

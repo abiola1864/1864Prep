@@ -243,7 +243,7 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
                                  params={"length": mode_len}, evidence=ev)
 
     # ROOT-CAUSE RULE: a column of plain integers (no leading zeros, no letters) is
-    # a NUMBER/measure by default — NOT an identifier and NOT a date — even when the
+    # a NUMBER/measure by default, NOT an identifier and NOT a date, even when the
     # values are uniform-length and highly unique. Identifiers need a positive signal:
     # leading zeros (handled above), letters (handled below), an 11-digit NIN, or an
     # id/code header hint. Without one of those, classifying uniform unique integers

@@ -383,7 +383,7 @@ _SESSIONS: dict = {}
 
 
 @app.post("/api/export")
-async def api_export(session_id: str = Form(...), decisions: str = Form("{}")):
+async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), ai_cols: str = Form("[]")):
     """Apply the person's decisions to the remembered upload and produce a
     genuinely cleaned dataset + an audit log. Returns a result_id to download."""
     import json
@@ -397,10 +397,17 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}")):
     df = sess["df"].copy()
     plan = sess["plan"]
     dec = json.loads(decisions or "{}")
+    try:
+        ai_set = {str(x).strip().lower() for x in json.loads(ai_cols or "[]")}
+    except Exception:
+        ai_set = set()
     rejected = set(dec.get("reject", []))
     setall = dec.get("setall", {}) or {}
     merges = dec.get("merges", []) or []
     remove_dupes = bool(dec.get("remove_duplicates"))
+
+    def _src(col):
+        return "AI" if str(col).strip().lower() in ai_set else "engine"
 
     audit = []
     # 1) apply the plan, minus rejected columns (those pass through unchanged)
@@ -410,16 +417,16 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}")):
     for c in report.columns:
         if c.get("changed"):
             audit.append({"column": c["source_column"], "action": f"cleaned ({c['transform']})",
-                          "count": c["changed"]})
+                          "count": c["changed"], "by": _src(c["source_column"])})
     for col in rejected:
-        audit.append({"column": col, "action": "kept original (your choice)", "count": ""})
+        audit.append({"column": col, "action": "kept original (your choice)", "count": "", "by": "you"})
 
     # 2) set-all / flagged fixes
     for col, val in setall.items():
         if col in cleaned.columns:
             n = int((cleaned[col].astype(str) != str(val)).sum())
             cleaned[col] = val
-            audit.append({"column": col, "action": f"set all to '{val}'", "count": n})
+            audit.append({"column": col, "action": f"set all to '{val}'", "count": n, "by": "you"})
 
     # 3) confirmed similar-value merges
     for mg in merges:
@@ -428,7 +435,7 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}")):
             mask = cleaned[col].astype(str).isin(members)
             n = int(mask.sum())
             cleaned.loc[mask, col] = into
-            audit.append({"column": col, "action": f"merged {len(members)} spellings into '{into}'", "count": n})
+            audit.append({"column": col, "action": f"merged {len(members)} spellings into '{into}'", "count": n, "by": "you"})
 
     # 4) remove duplicate rows
     if remove_dupes:
@@ -607,8 +614,35 @@ async def ai_review(payload: dict):
 @app.get("/api/config")
 async def api_config():
     """Front-end reads this at boot. On the hosted demo (PREP_DEMO=1) the app
-    starts fresh each load; the local desktop app remembers setup."""
-    return {"demo": bool(os.environ.get("PREP_DEMO"))}
+    starts fresh each load; the local desktop app (PREP_DESKTOP=1) saves downloads
+    straight to the Downloads folder instead of relying on a browser download."""
+    return {"demo": bool(os.environ.get("PREP_DEMO")), "desktop": bool(os.environ.get("PREP_DESKTOP"))}
+
+
+@app.post("/api/save_to_disk")
+async def api_save_to_disk(payload: dict):
+    """Desktop only: write a result to the user's Downloads folder and return the
+    path, so downloads work reliably inside the native window."""
+    rid = payload.get("result_id"); fmt = (payload.get("fmt") or "xlsx").lower()
+    item = _RESULTS.get(rid)
+    if not item:
+        return {"error": "result expired; produce the file again"}
+    from pathlib import Path as _P
+    dl = _P.home() / "Downloads"
+    dl.mkdir(parents=True, exist_ok=True)
+    title = (item.get("title") or "cleaned").replace(" ", "_")
+    import engine.exporters as ex
+    try:
+        if item.get("multi"):
+            out = dl / "All_cleaned_sheets.xlsx"; ex.to_xlsx_multi(item["multi"], out)
+        else:
+            df = item["df"]
+            if fmt == "csv":   out = dl / f"{title}.csv";  df.to_csv(out, index=False)
+            elif fmt == "docx": out = dl / f"{title}.docx"; ex.to_docx(item.get("title","Cleaned data"), df, out)
+            else:              out = dl / f"{title}.xlsx"; ex.to_xlsx(df, out)
+        return {"saved": str(out), "folder": str(dl)}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/api/health")

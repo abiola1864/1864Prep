@@ -52,6 +52,7 @@ def main():
     os.chdir(base)
 
     import uvicorn
+    os.environ.setdefault("PREP_DESKTOP", "1")   # desktop: save downloads straight to disk
     from app.server import app
 
     port = _free_port()
