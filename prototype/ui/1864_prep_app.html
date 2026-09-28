@@ -530,6 +530,8 @@
 .ibtn.src-ai{border-color:#d9c9ef;color:#6a3fb0}
 .done-card{border:1px solid var(--line,#e4eaf1);border-radius:14px;background:#fff;padding:20px;max-width:720px;box-shadow:0 4px 16px rgba(30,58,95,.05)}.done-line{display:flex;align-items:center;gap:10px;margin:16px 0;max-width:720px;flex-wrap:wrap}.done-sec{max-width:720px;border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:12px 16px;margin:10px 0}.done-sec>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink,#1A1F24);list-style:none;display:flex;align-items:center;gap:8px}.done-sec>summary::-webkit-details-marker{display:none}.done-sec>summary::before{content:'▸';color:var(--ink-soft,#5a6675);transition:.15s}.done-sec[open]>summary::before{transform:rotate(90deg)}.sec-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5a6675);background:var(--wash,#f1f4f7);padding:2px 7px;border-radius:20px}
 .set-types{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.set-type{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#e4eaf1);border-radius:20px;padding:6px 12px;font-size:12.5px;cursor:pointer;background:#fff}.set-type.on{border-color:var(--navy,#16263F);background:#f0f4f8;font-weight:600}.set-type input{margin:0}
+.ai-done{color:#5b3a8a;font-weight:600}
+.sheet-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;max-height:300px;overflow:auto}.sheet-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#e4eaf1);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13.5px}.sheet-name{font-weight:600}.sheet-meta{color:var(--ink-soft,#5a6675);font-size:12px;margin-left:auto}.next-sheet{margin-top:14px;padding:12px 14px;border:1px dashed var(--teal,#2C7A8C);border-radius:10px;font-size:13.5px}.next-sheet .btn{margin-left:8px}
 </style>
 </head>
 <body>
@@ -549,7 +551,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v16 (data-types in settings)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v18 (multi-sheet picker + combine)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1812,8 +1814,35 @@ async function doExport(){
         '<div class="tk-tablewrap"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>rows</th></tr></thead><tbody>'+
         d.audit.map(a=>'<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+esc(String(a.count))+'</td></tr>').join('')+'</tbody></table></div></details>';
     }
+    // multi-sheet: record this sheet's result; if more sheets are queued, offer to continue
+    if(CURRENT_SHEET){
+      SHEET_DONE.push({sheet:CURRENT_SHEET, result_id:d.result_id});
+      if(SHEET_QUEUE.length){
+        const next=SHEET_QUEUE[0];
+        html+='<div class="next-sheet">✓ Cleaned <b>'+esc(CURRENT_SHEET)+'</b>. '+
+          '<button class="btn sm" onclick="cleanNextSheet()">Next sheet: '+esc(next)+' →</button></div>';
+      } else if(SHEET_DONE.length>1){
+        html+='<div class="next-sheet">✓ All '+SHEET_DONE.length+' sheets cleaned. '+
+          '<button class="btn sm" onclick="downloadAllSheets()">Download all sheets (one Excel file)</button></div>';
+      }
+    }
     out.innerHTML=html;
   }catch(err){ out.innerHTML='<div class="wl-empty">Could not produce the file: '+esc(err.message)+'</div>'; }
+}
+function cleanNextSheet(){
+  CURRENT_SHEET=SHEET_QUEUE.shift();
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false;
+  toast('Cleaning sheet: '+CURRENT_SHEET, {kind:'good'});
+  profileFile(PENDING_FILE);
+}
+async function downloadAllSheets(){
+  try{
+    const ids=SHEET_DONE.map(s=>s.result_id), names=SHEET_DONE.map(s=>s.sheet);
+    const r=await (await fetch('/api/export/combine',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({result_ids:ids, sheet_names:names})})).json();
+    if(r.combined_id){ expDL(r.combined_id,'xlsx'); }
+    else toast('Could not combine sheets'+(r.error?': '+r.error:''));
+  }catch(e){ toast('Combine failed: '+e.message); }
 }
 function expDL(id,fmt){
   // anchor-download works in the browser and desktop; the server sends the file
@@ -2149,7 +2178,7 @@ function downloadSample(){
   toast('Sample downloaded. Now drop it in the box above to run the real flow.');
 }
 
-let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[];
+let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[], CURRENT_SHEET=null, SHEET_QUEUE=[], SHEET_DONE=[];
 
 // Phase 1: read the file's STRUCTURE only (no cleaning yet), so the person can
 // see and correct the columns first, for every upload, the same way.
@@ -2160,11 +2189,46 @@ async function onRealFile(e){
   if(!file) return;
   // fresh start for every upload: drop any prior file's columns, samples, AI state
   COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false;
+  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[];
   try{ SESSION_ID=null; }catch(_){}
   PENDING_FILE=file;
   try{ e.target.value=''; }catch(_){}   // allow re-selecting the same file later
+  // Multi-sheet workbook? let the user pick which sheet(s) to clean before anything else.
+  if(/\.(xlsx|xls|xlsm)$/i.test(file.name)){
+    try{
+      const sf=new FormData(); sf.append('file',file);
+      const sr=await (await fetch('/api/sheets',{method:'POST',body:sf})).json();
+      const sheets=(sr.sheets||[]).filter(s=>s.rows>0 || !s.helper);
+      if(sheets.length>1){ showSheetPicker(sheets); return; }   // wait for the user's choice
+    }catch(_){ /* fall through to normal single-sheet read */ }
+  }
+  profileFile(file);
+}
+// picker: name every sheet, pre-tick the recommended one, let the user multi-select.
+function showSheetPicker(sheets){
+  let m=$('#sheetm'); if(!m){ m=document.createElement('div'); m.id='sheetm'; m.className='modal'; document.body.appendChild(m); }
+  const rows=sheets.map((s,i)=>'<label class="sheet-row"><input type="checkbox" data-sheet="'+esc(s.name)+'" '+(s.recommended?'checked':'')+'> '+
+    '<span class="sheet-name">'+esc(s.name)+'</span><span class="sheet-meta">'+s.rows+' rows'+(s.helper?' · helper':'')+(s.recommended?' · recommended':'')+'</span></label>').join('');
+  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>📑 This file has '+sheets.length+' sheets</h2></div>'+
+    '<p class="set-sub">Pick the sheet(s) you want to clean. We\u2019ll do them one at a time.</p>'+
+    '<div class="sheet-list">'+rows+'</div>'+
+    '<div class="modal-foot"><button class="btn ghost" onclick="closeSheetPicker()">Cancel</button>'+
+    '<button class="btn" onclick="startSheets()">Clean selected</button></div></div>';
+  m.classList.add('on');
+}
+function closeSheetPicker(){ const m=$('#sheetm'); if(m) m.classList.remove('on'); }
+function startSheets(){
+  const picked=[...document.querySelectorAll('#sheetm input[type=checkbox]:checked')].map(x=>x.dataset.sheet);
+  if(!picked.length){ toast('Pick at least one sheet.'); return; }
+  closeSheetPicker();
+  SHEET_QUEUE=picked.slice(); SHEET_DONE=[];
+  CURRENT_SHEET=SHEET_QUEUE.shift();
+  toast('Cleaning sheet: '+CURRENT_SHEET+(SHEET_QUEUE.length?(' ('+(SHEET_QUEUE.length)+' more after)'):''), {kind:'good'});
+  profileFile(PENDING_FILE);
+}
+async function profileFile(file){
   const ov=$('#overlay'); ov.classList.add('on');
-  const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+"</b> before any cleaning.");
+  const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+(CURRENT_SHEET?(' · '+esc(CURRENT_SHEET)):'')+"</b> before any cleaning.");
   prog.showCancel(); COL_ABORT=new AbortController();
   const phases=[[0.15,"Reading the file"],[0.4,"Finding the table"],[0.7,"Detecting the columns"],[0.9,"Working out each type"]];
   let pi=0; prog.set(0.05,"Starting");
@@ -2172,15 +2236,56 @@ async function onRealFile(e){
   try{
     const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
     fd.append('types_prior', JSON.stringify(_pget('prep_type_prior',[])||[]));
+    if(CURRENT_SHEET) fd.append('sheet', CURRENT_SHEET);
     const res=await fetch('/api/profile',{method:'POST',body:fd,signal:COL_ABORT.signal});
     const data=await res.json();
     clearInterval(ticker); COL_ABORT=null;
     if(!res.ok || data.error) throw new Error(data.error||('profile '+res.status));
     prog.finish();
-    setTimeout(()=>{ ov.classList.remove('on'); buildColumnReview(data,file.name); reached=Math.max(reached,4); go(4); },300);
+    setTimeout(()=>{ ov.classList.remove('on');
+      // Panel/wide data? offer to reshape to long BEFORE the column review.
+      if(data.structure && data.structure.kind==='panel_wide'){
+        offerReshape(data, file);
+      } else {
+        buildColumnReview(data,file.name); reached=Math.max(reached,4); go(4);
+      }
+    },300);
   }catch(err){ clearInterval(ticker); COL_ABORT=null; ov.classList.remove('on');
     if(err.name==='AbortError'){ toast('Cancelled reading the file.'); $('#file').value=''; }
     else toast('Could not read that file: '+err.message); }
+}
+
+// Panel/wide data detected: a short, warm prompt (not a wall of text).
+function offerReshape(data, file){
+  const s=data.structure; const n=s.n_periods, axis=s.axis_name;
+  let m=$('#reshapem'); if(!m){ m=document.createElement('div'); m.id='reshapem'; m.className='modal'; document.body.appendChild(m); }
+  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>📊 Looks like panel data</h2></div>'+
+    '<p class="set-sub">Your file has <b>'+n+' '+esc(axis)+' columns</b> across the top (like 1960–2019). '+
+    'That\u2019s a time variable, not '+n+' separate columns. Reshape to <b>long format</b> so each '+esc(axis)+' becomes a row? This is the tidy shape most tools expect.</p>'+
+    '<div class="modal-foot"><button class="btn ghost" onclick="closeReshape(); buildColumnReview(window.__PROFILE__,window.__FILE__.name); go(4);">Keep wide</button>'+
+    '<button class="btn" onclick="doReshape()">Reshape to long</button></div></div>';
+  window.__PROFILE__=data; window.__FILE__=file;
+  m.classList.add('on');
+}
+function closeReshape(){ const m=$('#reshapem'); if(m) m.classList.remove('on'); }
+async function doReshape(){
+  const data=window.__PROFILE__, file=window.__FILE__, s=data.structure;
+  closeReshape();
+  const ov=$('#overlay'); ov.classList.add('on');
+  const prog=makeProgressManual(ov,"Reshaping to long…","Turning "+s.n_periods+" "+esc(s.axis_name)+" columns into rows.");
+  prog.set(0.4,"Reshaping");
+  try{
+    const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
+    fd.append('id_cols',JSON.stringify(s.id_cols)); fd.append('value_cols',JSON.stringify(s.value_cols));
+    fd.append('axis_name',s.axis_name); fd.append('value_name','value');
+    const r=await (await fetch('/api/reshape_long',{method:'POST',body:fd})).json();
+    prog.finish();
+    setTimeout(()=>{ ov.classList.remove('on');
+      if(r.error){ toast('Could not reshape: '+r.error); buildColumnReview(data,file.name); }
+      else { toast('Reshaped to long — '+r.rows+' rows.', {kind:'good'}); buildColumnReview(r,file.name); }
+      reached=Math.max(reached,4); go(4);
+    },300);
+  }catch(e){ ov.classList.remove('on'); toast('Reshape failed: '+e.message); buildColumnReview(data,file.name); go(4); }
 }
 
 // build the editable column list from the engine's real detection
@@ -2303,7 +2408,10 @@ async function runWholeFileReview(){
         if(v.suggested_type!==col.type){ col.localType=col.type; col.type=v.suggested_type; col.source='ai'; changed++; }
         else { col.source=col.source||'local'; } } });
     renderColumnReview();
-    const s2=$('#ai-run-status'); if(s2){ s2.innerHTML='\u2713 AI reviewed the whole file'+(r.note?': '+esc(String(r.note).slice(0,120)):'')+'. '+(changed?('Suggested changes to <b>'+changed+'</b> column(s) \u2014 marked below.'):'It agreed with the engine.'); }
+    const s2=$('#ai-run-status'); if(s2){
+      if(changed){ s2.innerHTML='<span class="ai-done">✦ AI refined <b>'+changed+'</b> column'+(changed>1?'s':'')+'</span> — marked with ✦ below. Tap any to see why.'; }
+      else { s2.innerHTML='<span class="ai-done">✦ AI agreed with the engine</span> — nothing to change.'; }
+    }
   }catch(e){ if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
 }
 
@@ -2400,6 +2508,7 @@ async function confirmColumnsAndClean(){
     "Applying only what you approve. Your file stays on this computer.");
   try{
     const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'ng');
+    if(CURRENT_SHEET) fd.append('sheet', CURRENT_SHEET);
     fd.append('rename',JSON.stringify(rename));
     fd.append('types',JSON.stringify(types));
     const res=await fetch('/api/clean_stream',{method:'POST',body:fd});

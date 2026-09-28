@@ -550,13 +550,36 @@ def _dedupe_headers(header: list[str]) -> list[str]:
     return out
 
 
-def read_any(path: str | Path) -> tuple[pd.DataFrame, IngestReport]:
+def list_sheets(path: Path) -> list[dict]:
+    """List a workbook's sheets with a data-size estimate and a 'likely real data'
+    flag, so the UI can let the user pick which sheet(s) to clean."""
+    ext = Path(path).suffix.lower()
+    if ext not in {".xlsx", ".xls", ".xlsm"}:
+        return []
+    xl = pd.ExcelFile(path)
+    out = []
+    best_score = -1.0; best = None
+    import math
+    for s in xl.sheet_names:
+        grid = xl.parse(s, header=None, dtype=str).fillna("").values.tolist()
+        data_rows = sum(1 for r in grid if sum(1 for c in r if str(c).strip()) >= 2)
+        cols = max((sum(1 for c in r if str(c).strip()) for r in grid), default=0)
+        helper = bool(_HELPER_SHEET.search(s))
+        score = (math.log1p(data_rows) + 0.3 * _sheet_density(grid)) * (0.5 if helper else 1.0)
+        if score > best_score: best_score = score; best = s
+        out.append({"name": s, "rows": data_rows, "cols": cols, "helper": helper})
+    for r in out:
+        r["recommended"] = (r["name"] == best and r["rows"] > 0)
+    return out
+
+
+def read_any(path: str | Path, sheet: str | None = None) -> tuple[pd.DataFrame, IngestReport]:
     p = Path(path)
     ext = p.suffix.lower()
     if ext in {".csv"}:      return read_csv_like(p, "csv")
     if ext in {".tsv", ".tab"}: return read_csv_like(p, "tsv")
     if ext in {".txt"}:      return read_csv_like(p, "csv")
-    if ext in {".xlsx", ".xls", ".xlsm"}: return read_excel(p)
+    if ext in {".xlsx", ".xls", ".xlsm"}: return read_excel(p, sheet=sheet)
     if ext in {".json"}:     return read_json(p)
     if ext in {".pdf"}:      return read_pdf(p)
     raise ValueError(f"Unsupported file type: {ext}")

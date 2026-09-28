@@ -117,3 +117,19 @@ def split_geopoint(series: pd.Series) -> pd.DataFrame:
             except Exception: return ""
         lats.append(dec(a)); lons.append(dec(b))
     return pd.DataFrame({f"{series.name}_lat": lats, f"{series.name}_long": lons})
+
+
+def to_long(df, id_cols, value_cols, axis_name="year", value_name="value"):
+    """Melt a wide/panel table to long (tidy) format: keep id_cols, turn the
+    value_cols into two columns [axis_name, value_name]. Drops empty value cells."""
+    import pandas as pd
+    id_cols = [c for c in id_cols if c in df.columns]
+    value_cols = [c for c in value_cols if c in df.columns]
+    long = df.melt(id_vars=id_cols, value_vars=value_cols,
+                   var_name=axis_name, value_name=value_name)
+    long = long[long[value_name].notna()]
+    try:
+        long = long[long[value_name].astype(str).str.strip() != ""]
+    except Exception:
+        pass
+    return long.reset_index(drop=True)

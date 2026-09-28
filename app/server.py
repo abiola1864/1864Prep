@@ -92,7 +92,7 @@ def _dup_payload(df):
 
 
 @app.post("/api/profile")
-async def api_profile(file: UploadFile = File(...), region: str = Form(None), types_prior: str = Form("[]")):
+async def api_profile(file: UploadFile = File(...), region: str = Form(None), types_prior: str = Form("[]"), sheet: str = Form(None)):
     if region:
         _regions.set_active_region(region)
     path = _save(file)
@@ -102,7 +102,7 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
     except Exception:
         _prior = set()
     try:
-        df, rep = read_any(path)
+        df, rep = read_any(path, sheet=sheet)
         _ref = _regions.load_reference()
         # columns-first is a FAST structural pass: rule-based typing only, no ML/NLP
         # or embeddings load, so "Reading the columns" returns in a moment even on
@@ -112,6 +112,8 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
         from engine import domains as _D
         _doms = [_D.detect_domain(df[c].head(300).tolist(), str(c)) for c in df.columns]
         header_rows = propose_headers(df, profs, _doms)
+        from engine.structure import detect_structure
+        _struct = detect_structure(df)
         return {
             "ingest": rep.summary(),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
@@ -121,9 +123,75 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
             "preview": df.head(50).astype(str).to_dict(orient="records"),
             "columns": [{"name": p.column, "type": p.semantic_type,
                          "confidence": round(p.confidence, 2)} for p in profs],
+            "structure": _struct,
         }
     except Exception as e:
         return {"error": f"Could not read the columns: {e}"}
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@app.post("/api/export/combine")
+async def api_export_combine(payload: dict):
+    """Combine several cleaned sheet results into ONE multi-tab Excel workbook."""
+    ids = payload.get("result_ids", []); names = payload.get("sheet_names", [])
+    frames = []
+    for i, rid in enumerate(ids):
+        r = _RESULTS.get(rid)
+        if r is not None:
+            nm = (names[i] if i < len(names) else f"Sheet{i+1}")[:31]
+            frames.append((nm, r["df"]))
+    if not frames:
+        return {"error": "no cleaned sheets to combine"}
+    import uuid as _uuid
+    from engine.exporters import to_xlsx_multi
+    cid = _uuid.uuid4().hex[:12]
+    _RESULTS[cid] = {"multi": frames, "title": "All sheets"}
+    return {"combined_id": cid, "sheets": len(frames)}
+
+
+@app.post("/api/sheets")
+async def api_sheets(file: UploadFile = File(...)):
+    """List the sheets in an uploaded workbook so the user can pick which to clean."""
+    path = _save(file)
+    try:
+        from engine.ingest import list_sheets
+        return {"sheets": list_sheets(path)}
+    except Exception as e:
+        return {"sheets": [], "error": str(e)}
+    finally:
+        path.unlink(missing_ok=True)
+
+
+@app.post("/api/reshape_long")
+async def api_reshape_long(file: UploadFile = File(...), region: str = Form(None),
+                          id_cols: str = Form("[]"), value_cols: str = Form("[]"),
+                          axis_name: str = Form("year"), value_name: str = Form("value")):
+    """Reshape an uploaded wide/panel file to long, then re-profile the result so
+    the columns review shows the tidy long columns."""
+    if region:
+        _regions.set_active_region(region)
+    path = _save(file)
+    import json as _json
+    try:
+        ids = _json.loads(id_cols); vals = _json.loads(value_cols)
+        df, rep = read_any(path)
+        from engine.reshape import to_long
+        long = to_long(df, ids, vals, axis_name=axis_name, value_name=value_name)
+        _ref = _regions.load_reference()
+        profs = profile_dataframe(long, _ref["gazetteers"], _ref["place_index"], use_ml=False, use_nlp=False)
+        from engine.headers import propose_headers, abnormal_count
+        from engine import domains as _D
+        _doms = [_D.detect_domain(long[c].head(300).tolist(), str(c)) for c in long.columns]
+        header_rows = propose_headers(long, profs, _doms)
+        return {"rows": len(long), "cols": len(long.columns),
+                "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
+                "preview": long.head(50).astype(str).to_dict(orient="records"),
+                "columns": [{"name": p.column, "type": p.semantic_type,
+                             "confidence": round(p.confidence, 2)} for p in profs],
+                "structure": {"kind": "flat"}}
+    except Exception as e:
+        return {"error": f"Could not reshape: {e}"}
     finally:
         path.unlink(missing_ok=True)
 
@@ -192,7 +260,7 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
 
 
 @app.post("/api/clean_stream")
-async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}"), types: str = Form("{}")):
+async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}"), types: str = Form("{}"), sheet: str = Form(None)):
     """Same as /api/clean but streams real progress (one tick per column) so the
     bar reflects the actual workload instead of an estimate. `rename` and `types`
     are the person's confirmed column names and data types from the columns-first step."""
@@ -219,7 +287,7 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             _job = _uuid.uuid4().hex[:12]
             yield json.dumps({"t": "job", "job_id": _job}) + "\n"
             yield json.dumps({"t": "progress", "pct": 0.04, "stage": "Reading the file"}) + "\n"
-            df, rep = read_any(path)
+            df, rep = read_any(path, sheet=sheet)
             if _rename_map:                      # apply the confirmed column names first
                 df = df.rename(columns={k: v for k, v in _rename_map.items() if k in df.columns})
             _ref = _regions.load_reference()
@@ -448,6 +516,12 @@ async def api_tool_download(rid: str, fmt: str = "csv"):
     item = _RESULTS.get(rid)
     if not item:
         return JSONResponse(status_code=404, content={"error": "result expired; run the tool again"})
+    # multi-sheet combined workbook
+    if item.get("multi"):
+        out = Path(tempfile.mkdtemp()) / "All_cleaned_sheets.xlsx"
+        ex.to_xlsx_multi(item["multi"], out)
+        from fastapi.responses import FileResponse as _FR
+        return _FR(str(out), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=out.name)
     ext = {"csv": "csv", "xlsx": "xlsx", "excel": "xlsx", "docx": "docx", "word": "docx"}.get(fmt.lower(), "csv")
     out = Path(tempfile.mkdtemp()) / f"{item['title'].replace(' ', '_')}.{ext}"
     ex.export(item["df"], fmt, out, title=item["title"], intro="Generated by 1864 Prep - Data Toolkit.")
