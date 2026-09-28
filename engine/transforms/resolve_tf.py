@@ -30,7 +30,14 @@ class ResolveTransform(Transform):
 
     def __init__(self, **params):
         super().__init__(**params)
-        data = json.loads(Path(self.params["reference"]).read_text(encoding="utf-8"))
+        self._passthrough = False
+        ref = self.params.get("reference")
+        try:
+            data = json.loads(Path(ref).read_text(encoding="utf-8")) if ref else None
+        except Exception:
+            data = None
+        if not data:
+            self._passthrough = True; self._resolver = None; return
         if "canonical" in data:
             canonical = data["canonical"]
         elif "states" in data:
@@ -38,7 +45,7 @@ class ResolveTransform(Transform):
         elif "lgas" in data:
             canonical = [l["canonical"] for l in data["lgas"]]
         else:
-            raise ValueError("reference must contain 'canonical', 'states', or 'lgas'")
+            self._passthrough = True; self._resolver = None; return
         self._resolver = EntityResolver(
             canonical,
             auto_accept=float(self.params.get("auto_accept", 0.88)),
@@ -46,6 +53,12 @@ class ResolveTransform(Transform):
         )
 
     def run(self, series: pd.Series, source_column: str, target_field: str) -> TransformResult:
+        if getattr(self, "_passthrough", False):
+            # no reference to resolve against: tidy whitespace only, change nothing else
+            cleaned = series.astype(str).str.strip()
+            return TransformResult(series=cleaned, source_column=source_column,
+                                   target_field=target_field, transform=self.name,
+                                   n_total=len(series))
         res = TransformResult(series=series.copy(), source_column=source_column,
                               target_field=target_field, transform=self.name,
                               n_total=len(series))

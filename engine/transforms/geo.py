@@ -36,11 +36,19 @@ class StateNGTransform(Transform):
 
     def __init__(self, **params):
         super().__init__(**params)
-        data = json.loads(Path(self.params["reference"]).read_text(encoding="utf-8"))
         self._lookup: dict[str, str] = {}
-        for canonical, variations in data["states"].items():
-            for v in variations:
-                self._lookup[v] = canonical
+        self._passthrough = False
+        ref = self.params.get("reference")
+        try:
+            data = json.loads(Path(ref).read_text(encoding="utf-8")) if ref else None
+        except Exception:
+            data = None
+        if not data or "states" not in data:
+            self._passthrough = True          # no gazetteer -> just tidy the text
+        else:
+            for canonical, variations in data["states"].items():
+                for v in variations:
+                    self._lookup[v] = canonical
         self._on_unrecognized = self.params.get("on_unrecognized", "flag")
 
     def _clean(self, value: Any) -> str:
@@ -53,6 +61,8 @@ class StateNGTransform(Transform):
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         cleaned = self._clean(value)
+        if getattr(self, "_passthrough", False):
+            return (cleaned, cleaned != str(value), "")   # tidy only, no reference to match
         if cleaned == "" or cleaned in _SENTINELS:
             return "", True, "no usable state (blank or sentinel)"
         official = self._lookup.get(cleaned)
@@ -69,9 +79,17 @@ class LGANGTransform(Transform):
 
     def __init__(self, **params):
         super().__init__(**params)
-        data = json.loads(Path(self.params["reference"]).read_text(encoding="utf-8"))
         self._lookup: dict[str, str] = {}
+        self._passthrough = False
         norm = lambda x: re.sub(r"[^a-z0-9]+", "", str(x).strip().lower())
+        ref = self.params.get("reference")
+        try:
+            data = json.loads(Path(ref).read_text(encoding="utf-8")) if ref else None
+        except Exception:
+            data = None
+        if not data or "lgas" not in data:
+            self._passthrough = True; self._keys_by_len = []; self._norm = norm
+            return
         for lga in data["lgas"]:
             self._lookup[norm(lga["canonical"])] = lga["canonical"]
             for a in lga["aliases"]:
@@ -81,6 +99,9 @@ class LGANGTransform(Transform):
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         k = self._norm(value)
+        if getattr(self, "_passthrough", False):
+            s = str(value).strip()
+            return (s, s != str(value), "")
         if k == "":
             return "", True, "empty LGA"
         if k in self._lookup:
