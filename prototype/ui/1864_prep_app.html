@@ -529,6 +529,7 @@
 .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line,#e4eaf1);border-top-color:var(--navy,#1F3A5F);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:4px}@keyframes spin{to{transform:rotate(360deg)}}.dl-card{border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:6px 14px;margin:12px 0;max-width:520px}.dl-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line,#eef2f6)}.dl-row:last-child{border-bottom:0}.dl-lab{font-weight:600;font-size:13.5px}.dl-btns{display:flex;gap:8px}.dl-log{margin:8px 0;max-width:640px}.dl-log summary{cursor:pointer;font-size:13px;color:var(--navy,#1F3A5F);font-weight:600;padding:6px 0}
 .ibtn.src-ai{border-color:#d9c9ef;color:#6a3fb0}
 .done-card{border:1px solid var(--line,#e4eaf1);border-radius:14px;background:#fff;padding:20px;max-width:720px;box-shadow:0 4px 16px rgba(30,58,95,.05)}.done-line{display:flex;align-items:center;gap:10px;margin:16px 0;max-width:720px;flex-wrap:wrap}.done-sec{max-width:720px;border:1px solid var(--line,#e4eaf1);border-radius:12px;background:#fff;padding:12px 16px;margin:10px 0}.done-sec>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink,#1A1F24);list-style:none;display:flex;align-items:center;gap:8px}.done-sec>summary::-webkit-details-marker{display:none}.done-sec>summary::before{content:'▸';color:var(--ink-soft,#5a6675);transition:.15s}.done-sec[open]>summary::before{transform:rotate(90deg)}.sec-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5a6675);background:var(--wash,#f1f4f7);padding:2px 7px;border-radius:20px}
+.set-types{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.set-type{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line,#e4eaf1);border-radius:20px;padding:6px 12px;font-size:12.5px;cursor:pointer;background:#fff}.set-type.on{border-color:var(--navy,#16263F);background:#f0f4f8;font-weight:600}.set-type input{margin:0}
 </style>
 </head>
 <body>
@@ -548,7 +549,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v15 (current)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.26 · v16 (data-types in settings)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -738,6 +739,12 @@
           <div class="set-h">AI assistance <span class="set-tag">optional · off by default</span></div>
           <p class="set-sub">AI is managed in one place now. It only ever helps where you allow it, sends masked samples (never full records), and suggests rather than changes.</p>
           <button class="btn ghost sm" onclick="closeSettings();openAIModal()">✦ Open AI setup</button>
+        </div>
+
+        <div class="set-sec">
+          <div class="set-h">Data types you work with <button type="button" class="ibtn" onclick="showHelp(event,'data_type_prior')">i</button></div>
+          <p class="set-sub">Tick the kinds of data you usually handle. It only helps the tool decide ambiguous columns; every column is still read from the data itself.</p>
+          <div id="set-types" class="set-types"></div>
         </div>
 
         <div class="set-sec">
@@ -1912,7 +1919,20 @@ async function openSettings(){
   }
   $('#set-region').value=SETTINGS.region;
   $('#set-contrib').checked=SETTINGS.contrib;
+  renderSettingsTypes();
   renderSettingsLists();
+}
+function renderSettingsTypes(){
+  const box=$('#set-types'); if(!box) return;
+  const cur=_pget('prep_type_prior',[])||[];
+  box.innerHTML=DATA_TYPES.map(function(t){ const k=t[0],label=t[1]; const on=cur.indexOf(k)>=0;
+    return '<label class="set-type'+(on?' on':'')+'"><input type="checkbox" '+(on?'checked':'')+' onchange="toggleSetType(\''+k+'\',this.checked)"> '+esc(label)+'</label>';
+  }).join('');
+}
+function toggleSetType(k,on){
+  let cur=_pget('prep_type_prior',[])||[]; const i=cur.indexOf(k);
+  if(on && i<0) cur.push(k); if(!on && i>=0) cur.splice(i,1);
+  _pset('prep_type_prior', cur); renderSettingsTypes();
 }
 function closeSettings(){ $('#settings').classList.remove('on'); }
 const AI_DEFAULTS={ollama:{url:'http://localhost:11434',model:'llama3.2',local:true},

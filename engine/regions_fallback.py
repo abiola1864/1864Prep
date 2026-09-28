@@ -12,6 +12,10 @@ class Region:
     code: str = "generic"
     name: str = "Generic"
 
+    @property
+    def key(self):
+        return self.code
+
 
 _ACTIVE = Region()
 _REGIONS = {"generic": Region("generic", "Generic"), "ng": Region("ng", "Nigeria")}
@@ -32,7 +36,7 @@ def get_region(code):
 
 
 def list_regions():
-    return list(_REGIONS.values())
+    return list(_REGIONS.keys())
 
 
 def load_reference():
