@@ -238,10 +238,18 @@ def _resolve_header(rows: list[list[str]], hdr: int, forward_fill: bool = True) 
             for j in range(len(rows[hdr]))], hdr + 1
 
 
+import re as _re_ing
+def _is_year_header(c):
+    return bool(_re_ing.fullmatch(r"(19|20)\d{2}", str(c).strip()))
+
+
 def _drop_empty_columns(df: pd.DataFrame, notes: list) -> pd.DataFrame:
     """Remove columns that hold no data at all (blank spacer columns common in
-    spreadsheet exports). Reported, never silent."""
-    keep = [c for c in df.columns if df[c].astype(str).str.strip().replace("nan", "").ne("").any()]
+    spreadsheet exports). Reported, never silent. Never drops a YEAR-headed column
+    though: in panel exports (OECD/Eurostat) early years can be all-missing, and
+    dropping them would silently delete part of the time axis."""
+    keep = [c for c in df.columns
+            if _is_year_header(c) or df[c].astype(str).str.strip().replace("nan", "").ne("").any()]
     dropped = len(df.columns) - len(keep)
     if dropped:
         notes.append(f"removed {dropped} empty column(s)")
@@ -293,6 +301,23 @@ def detect_orientation(rows: list[list[str]]) -> str:
     return "normal"
 
 
+def _find_year_header_row(rows: list[list[str]], scan: int = 25) -> int:
+    """Panel/time-series files (OECD, Eurostat, WDI) have a header row that is a
+    few TEXT labels (Country, Sex) followed by a run of YEAR columns (1960, 1961…),
+    often with blank flag columns between them. The generic header detector scores
+    such a row LOW because most of its cells are numeric. Find it directly: the row
+    with the longest run of year-like tokens (>=5) wins; everything above it is
+    metadata/XML preamble to skip."""
+    import re as _re
+    best_i, best_years = -1, 0
+    for i, row in enumerate(rows[:scan]):
+        cells = [str(c).strip() for c in row]
+        years = sum(1 for c in cells if _re.fullmatch(r"(19|20)\d{2}", c))
+        if years >= 5 and years > best_years:
+            best_years, best_i = years, i
+    return best_i
+
+
 def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
     size = path.stat().st_size
     raw = path.read_bytes()
@@ -308,8 +333,15 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
             break
     while rows and not any(str(c).strip() for c in rows[-1]):
         rows.pop()                                           # trim trailing blank lines only
-    hdr = _detect_header_row([r for r in rows if any(str(c).strip() for c in r)])
-    header, data_start = _resolve_header(rows, hdr)          # multi-row header on CSV too
+    # Panel/time-series files: a year-header row after a metadata/XML preamble.
+    # Detect it directly (the generic detector under-scores numeric year headers).
+    _yhr = _find_year_header_row(rows)
+    if _yhr >= 0:
+        header = [str(c).strip() for c in rows[_yhr]]
+        data_start = _yhr + 1
+    else:
+        hdr = _detect_header_row([r for r in rows if any(str(c).strip() for c in r)])
+        header, data_start = _resolve_header(rows, hdr)      # multi-row header on CSV too
     header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(header)]
     orient = detect_orientation([r for r in rows[data_start:data_start + 200] if any(str(c).strip() for c in r)])
     width = len(header)
@@ -320,11 +352,15 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
     if orient == "transposed":
         df = _transpose(df)
+    _empty_notes = []
+    df = _drop_empty_columns(df, _empty_notes)   # remove blank spacer columns (Eurostat/OECD exports)
     rep = IngestReport(str(path), kind, encoding=enc, delimiter=delim, header_row=data_start,
                        rows=len(df), cols=len(df.columns))
+    for _n in _empty_notes:
+        rep.notes.append(_n)
     rep.notes.append(f"layout detected: {orient}")
     if data_start > 0:
-        rep.skipped_rows = [" · ".join(c.strip() for c in rows[k] if c.strip()) for k in range(min(data_start, hdr + 1))]
+        rep.skipped_rows = [" · ".join(c.strip() for c in rows[k] if c.strip()) for k in range(max(0, data_start - 1))]
     if truncated:
         rep.notes.append(f"large file ({size // (1024*1024)} MB): structure read from the first {_SAMPLE_ROWS} rows; run full clean in batches")
     return df, rep
