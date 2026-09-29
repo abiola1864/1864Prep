@@ -199,13 +199,16 @@ async def api_reshape_long(file: UploadFile = File(...), region: str = Form(None
         df, rep = read_any(path)
         from engine.reshape import to_long
         long = to_long(df, ids, vals, axis_name=axis_name, value_name=value_name)
+        import uuid as _uuid
+        reshaped_id = _uuid.uuid4().hex[:12]
+        _RESHAPED[reshaped_id] = long
         _ref = _regions.load_reference()
         profs = profile_dataframe(long, _ref["gazetteers"], _ref["place_index"], use_ml=False, use_nlp=False)
         from engine.headers import propose_headers, abnormal_count
         from engine import domains as _D
         _doms = [_D.detect_domain(long[c].head(300).tolist(), str(c)) for c in long.columns]
         header_rows = propose_headers(long, profs, _doms)
-        return {"rows": len(long), "cols": len(long.columns),
+        return {"rows": len(long), "cols": len(long.columns), "reshaped_id": reshaped_id,
                 "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
                 "preview": long.head(50).astype(str).to_dict(orient="records"),
                 "columns": [{"name": p.column, "type": p.semantic_type,
@@ -281,7 +284,7 @@ async def api_clean(file: UploadFile = File(...), region: str = Form(None)):
 
 
 @app.post("/api/clean_stream")
-async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}"), types: str = Form("{}"), sheet: str = Form(None)):
+async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None), rename: str = Form("{}"), types: str = Form("{}"), sheet: str = Form(None), reshaped_id: str = Form(None), drop: str = Form("[]")):
     """Same as /api/clean but streams real progress (one tick per column) so the
     bar reflects the actual workload instead of an estimate. `rename` and `types`
     are the person's confirmed column names and data types from the columns-first step."""
@@ -308,7 +311,16 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             _job = _uuid.uuid4().hex[:12]
             yield json.dumps({"t": "job", "job_id": _job}) + "\n"
             yield json.dumps({"t": "progress", "pct": 0.04, "stage": "Reading the file"}) + "\n"
-            df, rep = read_any(path, sheet=sheet)
+            if reshaped_id and reshaped_id in _RESHAPED:
+                df = _RESHAPED[reshaped_id].copy(); rep = None   # clean the reshaped (long) data
+            else:
+                df, rep = read_any(path, sheet=sheet)
+            try:
+                _drop = json.loads(drop or "[]")
+                if _drop:
+                    df = df.drop(columns=[c for c in _drop if c in df.columns], errors="ignore")
+            except Exception:
+                pass
             if _rename_map:                      # apply the confirmed column names first
                 df = df.rename(columns={k: v for k, v in _rename_map.items() if k in df.columns})
             _ref = _regions.load_reference()
@@ -367,8 +379,8 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
             _doms_s = [_dd(df[c].tolist(), str(c)) for c in cols]
             header_rows = propose_headers(df, profs, _doms_s)
             payload = {
-                "ingest": rep.summary(),
-                "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
+                "ingest": (rep.summary() if rep else {}),
+                "skipped_rows": (rep.skipped_rows if rep else 0), "header_row": (rep.header_row if rep else 0),
                 "region": _regions.get_active_region().name,
                 "session_id": sid,
                 "headers": header_rows, "headers_abnormal": abnormal_count(header_rows),
@@ -401,6 +413,7 @@ async def api_tools():
 
 _RESULTS: dict = {}
 _SESSIONS: dict = {}
+_RESHAPED: dict = {}   # reshaped (long) dataframes, so cleaning uses the reshaped shape
 
 
 @app.post("/api/export")
@@ -518,7 +531,8 @@ async def api_tool(name: str, files: list[UploadFile] = File(...),
         elif name == "quick_clean":
             res, summ = tk.quick_clean(dfs[0])
         elif name == "guess_gender":
-            res, summ = tk.guess_gender(dfs[0], how)
+            # 'how' is the merge-join string form field; gender wants a dict (optional column)
+            res, summ = tk.guess_gender(dfs[0], {"column": how} if how and how != "outer" else None)
         else:
             return JSONResponse(status_code=404, content={"error": f"unknown tool '{name}'"})
     except Exception as e:

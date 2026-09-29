@@ -67,7 +67,7 @@
 
   /* match / unify */
   .matchtable{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;max-width:860px}
-  .mh,.mrow{display:grid;grid-template-columns:1fr 30px 1.1fr 130px;gap:14px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line-soft);transition:background .12s}
+  .mh,.mrow{display:grid;grid-template-columns:1fr 26px 1fr 120px 32px;gap:12px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line-soft);transition:background .12s}
 .mrow:hover{background:#fafcfe}
 .mrow:last-child{border-bottom:0}
   .mh{background:#f5f8fb;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--navy);font-weight:700}
@@ -544,6 +544,7 @@
 .act-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line-soft);font-size:13px}.act-row:last-child{border-bottom:0}.act-ic{flex:0 0 20px;text-align:center;color:var(--accent,#10B5A6)}.act-tx{flex:1;color:var(--ink)}.act-tm{color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
 .by-you{font-size:11px;color:var(--ink-soft);background:var(--wash,#f1f4f7);border-radius:20px;padding:2px 8px}.by-eng{font-size:11px;color:var(--faint)}
 .screen h1{font-weight:800;letter-spacing:-0.02em}.eyebrow{color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px}.btn{background:var(--navy);color:#fff}.btn:hover{background:var(--navy-d)}.brand b{letter-spacing:.04em}
+.col-bin{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:15px;opacity:.5;transition:.12s;border-radius:6px;padding:4px}.col-bin:hover{opacity:1;color:var(--stop);background:var(--stop-bg)}.mrow.dropped{grid-template-columns:1fr 26px 1fr auto;opacity:.7;background:var(--stop-bg)}.drop-note{font-size:12.5px;color:var(--stop);font-style:italic}.drop-restore{color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -563,7 +564,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.29 · v27 (codebook, snake names, save dialog, filenames)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.29 · v29 (delete-column bin)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1171,7 +1172,7 @@ function go(n){
   if(n===4){ if(COLREVIEW&&COLREVIEW.length) renderColumnReview(); else renderMatch(); if(typeof refreshAIStatusLine==='function') refreshAIStatusLine(); }
   if(n===5){renderReview();updateGate();}
   if(n===6)renderWorklist();
-  if(n===7){renderExport(); if(typeof renderActivity==="function") renderActivity();}
+  if(n===7){renderExport(); if(typeof renderActivityLog==="function") renderActivityLog();}
   if(n===8)renderToolkit();
 }
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
@@ -1830,8 +1831,8 @@ async function doExport(){
       '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'csv\')">CSV</button>'+
       '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></span></div>'+
       '<div class="dl-row"><span class="dl-lab">Change log</span>'+
-      '<span class="dl-btns"><button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\')">Excel</button>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button></span></div>'+
+      '<span class="dl-btns"><button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\',\'changelog\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\',\'changelog\')">Word</button></span></div>'+
       '<div class="dl-row"><span class="dl-lab">Codebook</span>'+
       '<span class="dl-btns"><button class="btn sm ghost" onclick="downloadCodebook(\'xlsx\')">Excel</button>'+
       '<button class="btn sm ghost" onclick="downloadCodebook(\'docx\')">Word</button></span></div></div>';
@@ -1880,10 +1881,10 @@ async function downloadCodebook(fmt){
     else toast('Could not build codebook'+(r.error?': '+r.error:''));
   }catch(e){ toast('Codebook failed: '+e.message); }
 }
-async function expDL(id,fmt){
+async function expDL(id,fmt,suffix){
   // Desktop can't trigger a browser download, so save straight to Downloads and
   // tell the user where. In the browser/Render, use the normal download.
-  const base=(window.__ORIG_NAME__||'cleaned');
+  const base=(window.__ORIG_NAME__||'file')+'_'+(suffix||'clean');
   if(window.__DESKTOP__){
     // native Save dialog if the desktop bridge is available, else save to Downloads
     try{
@@ -2247,8 +2248,7 @@ async function onRealFile(e){
   if(!file) return;
   // fresh start for every upload: drop any prior file's columns, samples, AI state
   COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false;
-  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[];
-  ACTIVITY=[];
+  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[]; window.__RESHAPED_ID__=null;
   try{ SESSION_ID=null; }catch(_){}
   logEvent('\u2191','Uploaded '+file.name);
   PENDING_FILE=file;
@@ -2342,7 +2342,7 @@ async function doReshape(){
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on');
       if(r.error){ toast('Could not reshape: '+r.error); buildColumnReview(data,file.name); }
-      else { toast('Reshaped to long, '+r.rows+' rows.', {kind:'good'}); try{ logEvent('reshape','Reshaped panel to long ('+r.rows+' rows)'); }catch(e){} buildColumnReview(r,file.name); }
+      else { window.__RESHAPED_ID__=r.reshaped_id||null; toast('Reshaped to long, '+r.rows+' rows.', {kind:'good'}); try{ logEvent('reshape','Reshaped panel to long ('+r.rows+' rows)'); }catch(e){} buildColumnReview(r,file.name); }
       reached=Math.max(reached,4); go(4);
     },300);
   }catch(e){ ov.classList.remove('on'); toast('Reshape failed: '+e.message); buildColumnReview(data,file.name); go(4); }
@@ -2379,6 +2379,10 @@ const TYPE_LABEL={date:'Date',datetime:'Date & time',numeric:'Number',identifier
   boolean:'Yes/No',gender:'Gender',email:'Email',phone:'Phone',geo:'Place',currency:'Amount',
   categorical:'Category',name:'Name',free_text:'Text'};
 
+function deleteColumn(i){ const c=COLREVIEW[i]; if(!c) return; c.dropped=true;
+  try{ logEvent('skip','Removed column \u201c'+c.original+'\u201d'); }catch(e){}
+  renderColumnReview(); }
+function restoreColumn(i){ const c=COLREVIEW[i]; if(!c) return; c.dropped=false; renderColumnReview(); }
 function applySuggestion(i){ COLREVIEW[i].name=COLREVIEW[i].suggestion; COLREVIEW[i].suggestion=''; renderColumnReview(); }
 function setColType(i,v){ const c=COLREVIEW[i]; if(c && c.type!==v){ logEvent('\u270E','Changed type of "'+c.original+'" to '+(TYPE_LABEL[v]||v)+' (you)'); } if(c) c.type=v; }
 
@@ -2416,10 +2420,17 @@ function renderColumnReview(){
     else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
     else status=``;   // clean names need no badge, quiet by default (only flag what needs attention)
     const src = c.source==='ai' ? `<span class="ai-tag" title="Type suggested by AI, teal means AI helped">✦ AI</span>` : '';
+    if(c.dropped){
+      return `<div class="mrow dropped">
+        <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
+        <span class="cf-name"><span class="drop-note">removed, won't be in the cleaned file</span></span>
+        <span class="drop-restore" onclick="restoreColumn(${i})">Restore</span></div>`;
+    }
     return `<div class="mrow ${c.abnormal?'needpick':''} ${c.source==='ai'?'ai-row':''}">
       <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
       <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" onchange="if(this.value!==COLREVIEW[${i}].original)logEvent('\u270E','Renamed \u201c'+COLREVIEW[${i}].original+'\u201d to \u201c'+this.value+'\u201d')" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status} ${src}</span>
-      ${typeSelect(i,c.type)}</div>`;}).join('');
+      ${typeSelect(i,c.type)}
+      <button class="col-bin" title="Remove this column from the cleaned file" onclick="deleteColumn(${i})">🗑</button></div>`;}).join('');
   $('#matchrows').innerHTML=rows;
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
@@ -2510,51 +2521,37 @@ function saveVersion(v){ const all=getVersions(); all.unshift(v); _lsSet('prep_v
 function deleteVersion(id){ _lsSet('prep_versions', getVersions().filter(v=>v.id!==id)); renderSettingsLists(); }
 function getHistory(){ return _lsGet('prep_history',[]); }
 function addHistory(h){ const all=getHistory(); all.unshift(h); _lsSet('prep_history',all.slice(0,100)); }
-// Full activity log: a timestamped record of everything in a session, uploads,
-// reshape, renames, type changes (engine vs AI), AI runs, cleans, saves, downloads.
-let ACTIVITY=[];
-function logEvent(icon, text){
-  const e={when:new Date().toISOString(), icon:icon, text:text};
-  ACTIVITY.push(e);
-  // also persist a compact line to long-term history
-  addHistory({when:e.when, file:(PENDING_FILE&&PENDING_FILE.name)||'', text:(icon+' '+text)});
-  const box=$('#activity-list'); if(box) renderActivity();
-}
-function renderActivity(){
-  const box=$('#activity-list'); if(!box) return;
-  box.innerHTML = ACTIVITY.length ? ACTIVITY.slice().reverse().map(e=>
-    '<div class="act-row"><span class="act-ic">'+esc(e.icon)+'</span><span class="act-tx">'+esc(e.text)+'</span>'+
-    '<span class="act-tm">'+new Date(e.when).toLocaleTimeString()+'</span></div>').join('')
-    : '<div class="set-sub">No activity yet.</div>';
-}
-function downloadActivityLog(){
-  const lines=ACTIVITY.map(e=>new Date(e.when).toLocaleString()+'  '+e.icon+'  '+e.text);
-  const header='1864 Prep, activity log\nFile: '+((PENDING_FILE&&PENDING_FILE.name)||'')+'\nGenerated: '+new Date().toLocaleString()+'\n\n';
-  const blob=new Blob([header+lines.join('\n')+'\n'],{type:'text/plain'});
-  const url=URL.createObjectURL(blob); const a=document.createElement('a');
-  a.href=url; a.download='1864Prep_activity_log.txt'; document.body.appendChild(a); a.click();
-  setTimeout(()=>{a.remove(); URL.revokeObjectURL(url);},0);
-  toast('Activity log downloaded.', {kind:'good'});
-}
-// --- activity log: an audit trail of every meaningful action (with or without AI) ---
+// --- Single activity log: an audit trail of every meaningful action (with or
+// without AI), persisted and structured by file. This is the ONE logging system. ---
 function getLog(){ return _lsGet('prep_activity',[]); }
+const LOG_ICON={upload:'📄',reshape:'📊',rename:'✎',retype:'⇄',ai:'✦',clean:'🧹',version:'⭑',download:'⬇',codebook:'📕',setup:'⚙',skip:'·'};
 function logEvent(kind, detail){
+  // tolerate old emoji-first calls: if 'kind' isn't a known key, treat it as detail
+  if(!(kind in LOG_ICON)){ detail = detail || kind; kind = 'skip'; }
   const all=getLog();
   all.unshift({id:Math.random().toString(16).slice(2,7), t:kind, d:detail||'', when:new Date().toISOString(),
                file:(PENDING_FILE&&PENDING_FILE.name)||'', sheet:CURRENT_SHEET||''});
   _lsSet('prep_activity', all.slice(0,500));
-  if(typeof renderSettingsLists==='function' && $('#log-list')) renderActivityLog();
+  renderActivityLog();
 }
-const LOG_ICON={upload:'📄',reshape:'📊',rename:'✎',retype:'⇄',ai:'✦',clean:'🧹',version:'⭑',download:'⬇',setup:'⚙',skip:','};
-function renderActivityLog(){
-  const box=$('#log-list'); if(!box) return; const items=getLog();
-  if(!items.length){ box.innerHTML='<p class="set-sub">Nothing logged yet. Actions you take will appear here.</p>'; return; }
-  box.innerHTML=items.slice(0,200).map(function(x){
-    return '<div class="log-item"><span class="log-ic">'+(LOG_ICON[x.t]||'•')+'</span>'+
-      '<span class="log-d"><b>'+esc(x.d||x.t)+'</b>'+(x.file?'<span class="log-file"> · '+esc(x.file)+(x.sheet?(' / '+esc(x.sheet)):'')+'</span>':'')+'</span>'+
-      '<span class="log-when">'+new Date(x.when).toLocaleString()+' <span class="log-sid">#'+x.id+'</span></span></div>';
+function _logRowsHTML(items){
+  return items.map(function(x){
+    return '<div class="log-item"><span class="log-ic">'+(LOG_ICON[x.t]||'·')+'</span>'+
+      '<span class="log-d"><b>'+esc(x.d||x.t)+'</b></span>'+
+      '<span class="log-when">'+new Date(x.when).toLocaleTimeString()+'</span></div>';
   }).join('');
 }
+function renderActivityLog(){
+  const items=getLog();
+  // group by file so the log reads cleanly, newest file first
+  const groups=[]; const seen={};
+  items.forEach(function(x){ const f=x.file||'(no file)'; if(!seen[f]){ seen[f]={file:f, rows:[]}; groups.push(seen[f]); } seen[f].rows.push(x); });
+  const html = items.length
+    ? groups.map(g=>'<div class="log-group"><div class="log-file">'+esc(g.file)+'</div>'+_logRowsHTML(g.rows)+'</div>').join('')
+    : '<p class="set-sub">Nothing logged yet. Actions you take will appear here.</p>';
+  ['#log-list','#activity-list'].forEach(function(sel){ const box=$(sel); if(box) box.innerHTML=html; });
+}
+function downloadActivityLog(){ exportActivityLog(); }
 function exportActivityLog(){
   const items=getLog(); if(!items.length){ toast('Nothing to export yet.'); return; }
   const rows=[['when','action','detail','file','sheet','id']].concat(items.map(x=>[x.when,x.t,(x.d||'').replace(/,/g,';'),x.file,x.sheet,x.id]));
@@ -2628,16 +2625,19 @@ function cancelClean(){ if(CLEAN_JOB){ CLEAN_ABORTED=true; fetch('/api/job/'+CLE
 // Phase 2: clean with the confirmed column names, then go to review.
 async function confirmColumnsAndClean(){
   if(!PENDING_FILE){ toast('Upload a file first'); return; }
-  const rename={}; COLREVIEW.forEach(c=>{ if(c.name && c.name!==c.original) rename[c.original]=c.name; });
-  const types={}; COLREVIEW.forEach(c=>{ const key=(c.name&&c.name!==c.original)?c.name:c.original; if(c.type&&c.type!=='-') types[key]=c.type; });
+  const rename={}; COLREVIEW.forEach(c=>{ if(!c.dropped && c.name && c.name!==c.original) rename[c.original]=c.name; });
+  const types={}; COLREVIEW.forEach(c=>{ if(c.dropped) return; const key=(c.name&&c.name!==c.original)?c.name:c.original; if(c.type&&c.type!=='-') types[key]=c.type; });
+  const drop=COLREVIEW.filter(c=>c.dropped).map(c=>c.original);
   const ov=$('#overlay'); ov.classList.add('on'); CLEAN_JOB=null; CLEAN_ABORTED=false;
   const prog=makeProgressManual(ov,(USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine'),
     "Applying only what you approve. Your file stays on this computer.");
   try{
     const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'ng');
     if(CURRENT_SHEET) fd.append('sheet', CURRENT_SHEET);
+    if(window.__RESHAPED_ID__) fd.append('reshaped_id', window.__RESHAPED_ID__);
     fd.append('rename',JSON.stringify(rename));
     fd.append('types',JSON.stringify(types));
+    fd.append('drop',JSON.stringify(drop));
     const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
     if(!res.ok||!res.body) throw new Error('stream '+res.status);
     const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='',payload=null,errMsg=null,cancelled=false;
