@@ -545,6 +545,7 @@
 .by-you{font-size:11px;color:var(--ink-soft);background:var(--wash,#f1f4f7);border-radius:20px;padding:2px 8px}.by-eng{font-size:11px;color:var(--faint)}
 .screen h1{font-weight:800;letter-spacing:-0.02em}.eyebrow{color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px}.btn{background:var(--navy);color:#fff}.btn:hover{background:var(--navy-d)}.brand b{letter-spacing:.04em}
 .col-bin{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:15px;opacity:.5;transition:.12s;border-radius:6px;padding:4px}.col-bin:hover{opacity:1;color:var(--stop);background:var(--stop-bg)}.mrow.dropped{grid-template-columns:1fr 26px 1fr auto;opacity:.7;background:var(--stop-bg)}.drop-note{font-size:12.5px;color:var(--stop);font-style:italic}.drop-restore{color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline}
+.aim-test{display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-size:12.5px}.aim-test .t-ok{color:var(--ok,#1E8A6B);font-weight:600}.aim-test .t-bad{color:var(--stop,#C2452F)}
 </style>
 </head>
 <body>
@@ -564,7 +565,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v37</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v39</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -724,9 +725,10 @@
         <div class="aim-step" id="ai-provider-sec" style="display:none">
           <div class="aim-q">Where does it run?</div>
           <div class="seg" id="aim-provseg">
-            <button type="button" data-prov="ollama"    class="on" onclick="pickAIProvider('ollama')">Local</button>
-            <button type="button" data-prov="openai"    onclick="pickAIProvider('openai')">OpenAI</button>
-            <button type="button" data-prov="anthropic" onclick="pickAIProvider('anthropic')">Claude</button>
+            <button type="button" data-prov="ollama"       class="on" onclick="pickAIProvider('ollama')">Local</button>
+            <button type="button" data-prov="ollama_cloud" onclick="pickAIProvider('ollama_cloud')">Ollama Cloud</button>
+            <button type="button" data-prov="openai"       onclick="pickAIProvider('openai')">OpenAI</button>
+            <button type="button" data-prov="anthropic"    onclick="pickAIProvider('anthropic')">Claude</button>
           </div>
           <div class="aim-field">
             <label id="ai-key-label">Server URL <button type="button" class="ibtn" onclick="showHelp(event, aiKeyHelpKey())">i</button></label>
@@ -736,6 +738,7 @@
             <label>Model</label>
             <input id="ai-model" class="set-input" placeholder="llama3.2">
           </div>
+          <div class="aim-test"><button type="button" class="btn ghost sm" onclick="testAIConnection()">Test connection</button><span id="ai-test-out"></span></div>
           <p class="aim-priv" id="ai-priv"></p>
         </div>
 
@@ -977,7 +980,7 @@ const HELP={
   ai_scope:{t:'How does AI help here?',b:'The built-in engine (on this computer) does about 80% on its own. If you tick AI, it double-checks only the UNCERTAIN columns, sending just that column\'s header and a few masked sample values, never full records. It suggests; you approve. Each column shows whether the answer came from the engine or AI.'},
   version_control:{t:'What is a version?',b:'A saved recipe of the exact steps used to clean a file, the column names, types and decisions. Apply it to a new file of the same kind and skip the manual review; anything new is still shown. Good for speed and for an audit trail.'},
   roles:{t:'Administrator vs Member',b:'The Administrator (the owner) can add people and change settings. Members can clean data. Everyone and their role is stored on this computer only.'},
-  src_ai:{t:'Chosen with AI',b:'The data type for this column was suggested by your AI model (masked samples only) and you can still change it.'},src_engine:{t:'Chosen by the engine',b:'The built-in engine determined this column\u2019s type locally on this computer. You can change it if it\u2019s wrong.'},security_pw:{t:'Password vs encryption',b:'A password here locks the app when it opens, a convenience lock, not encryption. For real protection of the files on disk, turn on full-disk encryption: FileVault (Mac) or BitLocker (Windows).'}
+  src_ai:{t:'Chosen with AI',b:'The data type for this column was suggested by your AI model (masked samples only) and you can still change it.'},src_engine:{t:'Chosen by the engine',b:'The built-in engine determined this column\u2019s type locally on this computer. You can change it if it\u2019s wrong.'},api_key_ollama_cloud:{t:'Ollama Cloud API key',b:'Use the SECRET key from ollama.com/settings/keys (not the public/SSH key). The public key is only for publishing models with \u201collama push\u201d and will not work here. Paste the secret key; it stays on your machine and is only used for the masked samples the app sends to Ollama Cloud.'},security_pw:{t:'Password vs encryption',b:'A password here locks the app when it opens, a convenience lock, not encryption. For real protection of the files on disk, turn on full-disk encryption: FileVault (Mac) or BitLocker (Windows).'}
 };
 function infoBtn(key){ return '<button type="button" class="ibtn" title="More info" onclick="showHelp(event,\''+key+'\')">i</button>'; }
 function showHelp(ev, key){
@@ -1002,12 +1005,19 @@ async function bootApp(){
   try{
     const cfg = await (await fetch('/api/config')).json();
     if(cfg && cfg.desktop){ window.__DESKTOP__ = true; }
-    if(cfg && cfg.demo){ window.__WEB__ = true; }
-  }catch(e){ /* static hosting or offline: behave like the normal app */ }
+    if(cfg && cfg.demo){
+      window.__WEB__ = true;
+      // Public web demo: clear everything and start fresh on every reload, so no
+      // data or profile lingers in the browser between visitors (a privacy measure).
+      try{ localStorage.clear(); }catch(e){}
+      try{ sessionStorage.clear(); }catch(e){}
+      startOnboarding();
+      return;
+    }
+  }catch(e){ /* static hosting or offline: behave like the normal desktop app */ }
   if(!isSetup()){ startOnboarding(); return; }
   const pw=_pget('prep_pass', null);
-  // A password locks the app on every load, on both web and desktop. If none was
-  // set (the user opted out), go straight in.
+  // Desktop: a password locks the app on every load; if none was set, go straight in.
   if(pw){ askPassword(); } else { enterApp(); }
 }
 function enterApp(){
@@ -1275,7 +1285,7 @@ function openAIModal(){
   paintAIMode(); paintAIProvider(true);
 }
 function closeAIModal(){ $('#aimodal').classList.remove('on'); }
-function aiKeyHelpKey(){ return AIM_PROV==='openai'?'api_key_openai':AIM_PROV==='anthropic'?'api_key_anthropic':'api_key_ollama'; }
+function aiKeyHelpKey(){ return AIM_PROV==='openai'?'api_key_openai':AIM_PROV==='anthropic'?'api_key_anthropic':AIM_PROV==='ollama_cloud'?'api_key_ollama_cloud':'api_key_ollama'; }
 function pickAIMode(m){ AIM_MODE=m; paintAIMode(); }
 function paintAIMode(){
   document.querySelectorAll('#aim-opts .aim-opt').forEach(b=>b.classList.toggle('sel', b.dataset.mode===AIM_MODE));
@@ -1294,12 +1304,25 @@ function paintAIProvider(keep){
   document.querySelectorAll('#aim-provseg button').forEach(b=>b.classList.toggle('on', b.dataset.prov===AIM_PROV));
   const d=AI_DEFAULTS[AIM_PROV]||AI_DEFAULTS.ollama, local=d.local;
   $('#ai-key-label').innerHTML=(local?'Server URL':'API key')+' <button type="button" class="ibtn" onclick="showHelp(event, aiKeyHelpKey())">i</button>';
-  $('#ai-key').placeholder=local?'http://localhost:11434':('paste your '+AIM_PROV+' key');
+  $('#ai-key').placeholder=local?'http://localhost:11434':(AIM_PROV==='ollama_cloud'?'paste your Ollama secret API key':('paste your '+AIM_PROV+' key'));
   $('#ai-model').placeholder=d.model;
   if(!keep){ $('#ai-key').value=local?d.url:''; $('#ai-model').value=d.model; }
   $('#ai-priv').innerHTML=local
     ? '🔒 Local, nothing leaves this computer.'
-    : 'Only masked samples are sent to '+AIM_PROV+', never full records.';
+    : 'Only masked samples are sent to '+(AIM_PROV==='ollama_cloud'?'Ollama Cloud':AIM_PROV)+', never full records.';
+}
+async function testAIConnection(){
+  const out=$('#ai-test-out'); if(!out) return;
+  const prov=AIM_PROV, d=(AI_DEFAULTS[prov]||{});
+  const key=$('#ai-key').value||'', model=$('#ai-model').value||d.model||'';
+  out.innerHTML='<span class="spin"></span> testing…';
+  try{
+    const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({column:'test',values:['1','2','3'],task:'type',provider:prov,
+        url:(d.local?key:''),model:model,api_key:(d.local?'':key)})})).json();
+    if(r.ok){ out.innerHTML='<span class="t-ok">✓ connected ('+esc(r.where&&r.where.location||'')+')</span>'; }
+    else { out.innerHTML='<span class="t-bad">✕ '+esc(String(r.error||'no response').slice(0,60))+'</span>'; }
+  }catch(e){ out.innerHTML='<span class="t-bad">✕ '+esc(e.message||'failed')+'</span>'; }
 }
 function saveAIModal(){
   const mode=AIM_MODE, p=AIM_PROV, d=AI_DEFAULTS[p]||AI_DEFAULTS.ollama;
@@ -2033,6 +2056,7 @@ function toggleSetType(k,on){
 }
 function closeSettings(){ $('#settings').classList.remove('on'); }
 const AI_DEFAULTS={ollama:{url:'http://localhost:11434',model:'llama3.2',local:true},
+                   ollama_cloud:{url:'',model:'gpt-oss:20b',local:false},
                    openai:{url:'',model:'gpt-4o-mini',local:false},
                    anthropic:{url:'',model:'claude-3-5-haiku-latest',local:false}};
 function onProviderChange(keep){ /* AI provider now configured in the AI setup modal */ }

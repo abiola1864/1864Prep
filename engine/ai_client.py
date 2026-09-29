@@ -36,6 +36,9 @@ def classify_endpoint(provider: str, url: str = "", model: str = "") -> dict:
                     "note": "Local model on this computer - nothing leaves the device."}
         return {"location": "cloud", "leaves_device": True,
                 "note": "Remote Ollama host - the masked prompt is sent off this device."}
+    if provider == "ollama_cloud":
+        return {"location": "cloud", "leaves_device": True,
+                "note": "Ollama Cloud - the masked prompt is sent to Ollama's servers under your API key."}
     if provider in ("openai", "anthropic"):
         return {"location": "cloud", "leaves_device": True,
                 "note": f"{provider.title()} - the masked prompt is sent to {provider} under your API key."}
@@ -84,6 +87,13 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
                          {"model": model, "prompt": question, "stream": False},
                          {}, timeout)
             out["text"] = (resp.get("response") or "").strip(); out["ok"] = True
+        elif provider == "ollama_cloud":
+            # Ollama Cloud, OpenAI-compatible endpoint, uses your SECRET api key
+            resp = _post("https://ollama.com/v1/chat/completions",
+                         {"model": model or "gpt-oss:20b",
+                          "messages": [{"role": "user", "content": question}]},
+                         {"Authorization": f"Bearer {api_key}"}, timeout)
+            out["text"] = resp["choices"][0]["message"]["content"].strip(); out["ok"] = True
         elif provider == "openai":
             resp = _post("https://api.openai.com/v1/chat/completions",
                          {"model": model or "gpt-4o-mini",
