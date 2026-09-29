@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Course Catalog</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f2f2;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .search-and-reset {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 70%;
+      margin-bottom: 20px;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 80%;
+      margin-right: 10px;
+    }
+
+    .search-container input {
+      width: 80%;
+      padding: 10px;
+      margin-right: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .search-container button {
+      width: 150px;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .reset-button {
+      width: 150px;
+      padding: 10px;
+      background-color: #ffeb3b;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+  .filter-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    width: 70%;
+    margin-bottom: 20px;
+    background-color: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-height: 250px; /* Adjust the height as needed */
+}
+
+    
+    .filter-container .filter-group {
+      margin: 0 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .filter-container button {
+      width: 150px;
+      padding: 10px;
+      background-color: #fff;
+      color: #4CAF50;
+      border: 1px solid #4CAF50;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      margin-bottom: 5px;
+    }
+
+    .filter-container button:hover {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .filter-container button .dropdown-arrow {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      font-size: 16px;
+      transition: transform 0.3s ease;
+    }
+
+    .filter-container button:hover .dropdown-arrow {
+      transform: translateY(-50%) rotate(180deg);
+    }
+
+    .filter-container button.active .dropdown-arrow {
+      content: "×";
+    }
+
+    .filter-container button.selected {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .filter-container button.selected .dropdown-arrow {
+      content: "×";
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: #333;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1;
+      left: 0;
+      width: 100%;
+      border-radius: 4px;
+    }
+
+   
+    .dropdown-content a:hover {
+      background-color: grey;
+    }
+
+    .filter-container button:hover .dropdown-content {
+      display: block;
+    }
+
+    .selected-filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 10px;
+      width: 70%;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .selected-filters .filter-group {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin: 0 10px;
+    }
+
+    .selected-filters .filter-group button {
+      display: flex;
+      align-items: center;
+      margin: 5px;
+      padding: 5px 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .selected-filters .filter-group button .dropdown-arrow {
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-left: 5px;
+      font-size: 12px;
+      color: #4CAF50;
+    }
+
+    .course-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-gap: 20px;
+      width: 70%;
+    }
+
+    .course-card {
+      border: 1px solid #ccc;
+      padding: 20px;
+      text-align: center;
+      border-radius: 4px;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .course-card h3 {
+      margin-top: 0;
+    }
+
+    .course-card p {
+      margin: 5px 0;
+    }
+
+    @media (max-width: 767px) {
+      .container {
+        width: 95%;
+      }
+      
+      .search-and-reset,
+      .filter-container,
+      .selected-filters,
+      .course-container {
+        width: 100%;
+      }
+      
+      .search-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .search-container input,
+      .search-container button,
+      .reset-button {
+        width: 100%;
+        margin: 5px 0;
+      }
+      
+      .filter-container {
+        flex-wrap: wrap;
+      }
+
+
+      
+      .filter-container .filter-group {
+        width: 100%;
+        margin: 5px 0;
+      }
+      
+      .course-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .course-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .course-container {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .course-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.course-header {
+  position: relative;
+  background-color: #f8f8f8;
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.price-button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: #ffd700;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-weight: bold;
+}
+
+.course-header h3 {
+  margin: 0;
+  padding-left: 80px;
+  font-size: 1.1em;
+}
+
+.course-body {
+  padding: 15px;
+}
+
+.course-body p {
+  margin: 10px 0;
+}
+
+.icon {
+  margin-right: 5px;
+}
+
+.stars {
+  color: #ffd700;
+  margin-right: 5px;
+}
+
+.filter-container button {
+  width: 150px;
+  padding: 10px;
+  background-color: #fff;
+  color: #4CAF50;
+  border: 1px solid #4CAF50;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 5px;
+  text-align: left;
+}
+
+
+.dropdown-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+    
+
+    
+    
+ 
+    .filter-group {
+      position: relative;
+    }
+
+    .filter-button {
+      width: 150px;
+      padding: 10px;
+      text-align: left;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      z-index: 1;
+    }
+
+    .dropdown-scroll {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+ 
+
+/* Custom scrollbar styles */
+.dropdown-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dropdown-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.dropdown-scroll::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+.review-count {
+  color: #777;
+  font-size: 0.9em;
+}
+
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="search-and-reset">
+      <div class="search-container">
+        <input type="text" placeholder="Search by title, price, category, or rating">
+        <button>Submit</button>
+      </div>
+      <button class="reset-button">Reset All</button>
+    </div>
+    <div class="filter-container">
+      <div class="filter-group">
+        <button class="filter-button">
+          Title
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated title options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Price
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated price options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Category
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated category options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Rating
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated rating options will go here -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="selected-filters">
+      <!-- Selected filters will be dynamically added here -->
+    </div>
+    <div class="course-container">
+      <!-- Course cards will be dynamically generated here -->
+    </div>
+  </div>
+
+  <script>
+    fetch('courses.json')
+      .then(response => response.json())
+      .then(courses => {
+        populateDropdownContent(courses);
+        renderCourses(courses);
+      });
+
+    let selectedFilters = [];
+
+    function renderCourses(courses) {
+      const courseContainer = document.querySelector(".course-container");
+      courseContainer.innerHTML = "";
+
+      courses.forEach(course => {
+        const courseCard = document.createElement("div");
+        courseCard.classList.add("course-card");
+        courseCard.innerHTML = `
+          <h3>${course.title}</h3>
+          <p>Category: ${course.category}</p>
+          <p>Price: ${course.price}</p>
+          <p>Hours: ${course.hours}</p>
+          <p>Reviews: ${course.reviews}</p>
+        `;
+        courseContainer.appendChild(courseCard);
+      });
+    }
+
+
+
+    function renderCourses(courses) {
+    const courseContainer = document.querySelector(".course-container");
+    courseContainer.innerHTML = "";
+  
+    courses.forEach(course => {
+      const courseCard = document.createElement("div");
+      courseCard.classList.add("course-card");
+      courseCard.innerHTML = `
+        <div class="course-header">
+          <button class="price-button">${course.price}</button>
+          <h3>${course.title}</h3>
+        </div>
+        <div class="course-body">
+          <p class="category"><strong>Category:</strong> ${course.category}</p>
+          <p class="hours"><span class="icon">👤</span> ${course.hours} hours</p>
+          <p class="reviews">
+            <span class="stars">${'★'.repeat(Math.min(Math.round(parseInt(course.reviews)/2), 5))}${'☆'.repeat(Math.max(5 - Math.round(parseInt(course.reviews)/2), 0))}</span>
+            <span class="review-count">(${course.reviews}/10)</span>
+          </p>
+        </div>
+      `;
+      courseContainer.appendChild(courseCard);
+    });
+  }
+
+
+  
+
+
+
+    // function filterCourses() {
+    //   const searchInput = document.querySelector(".search-container input");
+    //   const searchTerm = searchInput.value.toLowerCase();
+
+    //   fetch('courses.json')
+    //     .then(response => response.json())
+    //     .then(courses => {
+    //       const filteredCourses = courses.filter(course => {
+    //         let filterMatch = true;
+    //         selectedFilters.forEach(filter => {
+    //           if (filter.type === "title" && !course.title.toLowerCase().includes(filter.option.toLowerCase())) {
+    //             filterMatch = false;
+    //           } else if (filter.type === "price" && !course.price.includes(filter.option)) {
+    //             filterMatch = false;
+    //           } else if (filter.type === "category" && !course.category.toLowerCase().includes(filter.option.toLowerCase())) {
+    //             filterMatch = false;
+    //           } else if (filter.type === "rating" && !course.reviews.includes(filter.option)) {
+    //             filterMatch = false;
+    //           }
+    //         });
+    //         return filterMatch && (course.title.toLowerCase().includes(searchTerm) ||
+    //           course.category.toLowerCase().includes(searchTerm) ||
+    //           course.price.includes(searchTerm) ||
+    //           course.reviews.includes(searchTerm));
+    //       });
+    //       renderCourses(filteredCourses);
+    //     });
+    // }
+
+    // document.querySelector(".search-container button").addEventListener("click", filterCourses);
+
+
+
+  function filterCourses() {
+  const searchInput = document.querySelector(".search-container input");
+  const searchTerm = searchInput.value.toLowerCase();
+
+  // Fetch courses data from the JSON file
+  fetch('courses.json')
+    .then(response => response.json())
+    .then(courses => {
+      // Filter courses based on selected filters and search term
+      const filteredCourses = courses.filter(course => {
+        let filterMatch = true;
+
+        // Iterate through each selected filter to check if the course matches
+        selectedFilters.forEach(filter => {
+          if (filter.type === "title" && !course.title.toLowerCase().includes(filter.option.toLowerCase())) {
+            filterMatch = false;
+          } else if (filter.type === "price" && !course.price.includes(filter.option)) {
+            filterMatch = false;
+          } else if (filter.type === "category" && !course.category.toLowerCase().includes(filter.option.toLowerCase())) {
+            filterMatch = false;
+          } else if (filter.type === "rating" && !course.reviews.includes(filter.option)) {
+            filterMatch = false;
+          }
+        });
+
+        // Check if the course matches the search term
+        return filterMatch && (
+          course.title.toLowerCase().includes(searchTerm) ||
+          course.category.toLowerCase().includes(searchTerm) ||
+          course.price.includes(searchTerm) ||
+          course.reviews.includes(searchTerm)
+        );
+      });
+
+      // Check if any courses matched the search criteria
+      if (filteredCourses.length === 0) {
+        // If no matches, display a default message in the center
+        document.querySelector(".course-container").innerHTML = `
+          <div class="no-results">
+            <p>Sorry, no results match your search criteria <span class="emoji">🤔</span></p>
+          </div>
+        `;
+
+        // Apply styles using CSS for centering, animation, and better appearance
+        const style = document.createElement("style");
+        style.innerHTML = `
+          ..no-results {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+  animation: pulse 1.5s infinite;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.no-results span {
+  display: block;
+  font-size: 5rem;
+  margin-top: 1rem;
+    align-items: center;
+}
+
+          .no-results p {
+            font-size: 1rem;  /* Large text size */
+            font-weight: bold; /* Bold text */
+            color: #333;  /* Darker color for better readability */
+          }
+
+          .no-results .emoji {
+            display: inline-block;
+            animation: bounce 1.5s infinite;
+          }
+
+          @keyframes bounce {
+            0%, 100% {
+              transform: translateY(0);
+            }
+            50% {
+              transform: translateY(-10px);
+            }
+          }
+        `;
+        document.head.appendChild(style);
+      } else {
+        // Render the filtered courses
+        renderCourses(filteredCourses);
+      }
+    })
+    .catch(error => console.error('Error fetching courses:', error));
+}
+
+// Event listener for the "Submit" button
+document.querySelector(".search-container button").addEventListener("click", filterCourses);
+
+
+
+
+
+
+    const filterButtons = document.querySelectorAll(".filter-container button:not(:last-child)");
+    filterButtons.forEach((button, index) => {
+      button.addEventListener("click", () => {
+        toggleDropdown(index);
+      });
+    });
+
+
+    
+
+    function toggleDropdown(index) {
+      const dropdownContents = document.querySelectorAll(".filter-container .dropdown-content");
+      dropdownContents.forEach((content, i) => {
+        if (i === index) {
+          content.style.display = content.style.display === "block" ? "none" : "block";
+        } else {
+          content.style.display = "none";
+        }
+      });
+
+      const dropdownArrows = document.querySelectorAll(".filter-container button .dropdown-arrow");
+      dropdownArrows[index].textContent = dropdownArrows[index].textContent === "▼" ? "▲" : "▼";
+    }
+    
+    
+    
+    
+
+  function populateDropdownContent(courses) {
+  const filterGroups = document.querySelectorAll(".filter-container .filter-group");
+    
+    
+
+  filterGroups.forEach((group, index) => {
+    const button = group.querySelector("button");
+    const dropdownContent = group.querySelector(".dropdown-content .dropdown-scroll");
+    const type = ["title", "price", "category", "rating"][index];
+
+    let options;
+    switch (type) {
+      case "title":
+        options = [...new Set(courses.map(course => course.title))];
+        break;
+      case "price":
+        options = [...new Set(courses.map(course => course.price))];
+        break;
+      case "category":
+        options = [...new Set(courses.map(course => course.category))];
+        break;
+      case "rating":
+        options = [...new Set(courses.map(course => {
+          const rating = parseInt(course.reviews.replace(/[^0-9-]/g, ''));
+          return `${rating} - ${rating + 4}`;
+        }))];
+        break;
+    }
+
+    options.forEach(option => {
+      const optionElement = document.createElement("a");
+      optionElement.textContent = option;
+      optionElement.addEventListener("click", () => {
+        toggleSelectedOption(type, option);
+        filterCourses();
+      });
+      dropdownContent.appendChild(optionElement);
+    });
+
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleDropdown(group);
+    });
+  });
+}
+
+    
+    
+    
+function toggleDropdown(group) {
+  const dropdownContent = group.querySelector(".dropdown-content");
+  const arrow = group.querySelector(".dropdown-arrow");
+  
+  document.querySelectorAll(".filter-container .dropdown-content").forEach(content => {
+    if (content !== dropdownContent) {
+      content.style.display = "none";
+      content.parentElement.querySelector(".dropdown-arrow").textContent = "▼";
+    }
+  });
+
+  if (dropdownContent.style.display === "block") {
+    dropdownContent.style.display = "none";
+    arrow.textContent = "▼";
+  } else {
+    dropdownContent.style.display = "block";
+    arrow.textContent = "▲";
+  }
+}
+
+// Add this to close dropdowns when clicking outside
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".filter-container")) {
+    document.querySelectorAll(".filter-container .dropdown-content").forEach(content => {
+      content.style.display = "none";
+      content.parentElement.querySelector(".dropdown-arrow").textContent = "▼";
+    });
+  }
+});
+    
+    
+
+document.querySelector(".search-container input").addEventListener("input", filterCourses);
+
+
+
+
+    function toggleSelectedOption(type, option) {
+      const selectedFiltersContainer = document.querySelector(".selected-filters");
+      const selectedOptionButton = selectedFiltersContainer.querySelector(`button[data-type="${type}"][data-option="${option}"]`);
+
+      if (selectedOptionButton) {
+        selectedOptionButton.remove();
+        const index = selectedFilters.findIndex(filter => filter.type === type && filter.option === option);
+        if (index > -1) {
+          selectedFilters.splice(index, 1);
+        }
+      } else {
+        const filterGroup = selectedFiltersContainer.querySelector(`.filter-group[data-type="${type}"]`);
+        if (!filterGroup) {
+          const newFilterGroup = document.createElement("div");
+          newFilterGroup.classList.add("filter-group");
+          newFilterGroup.setAttribute("data-type", type);
+          selectedFiltersContainer.appendChild(newFilterGroup);
+        }
+        const newButton = document.createElement("button");
+        newButton.textContent = option;
+        newButton.setAttribute("data-type", type);
+        newButton.setAttribute("data-option", option);
+        newButton.classList.add("selected");
+        newButton.innerHTML += '<span class="dropdown-arrow">×</span>';
+        newButton.addEventListener("click", () => {
+          toggleSelectedOption(type, option);
+          filterCourses();
+        });
+        selectedFiltersContainer.querySelector(`.filter-group[data-type="${type}"]`).appendChild(newButton);
+        selectedFilters.push({ type, option });
+      }
+
+      updateResetButtonVisibility();
+      filterCourses();
+    }
+    
+    
+//       // JavaScript to toggle dropdowns
+//     document.querySelectorAll('.filter-button').forEach(button => {
+//       button.addEventListener('click', () => {
+//         const dropdown = button.nextElementSibling;
+//         dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+//       });
+//     });
+
+//     // Close dropdowns when clicking outside
+//     window.addEventListener('click', (e) => {
+//       if (!e.target.matches('.filter-button')) {
+//         document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+//           dropdown.style.display = 'none';
+//         });
+//       }
+      
+      
+      
+
+    function updateResetButtonVisibility() {
+      const resetButton = document.querySelector(".reset-button");
+      if (selectedFilters.length > 0) {
+        resetButton.style.display = "block";
+      } else {
+        resetButton.style.display = "none";
+      }
+    }
+
+    // Add event listener to the "Reset All" button
+    document.querySelector(".reset-button").addEventListener("click", () => {
+      selectedFilters = [];
+      document.querySelector(".selected-filters").innerHTML = "";
+      updateResetButtonVisibility();
+      filterCourses();
+    });
+
+    // Add event listener to the filter container to hide dropdown content on click outside
+    document.querySelector(".filter-container").addEventListener("click", (event) => {
+      if (!event.target.closest(".filter-container")) {
+        const dropdownContents = document.querySelectorAll(".filter-container .dropdown-content");
+        dropdownContents.forEach((content) => {
+          content.style.display = "none";
+        });
+
+        const dropdownArrows = document.querySelectorAll(".filter-container button .dropdown-arrow");
+        dropdownArrows.forEach((arrow) => {
+          arrow.textContent = "▼";
+        });
+      }
+    });
+
+    
+    // Initial render of all courses
+    filterCourses();
+  </script>
+</body>
+</html>

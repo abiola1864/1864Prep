@@ -65,7 +65,9 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
     try:
         provider = (provider or "ollama").lower()
         if provider == "ollama":
-            base = (url or "http://127.0.0.1:11434").rstrip("/")
+            base = (url or "http://127.0.0.1:11434").strip().rstrip("/")
+            if base and not base.startswith(("http://", "https://")):
+                base = "http://" + base          # 'localhost:11434' -> 'http://localhost:11434'
             model = model or "llama3.2"
             # check the model is actually installed, so we can give a clear message
             try:

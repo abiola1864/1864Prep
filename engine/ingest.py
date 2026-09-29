@@ -243,6 +243,41 @@ def _is_year_header(c):
     return bool(_re_ing.fullmatch(r"(19|20)\d{2}", str(c).strip()))
 
 
+def _pair_year_value_columns(df: pd.DataFrame, notes: list) -> pd.DataFrame:
+    """OECD/Eurostat exports place each year's VALUE in the column *after* the year
+    header (a 'flag column' layout): the '1960' column is empty and the unlabeled
+    column beside it holds the data. Detect that pattern and move each value column
+    under its year, then drop the now-redundant empty columns. General: only fires
+    when a year column is mostly empty and its right neighbour (blank/no-header)
+    holds the data."""
+    cols = list(df.columns)
+    def _empty_share(s):
+        v = s.astype(str).str.strip().replace("nan", "")
+        return (v == "").mean() if len(v) else 1.0
+    def _blank_header(c):
+        s = str(c).strip()
+        return s == "" or s.lower().startswith("unnamed") or "no_header" in s.lower()
+    moved = 0; drop_idx = set()
+    for i, c in enumerate(cols):
+        if not _is_year_header(c):
+            continue
+        if i + 1 >= len(cols):
+            continue
+        nxt = cols[i + 1]
+        if not _blank_header(nxt):
+            continue
+        # year col mostly empty, neighbour mostly filled -> neighbour holds the values
+        if _empty_share(df[c]) >= 0.8 and _empty_share(df[nxt]) < 0.8:
+            df[c] = df[nxt].values          # value under the year header
+            drop_idx.add(i + 1)
+            moved += 1
+    if moved:
+        keep = [c for j, c in enumerate(cols) if j not in drop_idx]
+        df = df[keep]
+        notes.append(f"paired {moved} year column(s) with their value column (OECD/Eurostat flag layout)")
+    return df
+
+
 def _drop_empty_columns(df: pd.DataFrame, notes: list) -> pd.DataFrame:
     """Remove columns that hold no data at all (blank spacer columns common in
     spreadsheet exports). Reported, never silent. Never drops a YEAR-headed column
@@ -353,7 +388,8 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
     if orient == "transposed":
         df = _transpose(df)
     _empty_notes = []
-    df = _drop_empty_columns(df, _empty_notes)   # remove blank spacer columns (Eurostat/OECD exports)
+    df = _pair_year_value_columns(df, _empty_notes)   # OECD/Eurostat: value sits beside the year header
+    df = _drop_empty_columns(df, _empty_notes)        # remove blank spacer columns
     rep = IngestReport(str(path), kind, encoding=enc, delimiter=delim, header_row=data_start,
                        rows=len(df), cols=len(df.columns))
     for _n in _empty_notes:

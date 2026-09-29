@@ -1,0 +1,202 @@
+[
+  {
+    "id": 0,
+    "Name": "Dr. John Smith",
+    "Gender": "Male",
+    "Title": "Senior Cardiologist",
+    "Specialist": ["Cardiology", "Internal Medicine", "Interventional Cardiology"],
+    "Able_To_Treat": ["Heart Disease", "Hypertension", "Arrhythmia"],
+    "Condition": ["Chest Pain", "Shortness of Breath", "Fatigue"],
+    "Treatment": ["Medication Management", "Angioplasty", "Lifestyle Counseling"],
+    "Languages": ["English", "Spanish"],
+    "Email": "john.smith@example.com",
+    "Phone": "(+1) 555-1234",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Twitter": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. John Smith is a board-certified cardiologist with over 20 years of experience in treating various heart conditions. He specializes in interventional cardiology and is passionate about preventive care.",
+    "image": "assets/images/courses/1.jpg"
+  },
+  {
+    "id": 1,
+    "Name": "Dr. Maria Garcia",
+    "Gender": "Female",
+    "Title": "Dermatology Specialist",
+    "Specialist": ["Dermatology", "Cosmetic Dermatology", "Pediatric Dermatology"],
+    "Able_To_Treat": ["Acne", "Eczema", "Skin Cancer"],
+    "Condition": ["Skin Rash", "Dry Skin", "Moles"],
+    "Treatment": ["Topical Treatments", "Laser Therapy", "Mohs Surgery"],
+    "Languages": ["English", "Spanish", "French"],
+    "Email": "maria.garcia@example.com",
+    "Phone": "(+1) 555-5678",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Instagram": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Maria Garcia is a highly skilled dermatologist with expertise in both medical and cosmetic dermatology. She is known for her gentle approach with pediatric patients and her innovative treatments for adult acne.",
+    "image": "assets/images/courses/2.jpg"
+  },
+  {
+    "id": 2,
+    "Name": "Dr. Robert Lee",
+    "Gender": "Male",
+    "Title": "Orthopedic Surgeon",
+    "Specialist": ["Orthopedics", "Sports Medicine", "Joint Replacement"],
+    "Able_To_Treat": ["Arthritis", "Fractures", "Sports Injuries"],
+    "Condition": ["Joint Pain", "Swelling", "Mobility Issues"],
+    "Treatment": ["Joint Replacement", "Arthroscopy", "Physical Therapy"],
+    "Languages": ["English", "Mandarin"],
+    "Email": "robert.lee@example.com",
+    "Phone": "(+1) 555-7890",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Twitter": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Robert Lee is a leading orthopedic surgeon with a focus on sports medicine and joint replacement. He has helped numerous athletes recover from injuries and return to peak performance.",
+    "image": "assets/images/courses/3.jpg"
+  },
+  {
+    "id": 3,
+    "Name": "Dr. Emily Brown",
+    "Gender": "Female",
+    "Title": "Pediatrician",
+    "Specialist": ["Pediatrics", "Neonatology", "Childhood Immunizations"],
+    "Able_To_Treat": ["Asthma", "Allergies", "Developmental Disorders"],
+    "Condition": ["Coughing", "Wheezing", "Delayed Milestones"],
+    "Treatment": ["Vaccination", "Growth Monitoring", "Behavioral Therapy"],
+    "Languages": ["English", "German"],
+    "Email": "emily.brown@example.com",
+    "Phone": "(+1) 555-3456",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Instagram": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Emily Brown is a compassionate pediatrician with extensive experience in neonatology and childhood immunizations. She is dedicated to ensuring the healthy growth and development of her young patients.",
+    "image": "assets/images/courses/4.jpg"
+  },
+  {
+    "id": 4,
+    "Name": "Dr. Ahmed Khan",
+    "Gender": "Male",
+    "Title": "Endocrinologist",
+    "Specialist": ["Endocrinology", "Diabetes Management", "Thyroid Disorders"],
+    "Able_To_Treat": ["Diabetes", "Hypothyroidism", "Osteoporosis"],
+    "Condition": ["Fatigue", "Weight Gain", "Bone Loss"],
+    "Treatment": ["Insulin Therapy", "Hormone Replacement", "Dietary Counseling"],
+    "Languages": ["English", "Arabic"],
+    "Email": "ahmed.khan@example.com",
+    "Phone": "(+1) 555-6543",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Twitter": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Ahmed Khan is an expert endocrinologist specializing in the management of diabetes and thyroid disorders. He is committed to helping patients achieve optimal health through personalized care.",
+    "image": "assets/images/courses/5.jpg"
+  },
+  {
+    "id": 5,
+    "Name": "Dr. Sophia Nguyen",
+    "Gender": "Female",
+    "Title": "Oncologist",
+    "Specialist": ["Oncology", "Radiation Therapy", "Chemotherapy"],
+    "Able_To_Treat": ["Breast Cancer", "Lung Cancer", "Lymphoma"],
+    "Condition": ["Tumor Growth", "Chronic Cough", "Swollen Lymph Nodes"],
+    "Treatment": ["Radiation Therapy", "Chemotherapy", "Immunotherapy"],
+    "Languages": ["English", "Vietnamese"],
+    "Email": "sophia.nguyen@example.com",
+    "Phone": "(+1) 555-4321",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Instagram": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Sophia Nguyen is a dedicated oncologist with a focus on providing compassionate care to cancer patients. She is skilled in the latest radiation and chemotherapy techniques to improve patient outcomes.",
+    "image": "assets/images/courses/6.jpg"
+  },
+  {
+    "id": 6,
+    "Name": "Dr. Michael Johnson",
+    "Gender": "Male",
+    "Title": "Neurologist",
+    "Specialist": ["Neurology", "Stroke Management", "Epilepsy"],
+    "Able_To_Treat": ["Parkinson's Disease", "Migraines", "Multiple Sclerosis"],
+    "Condition": ["Tremors", "Chronic Headaches", "Muscle Weakness"],
+    "Treatment": ["Deep Brain Stimulation", "Seizure Management", "Neurorehabilitation"],
+    "Languages": ["English", "Portuguese"],
+    "Email": "michael.johnson@example.com",
+    "Phone": "(+1) 555-8765",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Twitter": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Michael Johnson is a renowned neurologist specializing in the treatment of neurological disorders such as Parkinson's disease and epilepsy. He is dedicated to advancing the field of neurorehabilitation.",
+    "image": "assets/images/courses/7.jpg"
+  },
+  {
+    "id": 7,
+    "Name": "Dr. Aisha Patel",
+    "Gender": "Female",
+    "Title": "Psychiatrist",
+    "Specialist": ["Psychiatry", "Cognitive Behavioral Therapy", "Addiction Medicine"],
+    "Able_To_Treat": ["Depression", "Anxiety", "Substance Abuse"],
+    "Condition": ["Mood Swings", "Panic Attacks", "Withdrawal Symptoms"],
+    "Treatment": ["Medication Management", "Psychotherapy", "Rehabilitation Programs"],
+    "Languages": ["English", "Hindi", "Urdu"],
+    "Email": "aisha.patel@example.com",
+    "Phone": "(+1) 555-2345",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Instagram": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Aisha Patel is a compassionate psychiatrist with a focus on treating mental health disorders and substance abuse. She uses a combination of medication and therapy to help patients achieve mental well-being.",
+    "image": "assets/images/courses/8.jpg"
+  },
+  {
+    "id": 8,
+    "Name": "Dr. David Williams",
+    "Gender": "Male",
+    "Title": "Gastroenterologist",
+    "Specialist": ["Gastroenterology", "Hepatology", "Endoscopy"],
+    "Able_To_Treat": ["Irritable Bowel Syndrome", "Liver Disease", "GERD"],
+    "Condition": ["Abdominal Pain", "Nausea", "Heartburn"],
+    "Treatment": ["Endoscopic Procedures", "Dietary Counseling", "Liver Biopsy"],
+    "Languages": ["English", "Italian"],
+    "Email": "david.williams@example.com",
+    "Phone": "(+1) 555-6789",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Twitter": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. David Williams is a highly skilled gastroenterologist with expertise in treating complex digestive disorders. He is passionate about providing individualized care and improving patient quality of life.",
+    "image": "assets/images/courses/9.jpg"
+  },
+  {
+    "id": 9,
+    "Name": "Dr. Linda Martinez",
+    "Gender": "Female",
+    "Title": "Obstetrician/Gynecologist",
+    "Specialist": ["Obstetrics", "Gynecology", "Reproductive Medicine"],
+    "Able_To_Treat": ["Pregnancy", "Menstrual Disorders", "Infertility"],
+    "Condition": ["Prenatal Care", "Irregular Periods", "Difficulty Conceiving"],
+    "Treatment": ["Fertility Treatments", "Prenatal Checkups", "Surgical Interventions"],
+    "Languages": ["English", "Spanish"],
+    "Email": "linda.martinez@example.com",
+    "Phone": "(+1) 555-9012",
+    "SocialMedia": {
+      "Facebook": "#",
+      "Instagram": "#",
+      "LinkedIn": "#"
+    },
+    "AboutMe": "Dr. Linda Martinez is a dedicated obstetrician/gynecologist with a focus on women's health. She provides comprehensive care for pregnancy and reproductive health, including advanced fertility treatments.",
+    "image": "assets/images/courses/10.jpg"
+  }
+]

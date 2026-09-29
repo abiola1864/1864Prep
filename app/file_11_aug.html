@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet"
+  <title></title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f2f2f2;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 30px;
+    }
+
+    .search-and-reset {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 70%;
+      margin-bottom: 20px;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 80%;
+      margin-right: 10px;
+    }
+
+    .search-container input {
+      width: 80%;
+      padding: 10px;
+      margin-right: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .search-container button {
+      width: 150px;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .reset-button {
+      width: 150px;
+      padding: 10px;
+      background-color: #ffeb3b;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+      .filter-button {
+      width: 150px;
+      padding: 10px;
+      text-align: left;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+
+    
+    .filter-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      width: 70%;
+      margin-bottom: 20px;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      min-height: 250px;
+    }
+
+    .filter-container .filter-group {
+      margin: 0 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .filter-container button {
+      width: 150px;
+      padding: 10px;
+      background-color: #fff;
+      color: #4CAF50;
+      border: 1px solid #4CAF50;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      margin-bottom: 5px;
+      text-align: left;
+    }
+
+    .filter-container button:hover {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .filter-container button .dropdown-arrow {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      font-size: 16px;
+      transition: transform 0.3s ease;
+    }
+
+    .filter-container button:hover .dropdown-arrow {
+      transform: translateY(-50%) rotate(180deg);
+    }
+
+    .filter-container button.active .dropdown-arrow {
+      content: "×";
+    }
+
+    .filter-container button.selected {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .filter-container button.selected .dropdown-arrow {
+      content: "×";
+    }
+
+   
+  
+
+    .filter-container button:hover .dropdown-content {
+      display: block;
+    }
+
+    .selected-filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 10px;
+      width: 70%;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    
+        .filter-group {
+      position: relative;
+    }
+
+
+    .selected-filters .filter-group {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin: 0 10px;
+    }
+
+    .selected-filters .filter-group button {
+      display: flex;
+      align-items: center;
+      margin: 5px;
+      padding: 5px 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .selected-filters .filter-group button .dropdown-arrow {
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-left: 5px;
+      font-size: 12px;
+      color: #4CAF50;
+    }
+    
+    
+  .consultant-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 30px;
+  width: 70%;
+  gap: 30px;
+  max-width: 1200px;
+
+  padding: 20px 0;
+}
+
+.consultant-card {
+  position: relative;
+  border-radius: 35px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  height: 350px;  /* Set height */
+  width: 350px;   /* Set width to the same value as height */
+}
+
+.consultant-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.consultant-name {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.consultant-details {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.5rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.consultant-details strong {
+  font-weight: 600;
+  color: #444;
+}
+
+.consultant-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.consultant-image {
+  border-radius: 8px 8px 0 0;
+  width: 100%;  /* Make sure the image fills the container */
+
+  height: auto;
+}
+    
+    
+
+
+.consultant-info {
+  padding: 15px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 0 0 8px 8px;
+}
+
+
+    
+.results-count {
+  padding: 10px 20px;
+  margin-bottom: 20px;
+  font-size: 18px;
+  background-color: #f8f9fa;
+  color: #333;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+    
+    
+    .consultant-image {
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+    }
+
+    .consultant-info {
+      padding: 15px;
+    }
+
+ 
+  .consultant-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  }
+
+    .consultant-details {
+      font-size: 11px;
+      color: #666;
+    }
+
+    @media (max-width: 767px) {
+      .container {
+        width: 95%;
+      }
+      
+      .search-and-reset,
+      .filter-container,
+      .selected-filters,
+      .consultant-container {
+        width: 100%;
+      }
+      
+      .search-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .search-container input,
+      .search-container button,
+      .reset-button {
+        width: 100%;
+        margin: 5px 0;
+      }
+      
+      .filter-container {
+        flex-wrap: wrap;
+      }
+      
+      .filter-container .filter-group {
+        width: 100%;
+        margin: 5px 0;
+      }
+      
+      .consultant-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .consultant-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .consultant-container {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .dropdown-scroll {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      z-index: 1;
+    }
+
+.dropdown-content a {
+  color: #333;
+  padding: 8px 16px;
+  text-decoration: none;
+  display: block;
+  border-bottom: 1px solid #eee;
+  text-align: justify;
+  word-wrap: break-word;
+  font-size: 12px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  border-radius: 4px;
+}
+    
+/* Hover state with hand cursor */
+.dropdown-content a:hover {
+  background-color: #f0f0f0;
+  color: #007bff;
+  cursor: pointer; /* Show hand cursor on hover */
+}
+
+.dropdown-content a:active {
+  background-color: #e0e0e0;
+  color: #0056b3;
+  font-weight: bold;
+}
+
+.dropdown-content a:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+  
+    
+
+    .filter-container button {
+      width: 150px;
+      padding: 10px;
+      background-color: #fff;
+      color: #4CAF50;
+      border: 1px solid #4CAF50;
+      border-radius: 4px;
+      cursor: pointer;
+      position: relative;
+      margin-bottom: 5px;
+      text-align: left;
+    }
+
+    
+
+
+.close-button {
+  font-size: 18px;
+  font-weight: bold;
+}
+    
+    
+    
+
+    .dropdown-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .dropdown-scroll::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    .dropdown-scroll::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+
+    .dropdown-scroll::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+    
+    .filter-button {
+  width: 100%;
+  padding: 12px 15px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-family: 'Open Sans', sans-serif;
+  font-size: 1rem;
+  color: #333;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.filter-button:hover {
+  background-color: #e0e0e0;
+}
+
+.filter-button .dropdown-arrow {
+  float: right;
+}
+.selected-option {
+    width: 82%;
+    height: 25px; /* Control the height of the button */
+    padding: 8px 12px; /* Adjust padding to fit the smaller height */
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 0.9rem;
+    display: flex; /* Use Flexbox for layout */
+    justify-content: space-between; /* Space the text and button apart */
+    align-items: center;
+    cursor: pointer;
+    margin: 1px auto; /* Center the element with good margins */
+    white-space: normal; /* Allow line breaks */
+    word-break: break-word; /* Break long words onto the next line */
+    overflow: hidden; /* Hide overflow text */
+    transition: background-color 0.3s ease; /* Smooth background color change */
+    line-height: 1.2; /* Adjust line-height for smaller text */
+}
+
+.selected-option:hover {
+    background-color: #45a049;
+}
+
+.close-button {
+    font-size: 1rem; /* Adjust font size for smaller button */
+    font-weight: bold;
+    background: none; /* Remove any default background */
+    border: none; /* Remove any default border */
+    color: white; /* Match the text color */
+    cursor: pointer;
+    padding: 0; /* Remove default padding */
+    flex-shrink: 0; /* Prevent the button from shrinking */
+}
+
+@media (max-width: 600px) {
+    .selected-option {
+        font-size: 0.8rem; /* Slightly reduce font size on smaller screens */
+    }
+}
+
+@media (max-width: 400px) {
+    .selected-option {
+        font-size: 0.7rem; /* Further reduce font size on even smaller screens */
+    }
+}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="search-and-reset">
+      <div class="search-container">
+        <input type="text" placeholder="Search consultants...">
+        <button>Submit</button>
+      </div>
+      <button class="reset-button">Reset All</button>
+    </div>
+    
+    
+ 
+    
+   <div class="filter-container">
+  <div class="filter-group">
+    <button class="filter-button">
+      Gender
+      <span class="dropdown-arrow">▼</span>
+    </button>
+    <div class="dropdown-content">
+      <div class="dropdown-scroll">
+    
+            <!-- Dynamically generated gender options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Specialist
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated specialist options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Able To Treat
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated able to treat options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Condition
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated condition options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Treatment
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated treatment options will go here -->
+          </div>
+        </div>
+      </div>
+      <div class="filter-group">
+        <button class="filter-button">
+          Language
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        <div class="dropdown-content">
+          <div class="dropdown-scroll">
+            <!-- Dynamically generated language options will go here -->
+          </div>
+        </div>
+      </div>
+    </div>
+   <div class="selected-filters">
+      <!-- Selected filters will be dynamically added here -->
+    </div>
+   
+    <div class="results-count"></div>
+    <div class="consultant-container">
+      <!-- Consultant cards will be dynamically generated here -->
+    </div>
+  </div>
+
+  <script>
+    
+  let allConsultants = []; // Store all consultants
+
+    
+   fetch('consultants.json?t=' + new Date().getTime())
+  .then(response => response.json())
+  .then(consultants => {
+    console.log("Loaded consultants:", consultants);
+    populateDropdownContent(consultants);
+    renderConsultants(consultants);
+  })
+  .catch(error => console.error('Error loading consultants:', error));
+
+    let selectedFilters = [];
+    
+    
+function renderConsultants(consultants) {
+  const consultantContainer = document.querySelector(".consultant-container");
+  const resultsCount = document.querySelector(".results-count");
+  consultantContainer.innerHTML = "";
+
+  consultants.forEach((consultant, index) => {
+    const consultantCard = document.createElement("div");
+    consultantCard.classList.add("consultant-card");
+    consultantCard.innerHTML = `
+      <a href="consultant.html?id=${index}" class="consultant-link">
+        <img src="${consultant.image}" alt="${consultant.Name}" class="consultant-image">
+        <div class="consultant-info">
+          <h3 class="consultant-name">${consultant.Name}</h3>
+          <p class="consultant-details"><strong>Specialist:</strong> ${consultant.Specialist}</p>
+          <p class="consultant-details"><strong>Language:</strong> ${consultant.Language}</p>
+          <p class="consultant-details"><strong>Treats:</strong> ${consultant.Able_To_Treat}</p>
+        </div>
+      </a>
+    `;
+    consultantContainer.appendChild(consultantCard);
+  });
+
+  // Update results count
+  resultsCount.textContent = `Showing results 1 to ${consultants.length} of ${consultants.length} results`;
+
+  // Add event listeners for card hover effects
+  const cards = document.querySelectorAll('.consultant-card');
+  cards.forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      card.style.transform = 'translateY(-5px)';
+      card.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'translateY(0)';
+      card.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+    });
+  });
+}
+
+
+
+  
+    
+    
+    
+
+    
+// function populateDropdownContent(consultants) {
+//       const filterGroups = document.querySelectorAll(".filter-container .filter-group");
+
+//       filterGroups.forEach((group, index) => {
+//         const button = group.querySelector("button");
+//         const dropdownContent = group.querySelector(".dropdown-content .dropdown-scroll");
+//         const type = ["Gender", "Specialist", "Able_To_Treat", "Condition", "Treatment", "Language"][index];
+
+
+//     let options;
+//     switch (type) {
+//       case "Gender":
+//         options = [...new Set(courses.map(course => course.Gender))];
+//         break;
+//       case "Specialist":
+//         options = [...new Set(courses.map(course => course.))];
+//         break;
+//       case "Able_To_Treat":
+//         options = [...new Set(courses.map(course => course.category))];
+//         break;
+        
+//       case "Condition":
+//         options = [...new Set(courses.map(course => course.Condition))];
+//         break;
+        
+//         case "Treatment":
+//         options = [...new Set(courses.map(course => course.Treatment))];
+//         break;
+        
+//         case "Language":
+//         options = [...new Set(courses.map(course => course.Language))];
+//         break;
+    
+    
+//     }
+
+//     options.forEach(option => {
+//       const optionElement = document.createElement("a");
+//       optionElement.textContent = option;
+//       optionElement.addEventListener("click", () => {
+//         toggleSelectedOption(type, option);
+//         filterCourses();
+//       });
+//       dropdownContent.appendChild(optionElement);
+//     });
+
+//     button.addEventListener("click", (event) => {
+//       event.stopPropagation();
+//       toggleDropdown(group);
+//     });
+//   });
+// }
+    
+
+
+
+    
+    
+    
+    
+function updateSelectedFiltersDisplay() {
+  const selectedFiltersContainer = document.querySelector(".selected-filters");
+  selectedFiltersContainer.innerHTML = '';
+  selectedFilters.forEach(filter => {
+    const filterElement = document.createElement('div');
+    filterElement.textContent = `${filter.type}: ${filter.option}`;
+    selectedFiltersContainer.appendChild(filterElement);
+  });
+}
+    
+    
+    
+
+function filterConsultants() {
+  console.log("Selected filters:", selectedFilters);
+  const searchInput = document.querySelector(".search-container input");
+  const searchTerm = searchInput.value.toLowerCase();
+
+  fetch('consultants.json')
+    .then(response => response.json())
+    .then(consultants => {
+      const filteredConsultants = consultants.filter(consultant => {
+        const matchesFilters = selectedFilters.every(filter => {
+          const consultantValue = consultant[filter.type];
+          
+          if (filter.type === "Gender") {
+            console.log(`Consultant: ${consultant.Name}`);
+            console.log(`Consultant Gender: "${consultantValue}", Filter Option: "${filter.option}"`);
+            console.log(`Exact match: ${consultantValue === filter.option}`);
+          }
+          
+          // For Gender, use exact match without lowercase conversion
+          if (filter.type === "Gender") {
+            return consultantValue === filter.option;
+          }
+          
+          // For other filters, use the existing logic
+          return Array.isArray(consultantValue)
+            ? consultantValue.some(value => value.toLowerCase().includes(filter.option.toLowerCase()))
+            : consultantValue.toLowerCase().includes(filter.option.toLowerCase());
+        });
+
+        const matchesSearch = Object.values(consultant).some(value => 
+          value.toString().toLowerCase().includes(searchTerm)
+        );
+
+        return matchesFilters && matchesSearch;
+      });
+
+      console.log("Filtered consultants:", filteredConsultants);
+
+      if (filteredConsultants.length === 0) {
+        document.querySelector(".consultant-container").innerHTML = `
+          <div class="no-results">
+            <p>Sorry, no results match your search criteria <span class="emoji">🤔</span></p>
+          </div>
+        `;
+      } else {
+        renderConsultants(filteredConsultants);
+      }
+    })
+    .catch(error => console.error('Error fetching consultants:', error));
+}
+    
+    
+// Event listener for the "Submit" button
+document.querySelector(".search-container button").addEventListener("click", filterConsultants);
+
+    
+    
+    
+    
+const filterButtons = document.querySelectorAll(".filter-container button");
+filterButtons.forEach((button, index) => {
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleDropdown(button.closest('.filter-group'));
+  });
+});
+
+    
+    
+   
+  
+
+function toggleDropdown(index) {
+      const dropdownContents = document.querySelectorAll(".filter-container .dropdown-content");
+      dropdownContents.forEach((content, i) => {
+        if (i === index) {
+          content.style.display = content.style.display === "block" ? "none" : "block";
+        } else {
+          content.style.display = "none";
+        }
+      });
+
+      const dropdownArrows = document.querySelectorAll(".filter-container button .dropdown-arrow");
+      dropdownArrows[index].textContent = dropdownArrows[index].textContent === "▼" ? "▲" : "▼";
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+    
+    
+    function populateDropdownContent(consultants) {
+  const filterGroups = document.querySelectorAll(".filter-container .filter-group");
+
+  filterGroups.forEach((group, index) => {
+    const button = group.querySelector("button");
+    const dropdownContent = group.querySelector(".dropdown-content .dropdown-scroll");
+    const type = ["Gender", "Specialist", "Able_To_Treat", "Condition", "Treatment", "Language"][index];
+
+    group.setAttribute('data-type', type);
+
+    let options;
+    switch (type) {
+      case "Gender":
+        options = [...new Set(consultants.map(consultant => consultant.Gender))];
+        console.log("Gender options:", options);
+        break;
+      case "Specialist":
+        options = [...new Set(consultants.map(consultant => consultant.Specialist))];
+        break;
+      case "Able_To_Treat":
+        options = [...new Set(consultants.map(consultant => consultant.Able_To_Treat))];
+        break;
+      case "Condition":
+        options = [...new Set(consultants.map(consultant => consultant.Condition))];
+        break;
+      case "Treatment":
+        options = [...new Set(consultants.map(consultant => consultant.Treatment))];
+        break;
+      case "Language":
+        options = [...new Set(consultants.map(consultant => consultant.Language))];
+        break;
+    }
+
+    options.forEach(option => {
+      const optionElement = document.createElement("a");
+      optionElement.textContent = option;
+      optionElement.href = "#";
+      optionElement.addEventListener("click", () => {
+        toggleSelectedOption(type, option);
+        filterConsultants();
+      });
+      dropdownContent.appendChild(optionElement);
+    });
+
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleDropdown(group);
+    });
+  });
+}
+
+    
+  
+    
+    
+    
+function toggleDropdown(group) {
+  const dropdownContent = group.querySelector(".dropdown-content");
+  const arrow = group.querySelector(".dropdown-arrow");
+
+  document.querySelectorAll(".filter-container .dropdown-content").forEach(content => {
+    if (content !== dropdownContent) {
+      content.style.display = "none";
+      content.parentElement.querySelector(".dropdown-arrow").textContent = "▼";
+    }
+  });
+
+  if (dropdownContent.style.display === "block") {
+    dropdownContent.style.display = "none";
+    arrow.textContent = "▼";
+  } else {
+    dropdownContent.style.display = "block";
+    arrow.textContent = "▲";
+  }
+}
+
+// Add this to close dropdowns when clicking outside
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".filter-container")) {
+    document.querySelectorAll(".filter-container .dropdown-content").forEach(content => {
+      content.style.display = "none";
+      content.parentElement.querySelector(".dropdown-arrow").textContent = "▼";
+    });
+  }
+});
+
+    
+    
+    
+
+document.querySelector(".search-container input").addEventListener("input", filterConsultants);
+
+
+ function toggleSelectedOption(type, option) {
+  console.log(`Toggling option: ${type} - ${option}`);
+  const filterGroup = document.querySelector(`.filter-group[data-type="${type}"]`);
+  const dropdownContent = filterGroup.querySelector('.dropdown-content');
+  const selectedOption = filterGroup.querySelector('.selected-option');
+
+  if (selectedOption) {
+    selectedOption.remove();
+    dropdownContent.style.display = 'block';
+    // Remove the filter when unselecting
+    updateSelectedFilters(type, null);
+  } else {
+    dropdownContent.style.display = 'none';
+    const newSelectedOption = document.createElement('div');
+    newSelectedOption.classList.add('selected-option');
+    newSelectedOption.innerHTML = `
+      ${option}
+      <span class="close-button">×</span>
+    `;
+    newSelectedOption.querySelector('.close-button').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleSelectedOption(type, option);
+    });
+    filterGroup.appendChild(newSelectedOption);
+    // Add the filter when selecting
+    updateSelectedFilters(type, option);
+  }
+
+  console.log("Calling filterConsultants");
+  filterConsultants();
+}
+
+function updateSelectedFilters(type, option) {
+  console.log(`Updating filters: ${type} - ${option}`);
+  const index = selectedFilters.findIndex(filter => filter.type === type);
+  if (index > -1) {
+    if (option === null) {
+      selectedFilters.splice(index, 1);
+    } else {
+      selectedFilters[index].option = option;
+    }
+  } else if (option !== null) {
+    selectedFilters.push({ type, option });
+  }
+  console.log("Updated selectedFilters:", selectedFilters);
+  updateResetButtonVisibility();
+}
+    
+    
+    
+    
+  
+    
+
+    
+    
+    
+    
+    
+function updateResetButtonVisibility() {
+  const resetButton = document.querySelector(".reset-button");
+  if (selectedFilters.length > 0) {
+    resetButton.style.display = "block";
+  } else {
+    resetButton.style.display = "none";
+  }
+}
+
+    
+// Add this function to handle the reset functionality
+function resetFilters() {
+  selectedFilters = [];
+  document.querySelector(".selected-filters").innerHTML = "";
+  updateResetButtonVisibility();
+  filterConsultants();
+}
+
+// Add event listener to the "Reset All" button
+document.querySelector(".reset-button").addEventListener("click", resetFilters);
+    
+    
+    
+    
+    
+//       // JavaScript to toggle dropdowns
+//     document.querySelectorAll('.filter-button').forEach(button => {
+//       button.addEventListener('click', () => {
+//         const dropdown = button.nextElementSibling;
+//         dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+//       });
+//     });
+
+//     // Close dropdowns when clicking outside
+//     window.addEventListener('click', (e) => {
+//       if (!e.target.matches('.filter-button')) {
+//         document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+//           dropdown.style.display = 'none';
+//         });
+//       }
+      
+      
+   // JavaScript to toggle dropdowns
+ document.querySelectorAll('.filter-button').forEach(button => {
+      button.addEventListener('click', () => {
+        const dropdown = button.nextElementSibling;
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+      });
+    });
+
+    
+    
+    
+    
+
+    // Add event listener to the filter container to hide dropdown content on click outside
+ document.querySelector(".filter-container").addEventListener("click", (event) => {
+      if (!event.target.closest(".filter-container")) {
+        const dropdownContents = document.querySelectorAll(".filter-container .dropdown-content");
+        dropdownContents.forEach((content) => {
+          content.style.display = "none";
+        });
+
+        const dropdownArrows = document.querySelectorAll(".filter-container button .dropdown-arrow");
+        dropdownArrows.forEach((arrow) => {
+          arrow.textContent = "▼";
+        });
+      }
+    });
+    
+    
+document.addEventListener("click", (event) => {
+  const filterContainer = event.target.closest(".filter-container");
+  const filterGroup = event.target.closest(".filter-group");
+
+  if (!filterGroup) {
+    document.querySelectorAll(".filter-container .dropdown-content").forEach(content => {
+      content.style.display = "none";
+      content.parentElement.querySelector(".dropdown-arrow").textContent = "▼";
+    });
+  } else if (filterContainer && !event.target.closest(".dropdown-content")) {
+    const dropdownContent = filterGroup.querySelector(".dropdown-content");
+    const arrow = filterGroup.querySelector(".dropdown-arrow");
+    dropdownContent.style.display = "none";
+    arrow.textContent = "▼";
+  }
+});
+    
+    
+
+    
+    // Initial render of all courses
+    filterConsultants();
+  </script>
+</body>
+</html>

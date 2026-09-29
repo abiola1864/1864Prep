@@ -564,7 +564,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.29 · v30 (panel header + keep-year-cols)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.29 · v33 (OECD year-value pairing)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -993,19 +993,19 @@ function showHelp(ev, key){
 function closeHelp(){ const p=document.getElementById('ipop'); if(p) p.remove(); }
 
 async function bootApp(){
-  // On the hosted demo, every reload starts fresh (no leftover profile from the
-  // previous visitor). The local desktop app remembers setup as normal.
+  // Web and desktop run the SAME flow. The only differences are privacy-related
+  // env flags: desktop can save downloads to disk; web keeps data in the browser.
+  // On the web, we always lock on reload when a password was set (unless the user
+  // opted out of a password during setup).
   try{
     const cfg = await (await fetch('/api/config')).json();
     if(cfg && cfg.desktop){ window.__DESKTOP__ = true; }
-    if(cfg && cfg.demo){
-      ['prep_setup','prep_owner','prep_current','prep_sector','prep_type_prior','prep_pass','prep_settings']
-        .forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
-      window.__DEMO__ = true;
-    }
+    if(cfg && cfg.demo){ window.__WEB__ = true; }
   }catch(e){ /* static hosting or offline: behave like the normal app */ }
   if(!isSetup()){ startOnboarding(); return; }
   const pw=_pget('prep_pass', null);
+  // A password locks the app on every load, on both web and desktop. If none was
+  // set (the user opted out), go straight in.
   if(pw){ askPassword(); } else { enterApp(); }
 }
 function enterApp(){
