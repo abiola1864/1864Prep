@@ -538,7 +538,7 @@
 .sheet-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;max-height:300px;overflow:auto}.sheet-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line,#e4eaf1);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13.5px}.sheet-name{font-weight:600}.sheet-meta{color:var(--ink-soft,#5a6675);font-size:12px;margin-left:auto}.next-sheet{margin-top:14px;padding:12px 14px;border:1px dashed var(--teal,#2C7A8C);border-radius:10px;font-size:13.5px}.next-sheet .btn{margin-left:8px}
 .hint-bar{max-width:100%;border-radius:10px;padding:10px 14px;font-size:13px;margin:14px 0}.hint-bar.warn{background:var(--warn-bg);color:#7a5313;border:1px solid #f0dcae}
 .onb-panel{max-width:560px;padding:40px 40px 30px}.onb-hero h1{font-size:28px;letter-spacing:-0.02em;font-weight:700;margin:14px 0 8px}.onb-hero .lead{font-size:15.5px;color:var(--ink-soft);max-width:44ch;margin:0 auto 24px;line-height:1.55}.feat-grid{display:flex;flex-direction:column;gap:10px;text-align:left;margin:0 0 26px}.feat{display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--card);transition:.15s}.feat:hover{border-color:var(--accent);box-shadow:0 2px 12px rgba(16,181,166,.08)}.feat-ic{flex:0 0 34px;height:34px;border-radius:10px;background:#eef4f8;color:var(--navy);display:flex;align-items:center;justify-content:center;font-size:16px}.feat b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}.feat span{font-size:13px;color:var(--ink-soft);line-height:1.45}.btn.lg{padding:13px 28px;font-size:15px;border-radius:12px}.onb-logo.mark svg{filter:drop-shadow(0 6px 16px rgba(22,38,63,.22))}
-.ai-tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;color:#B5623C;background:#F3E4DC;border:1px solid #e6cbbd;border-radius:20px;padding:2px 8px}.mrow.ai-row{box-shadow:inset 3px 0 0 var(--accent,#10B5A6)}.ai-done{color:#B5623C;font-weight:600}.ai-swatch{color:#B5623C;font-weight:700}
+.ai-tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;color:#B5623C;background:#F3E4DC;border:1px solid #e6cbbd;border-radius:20px;padding:2px 8px}.mrow.ai-row{box-shadow:inset 3px 0 0 var(--terra,#B5623C)}.ai-done{color:#B5623C;font-weight:600}.ai-swatch{color:#B5623C;font-weight:700}
 .ver-sid{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#B5623C;background:#F3E4DC;border-radius:6px;padding:1px 6px;margin-left:6px}
 .log-item{display:flex;align-items:flex-start;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-soft);font-size:13px}.log-ic{flex:0 0 20px;text-align:center}.log-d{flex:1}.log-d b{font-weight:600;color:var(--ink)}.log-file{color:var(--ink-soft);font-weight:400}.log-when{color:var(--faint);font-size:11.5px;white-space:nowrap}.log-sid{font-family:ui-monospace,Menlo,monospace;color:var(--faint)}
 .act-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--line-soft);font-size:13px}.act-row:last-child{border-bottom:0}.act-ic{flex:0 0 20px;text-align:center;color:var(--accent,#10B5A6)}.act-tx{flex:1;color:var(--ink)}.act-tm{color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
@@ -563,7 +563,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.28 · v26 (brand icon + theme)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.29 · v27 (codebook, snake names, save dialog, filenames)</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1831,7 +1831,10 @@ async function doExport(){
       '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></span></div>'+
       '<div class="dl-row"><span class="dl-lab">Change log</span>'+
       '<span class="dl-btns"><button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\')">Excel</button>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button></span></div></div>';
+      '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\')">Word</button></span></div>'+
+      '<div class="dl-row"><span class="dl-lab">Codebook</span>'+
+      '<span class="dl-btns"><button class="btn sm ghost" onclick="downloadCodebook(\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="downloadCodebook(\'docx\')">Word</button></span></div></div>';
     if(d.audit&&d.audit.length){
       html+='<details class="dl-log"><summary>View change log ('+d.audit.length+' entries)</summary>'+
         '<div class="tk-tablewrap"><table class="tk-table"><thead><tr><th>column</th><th>what changed</th><th>by</th><th>rows</th></tr></thead><tbody>'+
@@ -1868,21 +1871,39 @@ async function downloadAllSheets(){
     else toast('Could not combine sheets'+(r.error?': '+r.error:''));
   }catch(e){ toast('Combine failed: '+e.message); }
 }
+async function downloadCodebook(fmt){
+  try{
+    const cols=(COLREVIEW||[]).map(c=>({name:c.name||c.original, label:c.label||c.original, type:c.type, reason:c.aiReason||''}));
+    const r=await (await fetch('/api/codebook',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({columns:cols})})).json();
+    if(r.codebook_id){ logEvent('book','Codebook downloaded ('+r.rows+' variables)'); expDL(r.codebook_id, fmt); }
+    else toast('Could not build codebook'+(r.error?': '+r.error:''));
+  }catch(e){ toast('Codebook failed: '+e.message); }
+}
 async function expDL(id,fmt){
   // Desktop can't trigger a browser download, so save straight to Downloads and
   // tell the user where. In the browser/Render, use the normal download.
+  const base=(window.__ORIG_NAME__||'cleaned');
   if(window.__DESKTOP__){
+    // native Save dialog if the desktop bridge is available, else save to Downloads
+    try{
+      if(window.pywebview && window.pywebview.api && window.pywebview.api.save_file){
+        const res=await window.pywebview.api.save_file(id, fmt, base+'_clean');
+        if(res && res.saved){ toast('✓ Saved to '+res.saved, {kind:'good', sticky:true}); logEvent('download', fmt.toUpperCase()+' saved to '+res.saved); return; }
+        if(res && res.cancelled){ return; }
+      }
+    }catch(e){ /* fall through to Downloads */ }
     toast('Saving your '+fmt.toUpperCase()+'…', {duration:3000});
     try{
       const r=await (await fetch('/api/save_to_disk',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({result_id:id, fmt:fmt})})).json();
+        body:JSON.stringify({result_id:id, fmt:fmt, name:base+'_clean'})})).json();
       if(r.saved){ toast('✓ Saved to '+r.saved, {kind:'good', sticky:true}); try{ logEvent('download', fmt.toUpperCase()+' saved to '+r.saved); }catch(e){} }
       else { toast('Could not save'+(r.error?': '+r.error:''), {kind:'warn', sticky:true}); }
     }catch(e){ toast('Save failed: '+e.message, {kind:'warn', sticky:true}); }
     return;
   }
-  const url='/api/tool/download/'+id+'?fmt='+fmt;
-  const a=document.createElement('a'); a.href=url; a.setAttribute('download','');
+  const url='/api/tool/download/'+id+'?fmt='+fmt+'&name='+encodeURIComponent(base+'_clean');
+  const a=document.createElement('a'); a.href=url; a.setAttribute('download', base+'_clean.'+fmt);
   document.body.appendChild(a); a.click(); setTimeout(()=>a.remove(),0);
   try{ logEvent('download', fmt.toUpperCase()+' downloaded'); }catch(e){}
   toast('Preparing your '+fmt.toUpperCase()+' download…', {duration:4000});
@@ -2340,12 +2361,13 @@ function buildColumnReview(data,filename){
     // or it fell back to free_text (couldn't pin a structured type).
     const uncertain = !!h.abnormal || (conf!=null && conf < 0.7) || type==='free_text';
     return {
-      original:h.original,
+      original:h.original, label:(h.label||h.original),
       name: h.abnormal ? (h.suggested||h.original) : h.original,
       abnormal:!!h.abnormal, reason:h.reason||'',
       suggestion:(suggestDiffers && !h.abnormal) ? h.suggested : '',
       type:type, conf:conf, uncertain:uncertain};
   });
+  if(filename){ window.__ORIG_NAME__ = filename.replace(/\.[^.]+$/,''); }
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
   const rf=$('#rf-file'); if(rf&&data.rows!=null) rf.textContent=data.rows+'×'+(data.cols||cols.length);
   renderColumnReview();

@@ -106,6 +106,42 @@ def _uniquify(names: list[str]) -> list[str]:
     return out
 
 
+_STOP = {"the","a","an","of","for","to","in","on","at","by","and","or","is","are","was",
+         "were","do","did","does","you","your","their","his","her","its","our","we","they",
+         "he","she","it","this","that","these","those","what","which","who","whom","how",
+         "many","much","please","kindly","respondent","survey","questionnaire","q","no",
+         "number","can","reach","second","name","of"}
+# words that carry meaning we want to KEEP even if short
+_KEEP = {"id","age","sex","dob","gps","lga","nin","bvn","pin","gender","phone","email",
+         "state","city","town","date","time","year","month","day","amount","qty","price",
+         "code","vendor","contact","interviewer","enumerator","received","gift","gifts"}
+
+
+def snake_name(header: str, max_words: int = 4) -> str:
+    """Turn a long header (often a full survey question) into a short, analysis-ready
+    snake_case variable name. 'What number can we reach your second contact?' ->
+    'contact_number'; 'How old are you?' -> 'age'."""
+    import re as _re
+    s = str(header).strip().lower()
+    s = _re.sub(r"[^a-z0-9]+", " ", s).strip()
+    if not s:
+        return "column"
+    words = s.split()
+    # special cases that map to a canonical short name
+    joined = " ".join(words)
+    if "how old" in joined or joined in ("age", "your age"): return "age"
+    if "phone" in joined or "mobile" in joined or ("number" in joined and "contact" in joined): 
+        base = "contact_number" if "contact" in joined else "phone_number"
+        return base
+    # keep meaningful tokens, drop stopwords, cap length
+    kept = [w for w in words if (w in _KEEP or (w not in _STOP and len(w) > 2))]
+    if not kept:
+        kept = [w for w in words if w not in _STOP] or words
+    name = "_".join(kept[:max_words])
+    name = _re.sub(r"_+", "_", name).strip("_")
+    return name or "column"
+
+
 def propose_headers(df, profiles=None, domains=None) -> list[dict]:
     """Propose a clean name for every column.
 
@@ -124,11 +160,12 @@ def propose_headers(df, profiles=None, domains=None) -> list[dict]:
         prof = profiles[i] if i < len(profiles) else None
         dom = domains[i] if i < len(domains) else None
         if abnormal:
-            guess = _from_content(prof, dom) or "Column"
+            guess = snake_name(_from_content(prof, dom) or "column")
         else:
-            guess = readable(col)
+            guess = snake_name(col)
         raw_suggestions.append(guess)
-        rows.append({"original": str(col), "abnormal": abnormal, "reason": reason})
+        rows.append({"original": str(col), "abnormal": abnormal, "reason": reason,
+                     "label": str(col)})   # keep the full original text for the codebook
     unique = _uniquify(raw_suggestions)
     for r, sug in zip(rows, unique):
         r["suggested"] = sug

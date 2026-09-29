@@ -68,7 +68,28 @@ def main():
 
     try:
         import webview  # pywebview - native window
-        webview.create_window("1864 Prep", url, width=1200, height=820)
+        import urllib.request as _u, json as _json
+
+        class _Api:
+            """Exposed to the page as window.pywebview.api — lets the user pick where
+            to save a produced file via a native Save dialog."""
+            def save_file(self, rid, fmt, suggested):
+                ext = {"excel": "xlsx"}.get(fmt, fmt)
+                win = webview.windows[0] if webview.windows else None
+                target = win.create_file_dialog(webview.SAVE_DIALOG,
+                            save_filename=f"{suggested}.{ext}") if win else None
+                if not target:
+                    return {"cancelled": True}
+                path = target if isinstance(target, str) else target[0]
+                # ask the local engine for the bytes, write them where the user chose
+                req = _u.Request(f"http://127.0.0.1:{port}/api/tool/download/{rid}?fmt={fmt}")
+                with _u.urlopen(req, timeout=60) as r:
+                    data = r.read()
+                with open(path, "wb") as f:
+                    f.write(data)
+                return {"saved": path}
+
+        webview.create_window("1864 Prep", url, width=1200, height=820, js_api=_Api())
         webview.start()
     except Exception:
         # no native window available - use the browser, keep the server alive
