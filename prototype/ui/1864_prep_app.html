@@ -564,7 +564,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">build 2026.09.29 · v33 (OECD year-value pairing)</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v37</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -716,6 +716,8 @@
               <span class="ico">✦</span><span class="lab">Assist columns</span><span class="hint">Help on tricky columns</span></button>
             <button type="button" class="aim-opt" data-mode="structure" onclick="pickAIMode('structure')">
               <span class="ico">▦</span><span class="lab">+ Structure</span><span class="hint">Also check header &amp; types</span></button>
+            <button type="button" class="aim-opt" data-mode="full" onclick="pickAIMode('full')">
+              <span class="ico">✸</span><span class="lab">Full AI clean</span><span class="hint">Columns + values, all columns (local model only)</span></button>
           </div>
         </div>
 
@@ -1818,6 +1820,13 @@ async function doExport(){
   };
   makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
   try{
+    // fold AI-suggested value merges into the decisions so they're applied + logged
+    const aim=window.__AI_MERGES__||{};
+    if(Object.keys(aim).length){
+      if(!Array.isArray(decisions.merges)) decisions.merges=[];
+      Object.keys(aim).forEach(col=>{ Object.keys(aim[col]).forEach(canon=>{
+        decisions.merges.push({column:col, into:canon, members:aim[col][canon]}); }); });
+    }
     const fd=new FormData(); fd.append('session_id',SESSION_ID); fd.append('decisions',JSON.stringify(decisions));
     fd.append('ai_cols', JSON.stringify(window.__AI_COLS__||[]));
     const res=await fetch('/api/export',{method:'POST',body:fd});
@@ -2454,7 +2463,7 @@ function renderAIContext(){
     ? `${shaky} column(s) look uncertain, the engine handled the rest on its own.`
     : `The engine is confident about every column.`;
   box.innerHTML = `<label class="run-ai"><input type="checkbox" ${RUN_AI?'checked':''} onchange="onRunAITick(this.checked)">`+
-    `<span>Use AI to double-check the tricky columns for this file`+
+    `<span>Use AI to help with this file — it checks the tricky <b>columns</b> and cleans messy <b>values</b> (masked samples, you approve)`+
     (configured?``:` (you'll add a key first)`)+`</span></label>`+
     `<div class="run-ai-note">${note} 1864 Prep is local-first and solves most cases on its own; AI is optional.</div>`+
     `<div class="run-ai-status" id="ai-run-status"></div>`;
@@ -2463,8 +2472,45 @@ function onRunAITick(on){
   RUN_AI=on;
   const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
   if(on && !configured){ RUN_AI=false; AI_PENDING_RUN=true; openAIModal(); return; }   // add a key first
-  if(on){ runWholeFileReview(); }
-  else { COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; }}); renderColumnReview(); }
+  if(on){ runAIAssist(); }
+  else { COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; }}); window.__AI_MERGES__={}; renderColumnReview(); }
+}
+// The single AI toggle does BOTH: column/type review AND value cleaning (merging
+// variant spellings). Column review first, then value cleanup on text/categorical.
+async function runAIAssist(){
+  const d=(AI_DEFAULTS[SETTINGS.provider]||{});
+  const full = (SETTINGS.ai_mode==='full');
+  if(full && !d.local){
+    const st=$('#ai-run-status'); if(st) st.innerHTML='⚠︎ <b>Full AI clean</b> runs on a <b>local</b> model only (so nothing leaves your computer). Choose Local (Ollama) in ✦ AI setup, or use a lighter AI mode.';
+    return;
+  }
+  await runWholeFileReview();          // columns + types (whole file)
+  await runValueCleanup();             // messy values (all text/categorical/geo columns)
+  if(full){ const st=$('#ai-run-status'); if(st) st.innerHTML='<span class="ai-done">✸ Full AI clean complete</span> — every AI change is marked and listed in the change log. You still approve before export.'; }
+}
+window.__AI_MERGES__ = {};
+async function runValueCleanup(){
+  const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
+  const targets=COLREVIEW.filter(c=>!c.dropped && (c.type==='categorical'||c.type==='free_text'||c.type==='geo'));
+  if(!targets.length) return;
+  let total=0; window.__AI_MERGES__={};
+  for(const c of targets){
+    const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='');
+    if(st) st.innerHTML='<span class="spin"></span> AI checking values in <b>'+esc(c.original)+'</b>…';
+    try{
+      const r=await (await fetch('/api/ai/values',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({column:c.original, values:vals, provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
+      if(r.ok && r.merges && Object.keys(r.merges).length){
+        const colName=(c.name&&c.name!==c.original)?c.name:c.original;
+        window.__AI_MERGES__[colName]=r.merges;
+        total += Object.keys(r.merges).length;
+      }
+    }catch(e){ /* skip this column */ }
+  }
+  const s2=$('#ai-run-status'); if(s2 && total){
+    s2.innerHTML='<span class="ai-done">✦ AI also suggested '+total+' value merge(s)</span> — applied when you clean (you can review in the change log).';
+    logEvent('ai','AI suggested '+total+' value merge(s)');
+  }
 }
 // ONE whole-file pass (local-only). Sends header + a compact sample once, applies
 // per-column suggestions as annotations the user can keep or change.
@@ -2725,7 +2771,7 @@ function buildFieldsFromAPI(data, filename){
   SKIPPED=(data.skipped_rows||[]); HEADER_ROW=data.header_row||null;
   buildCards();
   SECTOR={name:(filename?('Uploaded: '+filename):'Uploaded file')};
-  if(data.ingest){ const m=/(\d+)\s*rows\s*x\s*(\d+)\s*cols/i.exec(data.ingest); const ext=(data.ingest.split('|')[0]||'').trim();
+  if(data.ingest && typeof data.ingest==='string'){ const m=/(\d+)\s*rows\s*x\s*(\d+)\s*cols/i.exec(data.ingest); const ext=(data.ingest.split('|')[0]||'').trim();
     const rf=$('#rf-file'); if(rf) rf.textContent = m ? (m[1]+'×'+m[2]+' · '+ext) : data.ingest; }
 }
 bootApp();

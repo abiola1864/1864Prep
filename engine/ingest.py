@@ -239,17 +239,49 @@ def _resolve_header(rows: list[list[str]], hdr: int, forward_fill: bool = True) 
 
 
 import re as _re_ing
+_MONTHS_ING = {"jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"}
 def _is_year_header(c):
     return bool(_re_ing.fullmatch(r"(19|20)\d{2}", str(c).strip()))
+def _is_month_header(c):
+    return str(c).strip().lower()[:3] in _MONTHS_ING
+def _is_quarter_header(c):
+    return bool(_re_ing.fullmatch(r"(q[1-4])|((19|20)\d{2}[ _-]?q[1-4])", str(c).strip().lower()))
+def _seq_header(c):
+    """Any time-axis header (year/month/quarter) that a repeating value block hangs off."""
+    return _is_year_header(c) or _is_quarter_header(c) or _is_month_header(c)
+
+
+def _fill_group_labels(df: pd.DataFrame, notes: list) -> pd.DataFrame:
+    """Grouped exports repeat a label (Country, Region) only on the first or last
+    row of each group and leave the rest blank. For a LEADING text column that is
+    sparsely filled (a label, not data), fill the gaps so every row carries its
+    group. Conservative: only the leading id-like columns, only when clearly sparse,
+    and tries forward-fill then back-fill so either 'label-on-top' or 'label-on-
+    summary-row' layouts populate."""
+    cols = list(df.columns)
+    filled = 0
+    for c in cols[:3]:                       # only leading label columns
+        s = df[c].astype(str).str.strip().replace("nan", "").replace("", pd.NA)
+        nonblank = s.notna().mean()
+        if 0 < nonblank < 0.6:               # sparse -> looks like a group label
+            ff = s.ffill(); bf = s.bfill()
+            df[c] = (ff.where(ff.notna(), bf)).fillna("")
+            filled += 1
+        else:
+            break                            # stop at first dense column (real data)
+    if filled:
+        notes.append(f"filled group labels in {filled} column(s)")
+    return df
 
 
 def _pair_year_value_columns(df: pd.DataFrame, notes: list) -> pd.DataFrame:
-    """OECD/Eurostat exports place each year's VALUE in the column *after* the year
-    header (a 'flag column' layout): the '1960' column is empty and the unlabeled
-    column beside it holds the data. Detect that pattern and move each value column
-    under its year, then drop the now-redundant empty columns. General: only fires
-    when a year column is mostly empty and its right neighbour (blank/no-header)
-    holds the data."""
+    """Repeating time-axis groups (OECD/Eurostat/WDI and similar): a time header
+    (year, quarter, or month) whose own column is empty because the VALUE lives in
+    the blank column right after it (a 'flag column' layout). Detect the pattern for
+    ANY time axis and move each value under its header, dropping the empty flags.
+    General and conservative: only fires when the axis column is mostly empty and its
+    blank-header right neighbour holds the data, so normal tables and clean panels
+    (where the axis columns already hold values) are never touched."""
     cols = list(df.columns)
     def _empty_share(s):
         v = s.astype(str).str.strip().replace("nan", "")
@@ -259,22 +291,21 @@ def _pair_year_value_columns(df: pd.DataFrame, notes: list) -> pd.DataFrame:
         return s == "" or s.lower().startswith("unnamed") or "no_header" in s.lower()
     moved = 0; drop_idx = set()
     for i, c in enumerate(cols):
-        if not _is_year_header(c):
+        if not _seq_header(c):               # any time axis, not just years
             continue
         if i + 1 >= len(cols):
             continue
         nxt = cols[i + 1]
         if not _blank_header(nxt):
             continue
-        # year col mostly empty, neighbour mostly filled -> neighbour holds the values
         if _empty_share(df[c]) >= 0.8 and _empty_share(df[nxt]) < 0.8:
-            df[c] = df[nxt].values          # value under the year header
+            df[c] = df[nxt].values           # value under the time header
             drop_idx.add(i + 1)
             moved += 1
     if moved:
         keep = [c for j, c in enumerate(cols) if j not in drop_idx]
         df = df[keep]
-        notes.append(f"paired {moved} year column(s) with their value column (OECD/Eurostat flag layout)")
+        notes.append(f"paired {moved} time column(s) with their value column")
     return df
 
 
@@ -343,13 +374,12 @@ def _find_year_header_row(rows: list[list[str]], scan: int = 25) -> int:
     such a row LOW because most of its cells are numeric. Find it directly: the row
     with the longest run of year-like tokens (>=5) wins; everything above it is
     metadata/XML preamble to skip."""
-    import re as _re
-    best_i, best_years = -1, 0
+    best_i, best_n = -1, 0
     for i, row in enumerate(rows[:scan]):
         cells = [str(c).strip() for c in row]
-        years = sum(1 for c in cells if _re.fullmatch(r"(19|20)\d{2}", c))
-        if years >= 5 and years > best_years:
-            best_years, best_i = years, i
+        n = sum(1 for c in cells if _seq_header(c))   # years, quarters, or months
+        if n >= 5 and n > best_n:
+            best_n, best_i = n, i
     return best_i
 
 
@@ -389,6 +419,7 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
         df = _transpose(df)
     _empty_notes = []
     df = _pair_year_value_columns(df, _empty_notes)   # OECD/Eurostat: value sits beside the year header
+    df = _fill_group_labels(df, _empty_notes)         # grouped exports: fill sparse leading label columns
     df = _drop_empty_columns(df, _empty_notes)        # remove blank spacer columns
     rep = IngestReport(str(path), kind, encoding=enc, delimiter=delim, header_row=data_start,
                        rows=len(df), cols=len(df.columns))

@@ -629,6 +629,44 @@ async def ai_structure(payload: dict):
             "raw": (res.get("text", "") or "")[:1200]}
 
 
+@app.post("/api/ai/values")
+async def ai_values(payload: dict):
+    """AI value cleaning for ONE column: given its distinct messy values, ask the
+    model to group variant spellings under a canonical value (e.g. Kastina/Katsina).
+    Masked, local-first. Returns {merges: {canonical: [variants...]}}."""
+    from engine.ai_privacy import build_column_query, looks_sensitive
+    from engine.ai_client import ask, classify_endpoint
+    import json as _json, re as _re
+    column = payload.get("column", ""); values = payload.get("values", [])
+    if looks_sensitive(str(column)):
+        return {"merges": {}, "note": "sensitive column skipped"}
+    provider = payload.get("provider", "ollama"); url = payload.get("url", ""); model = payload.get("model", "")
+    where = classify_endpoint(provider, url, model)
+    distinct = []
+    for v in values:
+        s = str(v).strip()
+        if s and s.lower() not in ("nan", "none", "") and s not in distinct:
+            distinct.append(s)
+        if len(distinct) >= 60:
+            break
+    if len(distinct) < 3:
+        return {"merges": {}, "where": where}
+    prompt = ("These are distinct values from one column. Group variant spellings/casing of the "
+              "SAME thing under one canonical value. Reply ONLY JSON: {\"merges\":{\"Canonical\":[\"variant1\",\"variant2\"]}}. "
+              "Only include groups with a real duplicate; leave clean values out.\nValues: " + _json.dumps(distinct))
+    res = ask(prompt, provider=provider, url=url, model=model, timeout=60)
+    out = {"where": where, "ok": res.get("ok", False), "merges": {}}
+    if res.get("error"): out["error"] = res["error"]
+    if res.get("ok"):
+        try:
+            t = res.get("text", ""); s = t.index("{"); e = t.rindex("}") + 1
+            obj = _json.loads(t[s:e]); m = obj.get("merges", {})
+            out["merges"] = {k: v for k, v in m.items() if isinstance(v, list) and v}
+        except Exception:
+            pass
+    return out
+
+
 @app.post("/api/ai/review")
 async def ai_review(payload: dict):
     """ONE whole-file AI pass, LOCAL ONLY. Body: {headers, sample, provider, url, model}.
