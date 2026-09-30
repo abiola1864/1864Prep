@@ -546,6 +546,7 @@
 .screen h1{font-weight:800;letter-spacing:-0.02em}.eyebrow{color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:.14em;font-size:11px}.btn{background:var(--navy);color:#fff}.btn:hover{background:var(--navy-d)}.brand b{letter-spacing:.04em}
 .col-bin{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:15px;opacity:.5;transition:.12s;border-radius:6px;padding:4px}.col-bin:hover{opacity:1;color:var(--stop);background:var(--stop-bg)}.mrow.dropped{grid-template-columns:1fr 26px 1fr auto;opacity:.7;background:var(--stop-bg)}.drop-note{font-size:12.5px;color:var(--stop);font-style:italic}.drop-restore{color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline}
 .aim-test{display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-size:12.5px}.aim-test .t-ok{color:var(--ok,#1E8A6B);font-weight:600}.aim-test .t-bad{color:var(--stop,#C2452F)}
+.ai-working{display:flex;align-items:center;gap:12px;justify-content:space-between}.ai-working span{flex:1}
 </style>
 </head>
 <body>
@@ -565,7 +566,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v50</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v52</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2560,19 +2561,44 @@ function onRunAITick(on){
 }
 // The single AI toggle does BOTH: column/type review AND value cleaning (merging
 // variant spellings). Column review first, then value cleanup on text/categorical.
+let AI_ABORT=null, AI_RUNNING=false;
+function aiWorking(html){   // status + a real Stop button while AI is running
+  const st=$('#ai-run-status'); if(!st) return;
+  st.innerHTML='<div class="ai-working"><span>'+html+'</span>'+
+    '<button type="button" class="btn ghost sm" onclick="stopAI()">Stop</button></div>';
+}
+function stopAI(){
+  if(AI_ABORT){ try{ AI_ABORT.abort(); }catch(e){} }
+  AI_RUNNING=false; RUN_AI=false;
+  renderColumnReview();   // rebuild first (unticks the box, restores the offer)
+  const st=$('#ai-run-status'); if(st) st.innerHTML='<span class="ai-done">AI stopped.</span> You can continue and clean your data without it, or turn AI back on anytime.';
+  const cb=document.querySelector('.run-ai input[type=checkbox]'); if(cb) cb.checked=false;
+}
 async function runAIAssist(){
   const d=(AI_DEFAULTS[SETTINGS.provider]||{});
-  const full = (SETTINGS.ai_mode==='full');
   const st=$('#ai-run-status');
-  if(full && !d.local){
-    // Full clean needs a local model; on cloud/web, still do the column + value help
-    if(st) st.innerHTML='Note: the deepest <b>Full clean</b> step needs a local model, so it\u2019s skipped here. AI will still check your columns and tidy values.';
+  AI_ABORT=new AbortController(); AI_RUNNING=true;
+  // STEP 1 — tidy messy values. This is LOCAL and INSTANT (no model, no key, no
+  // network): it runs immediately and always, and shows exactly what it grouped.
+  await runValueCleanup();
+  // STEP 2 — the AI column/type review needs a model. Local needs Ollama running;
+  // cloud needs your API key. If that isn't set up, ask for it (don't hang).
+  const hasKey = (SETTINGS.key && SETTINGS.key.trim());
+  if(!d.local && !hasKey){
+    // cloud provider chosen but no key -> pop the setup so you can add it
+    AI_RUNNING=false; AI_PENDING_RUN=true; openAIModal();
+    return;
   }
-  if(st && !(full && !d.local)) st.innerHTML='<span class="spin"></span> AI is checking your columns…';
-  await runWholeFileReview();          // columns + types (whole file)
-  if(st) st.innerHTML='<span class="spin"></span> AI is tidying messy values…';
-  await runValueCleanup();             // messy values (all text/categorical/geo columns)
-  if(full && d.local){ if(st) st.innerHTML='<span class="ai-done">✸ Full AI clean complete</span> — every AI change is marked and listed in the change log. You still approve before export.'; }
+  if(!d.local){
+    // cloud: whole-file review is local-only for privacy, so on cloud we stop after
+    // the instant value tidy and tell you clearly.
+    if(st) st.innerHTML='<span class="ai-done">✓ values tidied locally.</span> Deeper AI column review runs on a local model only (nothing leaves your computer); your cloud key is saved for per-column checks.';
+    AI_RUNNING=false; return;
+  }
+  // local model: run the whole-file column/type review (bounded, won\u2019t hang)
+  aiWorking('<span class="spin"></span> checking columns with your local model…');
+  await runWholeFileReview();
+  AI_RUNNING=false;
 }
 window.__AI_MERGES__ = {};
 // cheap local check: are there case/whitespace variants that AI could merge?
@@ -2589,23 +2615,32 @@ async function runValueCleanup(){
   const targets=COLREVIEW.filter(c=>!c.dropped && (c.type==='categorical'||c.type==='free_text'||c.type==='geo'))
     .filter(c=>{ const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!==''); return _hasLikelyDupes(vals); });
   if(!targets.length) return;
-  if(st) st.innerHTML='<span class="spin"></span> tidying messy values…';
-  let total=0; window.__AI_MERGES__={};
+  aiWorking('<span class="spin"></span> tidying messy values (on this computer)…');
+  let total=0; window.__AI_MERGES__={}; const preview=[];
   for(const c of targets){
     const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='');
     try{
       const r=await (await fetch('/api/cluster_values',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({column:c.original, values:vals})})).json();
+        body:JSON.stringify({column:c.original, values:vals}), signal:(AI_ABORT&&AI_ABORT.signal)})).json();
       if(r.merges && Object.keys(r.merges).length){
         const colName=(c.name&&c.name!==c.original)?c.name:c.original;
         window.__AI_MERGES__[colName]=r.merges;
-        total += Object.keys(r.merges).length;
+        // show + log each actual grouping, e.g.  Lagos ← lagos, LAGOS
+        Object.keys(r.merges).forEach(canon=>{
+          const variants=r.merges[canon]; total++;
+          preview.push('<b>'+esc(colName)+'</b>: “'+esc(canon)+'” ← '+variants.map(v=>'“'+esc(v)+'”').join(', '));
+          try{ logEvent('clean','['+colName+'] grouped '+variants.map(v=>'"'+v+'"').join(', ')+' → "'+canon+'"'); }catch(e){}
+        });
       }
-    }catch(e){ /* skip this column */ }
+    }catch(e){ if(e&&e.name==='AbortError') return; /* skip this column */ }
   }
-  const s2=$('#ai-run-status'); if(s2 && total){
-    s2.innerHTML='<span class="ai-done">✓ tidied '+total+' set(s) of duplicate values</span> — applied when you clean (see the change log).';
-    logEvent('clean','Grouped '+total+' set(s) of duplicate values');
+  const s2=$('#ai-run-status'); if(s2){
+    if(total){
+      s2.innerHTML='<div class="ai-done">✓ grouped '+total+' set(s) of duplicate values (applied when you clean, and listed in the change log &amp; activity log):</div>'+
+        '<ul class="tidy-list">'+preview.slice(0,12).map(p=>'<li>'+p+'</li>').join('')+(preview.length>12?'<li>…and '+(preview.length-12)+' more</li>':'')+'</ul>';
+    } else {
+      s2.innerHTML='<span class="ai-done">✓ no duplicate values to group</span> — your text columns look clean.';
+    }
   }
 }
 // ONE whole-file pass (local-only). Sends header + a compact sample once, applies
@@ -2617,7 +2652,7 @@ async function runWholeFileReview(){
   const sample=(COL_SAMPLE||[]).slice(0,8);
   if(st) st.innerHTML='<span class="spin"></span> AI is reviewing your whole file (local model  this can take up to a minute)\u2026';
   try{
-    const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},signal:(AI_ABORT&&AI_ABORT.signal),
       body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:SETTINGS.key, model:SETTINGS.model})})).json();
     if(!r.ok){ if(st) st.innerHTML='\u26A0\uFE0E Could not complete the review'+(r.error?': '+esc(String(r.error).slice(0,90)):'')+'. Kept the engine reading.'; return; }
     let changed=0; const byName={};
@@ -2634,7 +2669,7 @@ async function runWholeFileReview(){
       if(changed){ s2.innerHTML='<span class="ai-done">✦ AI refined <b>'+changed+'</b> column'+(changed>1?'s':'')+'</span>, shown in <span class="ai-swatch">teal</span> below.'; }
       else { s2.innerHTML='<span class="ai-done">✦ AI agreed with the engine</span>, nothing to change.'; }
     }
-  }catch(e){ if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
+  }catch(e){ if(e&&e.name==='AbortError'){ return; } if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
 }
 
 // After upload, recommend AI only if the engine is genuinely unsure AND a local model is set up.
