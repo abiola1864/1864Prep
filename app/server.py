@@ -698,7 +698,7 @@ async def ai_values(payload: dict):
     prompt = ("These are distinct values from one column. Group variant spellings/casing of the "
               "SAME thing under one canonical value. Reply ONLY JSON: {\"merges\":{\"Canonical\":[\"variant1\",\"variant2\"]}}. "
               "Only include groups with a real duplicate; leave clean values out.\nValues: " + _json.dumps(distinct))
-    res = ask(prompt, provider=provider, url=url, model=model, timeout=60)
+    res = ask(prompt, provider=provider, url=url, model=model, timeout=30)
     out = {"where": where, "ok": res.get("ok", False), "merges": {}}
     if res.get("error"): out["error"] = res["error"]
     if res.get("ok"):

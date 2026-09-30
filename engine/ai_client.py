@@ -139,7 +139,7 @@ def parse_review(text: str) -> dict:
     return {"columns": cols, "note": note}
 
 
-def review(headers, sample_rows, provider="ollama", url="", model="", timeout=90.0) -> dict:
+def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30.0) -> dict:
     """ONE whole-file pass. Local-only: refuses if the endpoint would leave the device."""
     loc=classify_endpoint(provider, url, model)
     out={"ok": False, "columns": [], "note": "", "raw": "", **loc}
