@@ -496,6 +496,9 @@ _TYPE_TO_TRANSFORM = {
     "date": ("date_iso", {}),
     "datetime": ("datetime_iso", {}),
     "numeric": ("numeric", {}),
+    "currency": ("numeric", {}),          # Amount: strip symbols/commas, keep the number
+    "identifier": ("fixed_id", {}),       # IDs/codes: preserve exactly (leading zeros, etc.)
+    "geo": ("text_normalise", {}),        # place: tidy text (reference matching applied where available)
     "latitude": ("latitude", {}),
     "longitude": ("longitude", {}),
     "name": ("name", {}),
@@ -597,7 +600,7 @@ def profile_to_plan(profiles: list[ColumnProfile], plan_name: str = "auto",
             ref = gazetteer_refs.get(gaz)
             transform, params = ("resolve", {"reference": ref} if ref else {})
         else:
-            transform, base_params = _TYPE_TO_TRANSFORM.get(p.semantic_type, (None, {}))
+            transform, base_params = _TYPE_TO_TRANSFORM.get(p.semantic_type, ("text_normalise", {}))
             params = {**base_params, **(p.params or {})}   # carry inferred params (e.g. date_order)
         mappings.append({
             "source_column": p.column,
