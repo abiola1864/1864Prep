@@ -623,7 +623,7 @@ async def ai_ask(payload: dict):
     # what actually gets sent to the model - the masked question + sample values
     prompt = (q["question"] + "\nSample values: " + ", ".join(map(str, q["sent_values"]))
               + "\nAnswer with one data type (date, numeric, identifier, phone, email, gender, geo, categorical, name, free_text).")
-    res = ask(prompt, provider=provider, url=url, model=model, api_key=payload.get("api_key", ""))
+    res = ask(prompt, provider=provider, url=url, model=model, api_key=payload.get("api_key", ""), timeout=20)
     parsed = parse_suggestion(res.get("text", "")) if res.get("ok") else {"suggestion": "", "raw": ""}
     return {"sent": q, "where": where, "ok": res.get("ok", False),
             "error": res.get("error"), "suggestion": parsed["suggestion"], "raw": parsed["raw"]}
@@ -656,6 +656,21 @@ async def ai_structure(payload: dict):
     res = ask(prompt, provider=provider, url=url, model=model, api_key=payload.get("api_key", ""))
     return {"where": where, "ok": res.get("ok", False), "error": res.get("error"),
             "raw": (res.get("text", "") or "")[:1200]}
+
+
+@app.post("/api/cluster_values")
+async def api_cluster_values(payload: dict):
+    """Instant, offline value clustering (no AI, no network). Groups variant
+    spellings of the same value. Returns {merges: {canonical: [variants]}}."""
+    from engine.valuecluster import cluster_values
+    from engine.ai_privacy import looks_sensitive
+    col = payload.get("column", "")
+    if looks_sensitive(str(col)):
+        return {"merges": {}, "note": "sensitive column skipped"}
+    try:
+        return {"merges": cluster_values(payload.get("values", []))}
+    except Exception as e:
+        return {"merges": {}, "error": str(e)}
 
 
 @app.post("/api/ai/values")

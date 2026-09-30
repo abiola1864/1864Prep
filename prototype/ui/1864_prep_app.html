@@ -565,7 +565,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v43</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v46</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -839,7 +839,7 @@
 // State that other top-level code and handlers depend on, declared FIRST so
 // there is no temporal-dead-zone error during load (which previously aborted the
 // script and left the toolkit + AI setup non-functional).
-let SETTINGS=Object.assign({region:'ng',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
+let SETTINGS=Object.assign({region:'generic',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function toast(m, opts){
@@ -2129,7 +2129,7 @@ async function tkVerifyThenRun(){
   let pi=0; prog.set(0.05,"Starting");
   const ticker=setInterval(()=>{ if(pi<phases.length){ prog.set(phases[pi][0],phases[pi][1]); pi++; } },450);
   try{
-    const fd=new FormData(); fd.append('file', inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'ng');
+    const fd=new FormData(); fd.append('file', inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'generic');
     const d=await (await fetch('/api/profile',{method:'POST',body:fd})).json();
     clearInterval(ticker); prog.finish();
     if(d.error) throw new Error(d.error);
@@ -2153,7 +2153,7 @@ async function tkRunFlow(){
       const prog=makeProgressManual(out,(TK_CUR.id==='outliers'?'Checking the spread…':'Checking for confusing columns…'),
         'A quick look before we '+(TK_CUR.id==='outliers'?'flag anything':'finalise')+'.');
       prog.indeterminate(TK_CUR.id==='outliers'?'Measuring each numeric column…':'Scanning the match columns…');
-      const fd=new FormData(); fd.append('file',inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'ng');
+      const fd=new FormData(); fd.append('file',inp.files[0]); fd.append('region',(SETTINGS&&SETTINGS.region)||'generic');
       const prof=await (await fetch('/api/profile',{method:'POST',body:fd})).json();
       if(TK_CUR.id==='outliers'){
         const ev=await (await fetch('/api/tool/outliers/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:prof.preview||[]})})).json();
@@ -2176,7 +2176,7 @@ async function runTool(preNote){
   const prog=makeProgress(out, estimateMs(bytes), stages, "Running "+esc(TK_CUR.name)+"…", "");
   const fd=new FormData();
   for(const f of inp.files) fd.append('files', f);
-  fd.append('region', (typeof SETTINGS!=='undefined'&&SETTINGS.region)||'ng');
+  fd.append('region', (typeof SETTINGS!=='undefined'&&SETTINGS.region)||'generic');
   const how=$('#tk-how'); if(how) fd.append('how', how.value);
   try{
     const res=await fetch('/api/tool/'+TK_CUR.id,{method:'POST',body:fd});
@@ -2336,7 +2336,7 @@ async function profileFile(file){
   let pi=0; prog.set(0.05,"Starting");
   const ticker=setInterval(()=>{ if(pi<phases.length){ prog.set(phases[pi][0],phases[pi][1]); pi++; } }, 550);
   try{
-    const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
+    const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'generic');
     fd.append('types_prior', JSON.stringify(_pget('prep_type_prior',[])||[]));
     if(CURRENT_SHEET) fd.append('sheet', CURRENT_SHEET);
     const res=await fetch('/api/profile',{method:'POST',body:fd,signal:COL_ABORT.signal});
@@ -2378,7 +2378,7 @@ async function doReshape(){
   const prog=makeProgressManual(ov,"Reshaping to long…","Turning "+s.n_periods+" "+esc(s.axis_name)+" columns into rows.");
   prog.set(0.4,"Reshaping");
   try{
-    const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'ng');
+    const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'generic');
     fd.append('id_cols',JSON.stringify(s.id_cols)); fd.append('value_cols',JSON.stringify(s.value_cols));
     fd.append('axis_name',s.axis_name); fd.append('value_name','value');
     const r=await (await fetch('/api/reshape_long',{method:'POST',body:fd})).json();
@@ -2541,18 +2541,28 @@ async function runAIAssist(){
   if(full && d.local){ if(st) st.innerHTML='<span class="ai-done">✸ Full AI clean complete</span> — every AI change is marked and listed in the change log. You still approve before export.'; }
 }
 window.__AI_MERGES__ = {};
+// cheap local check: are there case/whitespace variants that AI could merge?
+function _hasLikelyDupes(vals){
+  const norm=v=>String(v).toLowerCase().trim().replace(/\s+/g,' ');
+  const raw=new Set(vals.map(v=>String(v).trim())); const n=new Set(vals.map(norm));
+  return raw.size>=4 && n.size<raw.size;   // normalisation collapsed some -> variants exist
+}
 async function runValueCleanup(){
-  const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
-  const targets=COLREVIEW.filter(c=>!c.dropped && (c.type==='categorical'||c.type==='free_text'||c.type==='geo'));
+  const st=$('#ai-run-status');
+  // Value cleaning is done LOCALLY and INSTANTLY (fuzzy clustering), never a slow
+  // per-column model call. We only look at text-like columns that actually have
+  // duplicate variants. This runs in milliseconds regardless of file size.
+  const targets=COLREVIEW.filter(c=>!c.dropped && (c.type==='categorical'||c.type==='free_text'||c.type==='geo'))
+    .filter(c=>{ const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!==''); return _hasLikelyDupes(vals); });
   if(!targets.length) return;
+  if(st) st.innerHTML='<span class="spin"></span> tidying messy values…';
   let total=0; window.__AI_MERGES__={};
   for(const c of targets){
     const vals=(COL_SAMPLE||[]).map(r=>r[c.original]).filter(v=>v!=null&&String(v).trim()!=='');
-    if(st) st.innerHTML='<span class="spin"></span> AI checking values in <b>'+esc(c.original)+'</b>…';
     try{
-      const r=await (await fetch('/api/ai/values',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({column:c.original, values:vals, provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
-      if(r.ok && r.merges && Object.keys(r.merges).length){
+      const r=await (await fetch('/api/cluster_values',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({column:c.original, values:vals})})).json();
+      if(r.merges && Object.keys(r.merges).length){
         const colName=(c.name&&c.name!==c.original)?c.name:c.original;
         window.__AI_MERGES__[colName]=r.merges;
         total += Object.keys(r.merges).length;
@@ -2560,8 +2570,8 @@ async function runValueCleanup(){
     }catch(e){ /* skip this column */ }
   }
   const s2=$('#ai-run-status'); if(s2 && total){
-    s2.innerHTML='<span class="ai-done">✦ AI also suggested '+total+' value merge(s)</span> — applied when you clean (you can review in the change log).';
-    logEvent('ai','AI suggested '+total+' value merge(s)');
+    s2.innerHTML='<span class="ai-done">✓ tidied '+total+' set(s) of duplicate values</span> — applied when you clean (see the change log).';
+    logEvent('clean','Grouped '+total+' set(s) of duplicate values');
   }
 }
 // ONE whole-file pass (local-only). Sends header + a compact sample once, applies
@@ -2675,7 +2685,7 @@ function applyVersion(id){
     const prog=makeProgressManual(ov,'Applying \u201c'+esc(v.name)+'\u201d','Reusing your saved steps on <b>'+esc(file.name)+'</b>. You will only review what is new.');
     prog.showCancel(); CLEAN_JOB=null; CLEAN_ABORTED=false;
     try{
-      const fd=new FormData(); fd.append('file',file); fd.append('region',v.region||'ng');
+      const fd=new FormData(); fd.append('file',file); fd.append('region',v.region||'generic');
       fd.append('rename',JSON.stringify(v.rename||{})); fd.append('types',JSON.stringify(v.types||{}));
       const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
       const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='',payload=null,err=null,cancelled=false;
@@ -2730,7 +2740,7 @@ async function confirmColumnsAndClean(){
   const prog=makeProgressManual(ov,(USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine'),
     "Applying only what you approve. Your file stays on this computer.");
   try{
-    const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'ng');
+    const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'generic');
     if(CURRENT_SHEET) fd.append('sheet', CURRENT_SHEET);
     if(window.__RESHAPED_ID__) fd.append('reshaped_id', window.__RESHAPED_ID__);
     fd.append('rename',JSON.stringify(rename));
@@ -2752,7 +2762,7 @@ async function confirmColumnsAndClean(){
     if(!payload) throw new Error('no result');
     if(payload.overview) payload.overview.forEach(c=>{ if(rename[c.column]) c.column=rename[c.column]; });
     buildFieldsFromAPI(payload, PENDING_FILE.name);
-    CURRENT_RECIPE={region:(SETTINGS.region||'ng'), rename:rename, types:types,
+    CURRENT_RECIPE={region:(SETTINGS.region||'generic'), rename:rename, types:types,
                     columns:COLREVIEW.map(c=>c.original), appliedVersion:(APPLIED_VERSION||null)};
     addHistory({when:new Date().toISOString(), file:PENDING_FILE.name,
                 cols:COLREVIEW.length, version:(APPLIED_VERSION||null)});
