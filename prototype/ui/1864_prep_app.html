@@ -565,7 +565,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v40</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v41</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1892,6 +1892,8 @@ async function doExport(){
 function cleanNextSheet(){
   CURRENT_SHEET=SHEET_QUEUE.shift();
   COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false;
+  window.__RESHAPED_ID__=null; window.__AI_COLS__=[]; window.__AI_MERGES__={};  // no leak from the previous sheet
+  SESSION_ID=null;
   toast('Cleaning sheet: '+CURRENT_SHEET, {kind:'good'});
   profileFile(PENDING_FILE);
 }
@@ -2320,6 +2322,10 @@ function startSheets(){
   profileFile(PENDING_FILE);
 }
 async function profileFile(file){
+  // Every profile (new file OR next sheet) starts from a clean slate, so state from
+  // a previous sheet — reshape, AI results, columns — never leaks into this one.
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false;
+  window.__RESHAPED_ID__=null; window.__AI_COLS__=[]; window.__AI_MERGES__={};
   const ov=$('#overlay'); ov.classList.add('on');
   const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+(CURRENT_SHEET?(' · '+esc(CURRENT_SHEET)):'')+"</b> before any cleaning.");
   prog.showCancel(); COL_ABORT=new AbortController();
