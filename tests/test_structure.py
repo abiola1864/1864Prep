@@ -44,3 +44,16 @@ def test_oecd_flag_column_pairing(tmp_path=None):
     print("OECD flag-column pairing works:", list(df.columns))
 test_oecd_flag_column_pairing()
 print("OECD PAIRING TEST PASSED")
+
+def test_form_detected_not_tabulated():
+    from engine.structure import detect_form
+    import pandas as pd
+    rows=[["","",""],["TRAVEL REQUEST","",""],["Name:","","Date:"],["Purpose:","",""],
+          ["Traveller:","",""],["Authorized By:","",""],["Approved By:","",""]]
+    f=detect_form(pd.DataFrame(rows))
+    assert f["is_form"] and len(f["label_values"])>=4
+    # a normal table is not a form
+    assert not detect_form(pd.DataFrame({"a":[1,2,3],"b":[4,5,6],"c":[7,8,9]}))["is_form"]
+    print("form detection works")
+test_form_detected_not_tabulated()
+print("FORM TEST PASSED")

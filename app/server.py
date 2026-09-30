@@ -114,8 +114,22 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
         header_rows = propose_headers(df, profs, _doms)
         from engine.structure import detect_structure
         _struct = detect_structure(df)
+        # what IS this sheet — a data table, a form, or a list?
+        _shape = {"kind": "table"}
+        try:
+            from engine.sheetshape import classify_sheet
+            import pandas as _pd
+            raw = _pd.read_excel(path, sheet_name=(sheet or 0), header=None, dtype=str).fillna("").values.tolist() \
+                if str(path).lower().endswith((".xlsx", ".xls", ".xlsm")) else None
+            if raw is not None:
+                _shape = classify_sheet(raw)
+        except Exception:
+            pass
+        if getattr(rep, "is_form", False):
+            _struct = {"kind": "form"}
         return {
             "ingest": rep.summary(),
+            "is_form": bool(getattr(rep, "is_form", False)),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
             "region": _regions.get_active_region().name,
             "rows": len(df), "cols": len(df.columns),
@@ -124,6 +138,7 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
             "columns": [{"name": p.column, "type": p.semantic_type,
                          "confidence": round(p.confidence, 2)} for p in profs],
             "structure": _struct,
+            "shape": _shape,
         }
     except Exception as e:
         return {"error": f"Could not read the columns: {e}"}

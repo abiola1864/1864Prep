@@ -37,6 +37,7 @@ class IngestReport:
     cols: int = 0
     notes: list[str] = field(default_factory=list)
     skipped_rows: list[str] = field(default_factory=list)
+    is_form: bool = False
 
     def summary(self) -> str:
         bits = [f"{self.kind}", f"{self.rows} rows x {self.cols} cols"]
@@ -259,16 +260,25 @@ def _fill_group_labels(df: pd.DataFrame, notes: list) -> pd.DataFrame:
     and tries forward-fill then back-fill so either 'label-on-top' or 'label-on-
     summary-row' layouts populate."""
     cols = list(df.columns)
+    # Only fill group labels when this genuinely looks like a grouped PANEL table:
+    # there must be a run of time-axis (year/quarter/month) columns. Otherwise a
+    # form/edge file (sparse first column of one-off labels like "Sub-Total") would
+    # be wrongly filled and corrupted. This keeps the fill to the case it's for.
+    has_axis = sum(1 for c in cols if _seq_header(c)) >= 5
+    if not has_axis:
+        return df
     filled = 0
-    for c in cols[:3]:                       # only leading label columns
+    for c in cols[:2]:                        # only the leading id/label columns
+        if _seq_header(c):
+            break
         s = df[c].astype(str).str.strip().replace("nan", "").replace("", pd.NA)
         nonblank = s.notna().mean()
-        if 0 < nonblank < 0.6:               # sparse -> looks like a group label
+        if 0 < nonblank < 0.6:                # sparse label alongside a time axis -> a group key
             ff = s.ffill(); bf = s.bfill()
             df[c] = (ff.where(ff.notna(), bf)).fillna("")
             filled += 1
         else:
-            break                            # stop at first dense column (real data)
+            break
     if filled:
         notes.append(f"filled group labels in {filled} column(s)")
     return df
@@ -367,6 +377,26 @@ def detect_orientation(rows: list[list[str]]) -> str:
     return "normal"
 
 
+def _maybe_form(rows):
+    """If the raw rows are a FORM/layout (not a data table), return a tidy 2-column
+    dataframe of the extracted field->value pairs; else None."""
+    try:
+        from engine.structure import detect_form
+        f = detect_form(pd.DataFrame(rows))
+        if f.get("is_form") and f.get("label_values"):
+            return pd.DataFrame(f["label_values"], columns=["field", "value"])
+    except Exception:
+        pass
+    return None
+
+
+def _form_report(path, kind, sheet=None):
+    rep = IngestReport(str(path), kind, sheet=sheet)
+    rep.is_form = True
+    rep.notes.append("this sheet looks like a form (label:value layout), not a data table; extracted the fields")
+    return rep
+
+
 def _find_year_header_row(rows: list[list[str]], scan: int = 25) -> int:
     """Panel/time-series files (OECD, Eurostat, WDI) have a header row that is a
     few TEXT labels (Country, Sex) followed by a run of YEAR columns (1960, 1961…),
@@ -398,6 +428,9 @@ def read_csv_like(path: Path, kind: str) -> tuple[pd.DataFrame, IngestReport]:
             break
     while rows and not any(str(c).strip() for c in rows[-1]):
         rows.pop()                                           # trim trailing blank lines only
+    _fdf = _maybe_form(rows)
+    if _fdf is not None:
+        _r=_form_report(path, kind); _r.rows=len(_fdf); _r.cols=2; return _fdf, _r   # a form, not a table
     # Panel/time-series files: a year-header row after a metadata/XML preamble.
     # Detect it directly (the generic detector under-scores numeric year headers).
     _yhr = _find_year_header_row(rows)
@@ -497,6 +530,9 @@ def _read_one_sheet(path: Path, sheet: str, grid: list[list[str]], sheets: list[
         pass
 
     raw = _unmerge_fill([list(map(str, r)) for r in grid], merged)
+    _fdf = _maybe_form(raw)
+    if _fdf is not None:
+        _r=_form_report(path, 'xlsx', sheet=sheet); _r.rows=len(_fdf); _r.cols=2; return _fdf, _r   # a form, not a table
     raw = [r for r in raw if any(str(c).strip() for c in r)]
     hdr = _detect_header_row([[str(c) for c in r] for r in raw])
     header, data_start = _resolve_header(raw, hdr, forward_fill=(not merged))

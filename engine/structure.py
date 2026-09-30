@@ -76,6 +76,41 @@ def _mostly_numeric(df, cols, sample=300):
     return bool(cols) and considered >= 3 and ok / len(cols) >= 0.6
 
 
+def detect_form(df) -> dict:
+    """Decide whether a sheet is a real DATA TABLE or a FORM/layout (a printable
+    template: a title, label:value pairs, embedded mini-tables, signature lines) that
+    has no consistent record grid. Forms should not be tabulated like data. Signals:
+    very sparse cells, most non-empty text sitting in one column, many 'Label:' cells,
+    and few rows that look like full records. Returns {is_form, label_values} where
+    label_values is the extracted [{field, value}] pairs when it is a form."""
+    import re as _re
+    rows = df.astype(str).replace("nan", "").values.tolist()
+    n = len(rows); ncol = len(df.columns) if n else 0
+    if n == 0 or ncol == 0:
+        return {"is_form": False, "label_values": []}
+    def cells(r): return [c for c in r if str(c).strip()]
+    nonempty_per_row = [len(cells(r)) for r in rows]
+    filled_rows = [k for k in nonempty_per_row if k >= max(2, int(0.5 * ncol))]
+    density = sum(nonempty_per_row) / (n * ncol)
+    # 'record-like' rows: at least half the columns filled
+    record_share = (len(filled_rows) / n) if n else 0
+    # label:value cells (end with ':' or a lone label in an otherwise empty row)
+    label_cells = 0; lv = []
+    for r in rows:
+        cs = [(j, str(c).strip()) for j, c in enumerate(r) if str(c).strip()]
+        if 1 <= len(cs) <= 3:
+            for j, c in cs:
+                if c.endswith(":") or _re.search(r":\s*$", c):
+                    label = c.rstrip(": ").strip()
+                    val = ""
+                    after = [v for (jj, v) in cs if jj > j and v]
+                    if after: val = after[0]
+                    if label: lv.append({"field": label, "value": val}); label_cells += 1
+    # A form: sparse, few full-record rows, and several label cells.
+    is_form = (density < 0.35 and record_share < 0.25 and label_cells >= 4)
+    return {"is_form": bool(is_form), "label_values": lv[:60]}
+
+
 def detect_structure(df) -> dict:
     """Look at the whole table and decide if it's a wide/panel shape."""
     flat = {"kind": "flat", "id_cols": [], "value_cols": [], "axis_name": "period",
