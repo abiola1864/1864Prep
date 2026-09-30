@@ -32,6 +32,20 @@ from engine.review import column_overview, spotcheck
 
 app = FastAPI(title="1864 Prep engine", version="0.1")
 
+
+@app.middleware("http")
+async def _no_cache(request, call_next):
+    """Guarantee the browser (and any CDN) never serves a stale build: the app page,
+    its scripts, and API responses are always fetched fresh. The client never has to
+    clear a cache or hard-refresh."""
+    resp = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith((".html", ".js", ".css")) or path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
+
 UI_DIR = Path(__file__).resolve().parents[1] / "prototype" / "ui"
 
 
@@ -917,11 +931,16 @@ async def api_benchmark():
     return {"results": run_benchmark()}
 
 
+_NOCACHE = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache", "Expires": "0"}
+
+
 @app.get("/")
 async def root():
     index = UI_DIR / "1864_prep_app.html"
     if index.exists():
-        return FileResponse(str(index))
+        # Never let a browser hold a stale copy of the app — always serve fresh.
+        return FileResponse(str(index), headers=_NOCACHE)
     return JSONResponse({"service": "1864 Prep engine", "ui": "not bundled",
                          "try": ["/api/health", "/api/profile", "/api/clean", "/test"]})
 
