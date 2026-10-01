@@ -698,7 +698,7 @@ async def ai_values(payload: dict):
     prompt = ("These are distinct values from one column. Group variant spellings/casing of the "
               "SAME thing under one canonical value. Reply ONLY JSON: {\"merges\":{\"Canonical\":[\"variant1\",\"variant2\"]}}. "
               "Only include groups with a real duplicate; leave clean values out.\nValues: " + _json.dumps(distinct))
-    res = ask(prompt, provider=provider, url=url, model=model, timeout=30)
+    res = ask(prompt, provider=provider, url=url, model=model, api_key=payload.get("api_key", ""), timeout=30)
     out = {"where": where, "ok": res.get("ok", False), "merges": {}}
     if res.get("error"): out["error"] = res["error"]
     if res.get("ok"):
@@ -727,6 +727,46 @@ async def ai_review(payload: dict):
         masked.append(mr)
     return review(headers, masked, provider=payload.get("provider", "ollama"),
                   url=payload.get("url", ""), model=payload.get("model", ""), api_key=payload.get("api_key", ""))
+
+
+def _store_path():
+    from pathlib import Path as _P
+    d = _P(os.environ.get("PREP_HOME") or (_P.home() / ".1864prep"))
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "app_state.json"
+
+
+@app.get("/api/local_state")
+async def get_local_state():
+    """Desktop/local only: the app's saved state (setup, owner, AI settings).
+    Kept in a file in the user's home folder so it survives restarts, because
+    the browser storage is tied to a port that changes on every launch.
+    The hosted demo never stores anything here."""
+    if os.environ.get("PREP_DEMO"):
+        return {}
+    import json as _json
+    try:
+        return _json.loads(_store_path().read_text())
+    except Exception:
+        return {}
+
+
+@app.post("/api/local_state")
+async def set_local_state(payload: dict):
+    if os.environ.get("PREP_DEMO"):
+        return {"ok": False, "note": "demo does not store state"}
+    import json as _json
+    p = _store_path()
+    clean = {k: v for k, v in (payload or {}).items()
+             if isinstance(k, str) and k.startswith("prep_") and isinstance(v, str)}
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(_json.dumps(clean))
+    try:
+        os.chmod(tmp, 0o600)   # only this user can read it (it can hold an API key)
+    except Exception:
+        pass
+    tmp.replace(p)
+    return {"ok": True, "keys": len(clean)}
 
 
 @app.get("/api/config")

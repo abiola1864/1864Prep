@@ -215,7 +215,9 @@ def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30
             "email, phone, geo, currency, categorical, name, free_text. Reply ONLY with JSON: "
             "{\"columns\":[{\"name\":\"...\",\"type\":\"...\",\"reason\":\"...\"}],\"note\":\"...\"}.\n"
             "Header: "+hdr+"\nSample rows: "+sample)
-    res=ask(prompt, provider=provider, url=url, model=model, timeout=timeout)
+    # pass the key through: without it every cloud review was sent unauthenticated
+    # (401 -> "key wasn't accepted") even though the connection test had passed
+    res=ask(prompt, provider=provider, url=url, model=model, timeout=timeout, api_key=api_key)
     out["ok"]=res.get("ok", False); out["raw"]=(res.get("text") or "")[:1500]
     if res.get("error"): out["error"]=res["error"]
     if out["ok"]:

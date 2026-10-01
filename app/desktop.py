@@ -16,7 +16,17 @@ import time
 import webbrowser
 
 
+PREFERRED_PORT = 18640   # same address every launch, so the window's saved data is found again
+
+
 def _free_port() -> int:
+    try:
+        s = socket.socket()
+        s.bind(("127.0.0.1", PREFERRED_PORT))
+        s.close()
+        return PREFERRED_PORT
+    except OSError:
+        pass   # already in use (e.g. a second copy is open) -> any free port
     s = socket.socket()
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
@@ -90,7 +100,14 @@ def main():
                 return {"saved": path}
 
         webview.create_window("1864 Prep", url, width=1200, height=820, js_api=_Api())
-        webview.start()
+        # keep the window's storage between launches (pywebview defaults to a
+        # private, throwaway session, which wiped AI keys and setup on every start)
+        _store = os.path.join(os.path.expanduser("~"), ".1864prep", "webview")
+        os.makedirs(_store, exist_ok=True)
+        try:
+            webview.start(private_mode=False, storage_path=_store)
+        except TypeError:          # older pywebview without these options
+            webview.start()
     except Exception:
         # no native window available - use the browser, keep the server alive
         print("Native window unavailable; opening in your browser:", url)

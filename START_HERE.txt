@@ -1,0 +1,22 @@
+1864 Prep — run it locally (private; your data never leaves your computer)
+==========================================================================
+
+INSTALL (one line): install Python 3 from https://www.python.org/downloads/
+(macOS usually already has it). For AI features only, also install Ollama
+from https://ollama.com and run:  ollama pull llama3.2   (optional)
+
+RUN
+  Mac:      double-click  launch.command
+            (if macOS blocks it: right-click launch.command -> Open -> Open)
+  Windows:  open a terminal in this folder and run:  bash launch.sh
+
+First launch sets up a private environment (about a minute), then the app opens
+in a window. Drop in a CSV or Excel file, confirm the columns, review the
+proposed changes, and download the cleaned file, a change log, and a codebook.
+
+PRIVACY
+  Everything runs on this computer. The built-in engine does the cleaning
+  offline. AI is optional and off by default; with a local model, nothing
+  leaves the device.
+
+Questions: info@1864institute.org
