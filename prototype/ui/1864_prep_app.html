@@ -600,6 +600,40 @@
 .priv-card{display:flex;align-items:flex-start;gap:10px;background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--ink-soft);max-width:260px}
 .priv-card b{color:var(--ink)}.priv-ic{font-size:16px;line-height:1.3}
 .priv-more{align-self:flex-end;margin-left:6px;font-size:12px;color:var(--navy);text-decoration:underline;cursor:pointer;white-space:nowrap}
+/* v71: row picker */
+.rp-card .modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.rp-card .modal-head h2{margin:0}
+.rp-line{font-size:13px;color:var(--ink-soft);margin:10px 0 2px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}.rp-line .link{cursor:pointer;text-decoration:underline;color:var(--navy);font-weight:600}
+.rp-card{max-width:860px;width:calc(100vw - 40px)}.rp-loading{text-align:center;padding:30px 0}
+.rp-tools{display:flex;gap:8px;align-items:center;margin:8px 0 10px;flex-wrap:wrap}.rp-search{flex:1;min-width:180px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.rp-wrap{max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.rp-table{width:100%;border-collapse:collapse;font-size:13px}.rp-table th{position:sticky;top:0;background:#f6f4ee;text-align:left;padding:8px 10px;font-weight:600;font-size:12px;color:var(--ink-soft);z-index:1}
+.rp-table td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:top}.rp-ck{width:52px;text-align:center}.rp-n{color:var(--faint);width:50px}
+.rp-ctx{color:var(--ink-soft)}.rp-b{color:#8a4b2e}.rp-a{color:#2f6f57;font-weight:600}.rp-ar{color:var(--faint);width:18px}
+.rp-off td{opacity:.55}.rp-off .rp-a{text-decoration:line-through}.rp-empty{text-align:center;color:var(--ink-soft);padding:20px}
+.rp-pages{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;font-size:12.5px;color:var(--ink-soft)}
+.rp-sum{margin-right:auto;font-size:13px;color:var(--ink-soft)}
+/* v71: data panel */
+:root{--dpw:min(46vw,660px)}
+.dp-tab{position:fixed;right:0;top:42%;z-index:46;writing-mode:vertical-rl;transform:rotate(180deg);display:flex;gap:8px;align-items:center;
+  background:var(--navy);color:#fff;border:0;border-radius:0 10px 10px 0;padding:14px 8px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(30,40,55,.18)}
+.dp-tab-ic{transform:rotate(90deg)}
+body.dp-open .dp-tab{right:var(--dpw)}
+.datapanel{position:fixed;top:0;right:0;bottom:0;width:var(--dpw);background:#fff;border-left:1px solid var(--line);z-index:45;transform:translateX(100%);transition:transform .2s ease;display:flex;flex-direction:column;padding:14px 14px 10px}
+body.dp-open .datapanel{transform:none;box-shadow:-10px 0 30px rgba(30,40,55,.08)}
+body.dp-open .main{margin-right:var(--dpw)}
+@media (max-width:980px){:root{--dpw:min(92vw,560px)} body.dp-open .main{margin-right:0}}
+@media (prefers-reduced-motion:reduce){.datapanel{transition:none}}
+.dp-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}.dp-head b{font-size:15px}.dp-head .x{margin-left:auto}
+.dp-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.dp-seg button{border:0;background:#fff;padding:5px 10px;font-size:12.5px;cursor:pointer;color:var(--ink)}.dp-seg button.on{background:var(--navy);color:#fff}
+.dp-note{font-size:12.5px;color:var(--ink-soft);margin:0 0 8px}.dp-loading{text-align:center;padding:40px 0}
+.dp-wrap{flex:1;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.dp-table{border-collapse:collapse;font-size:12.5px;white-space:nowrap}
+.dp-table th{position:sticky;top:0;background:#f6f4ee;text-align:left;padding:7px 10px;font-weight:600;color:var(--ink-soft);z-index:1;border-bottom:1px solid var(--line)}
+.dp-table td{padding:6px 10px;border-bottom:1px solid #f0ece2;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.dp-n{color:var(--faint);position:sticky;left:0;background:#fff}.dp-table th.dp-n{background:#f6f4ee;z-index:2}
+.dp-focus{background:#f3f7f8}.dp-table th.dp-focus{background:#e3eef1;color:var(--ink)}
+.dp-chg{background:#fdf3dc !important;color:#5c3f0a;font-weight:600}.dp-done{color:#2f6f57}.dp-blank{color:#d5cfc0}
+.dp-pages{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:8px;font-size:12.5px;color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -619,7 +653,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v70</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v71</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -775,6 +809,11 @@
       <p class="lead">Handy one-off tools, each with its own steps. <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="go(3)">← Back to the cleaning wizard</a></p>
       <div id="toolkit"></div>
     </section>
+
+    <!-- side panel: see your data at any point (closed by default) -->
+    <button type="button" class="dp-tab" id="dp-tab" onclick="toggleDataPanel()" aria-expanded="false" aria-controls="datapanel" style="display:none">
+      <span class="dp-tab-ic" aria-hidden="true">▦</span><span>View data</span></button>
+    <aside class="datapanel" id="datapanel" aria-label="Your data" aria-hidden="true"></aside>
 
     <!-- cleaning / connect overlay -->
     <div class="overlay" id="overlay"></div>
@@ -1362,6 +1401,7 @@ function go(n){
   if(n===6)renderWorklist();
   if(n===7){renderExport(); if(typeof renderActivityLog==="function") renderActivityLog();}
   if(n===8)renderToolkit();
+  applyDataPanel();
 }
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
 
@@ -1763,6 +1803,65 @@ function cosmeticDetail(){
     return '<div class="cn-col"><div class="cn-colname">'+esc(labelOf(f.name))+' <span class="cn-n">'+f.nChanged+' change'+(f.nChanged===1?'':'s')+'</span></div>'+rows+more+'</div>';
   }).join('')+'<div class="cn-foot">Every change is also in the log you download at the end.</div></div>';
 }
+// ---- data panel ----
+let DP={open:false, off:0, view:'cleaned', data:null, key:''};
+try{ DP.open = sessionStorage.getItem('prep_dp')==='1'; }catch(e){}
+function dpHere(){ return cur===4||cur===5||cur===7; }
+function toggleDataPanel(){ setDataPanel(!DP.open); }
+function setDataPanel(on){
+  DP.open=!!on; try{ sessionStorage.setItem('prep_dp', DP.open?'1':'0'); }catch(e){}
+  applyDataPanel();
+}
+function applyDataPanel(){
+  const show=DP.open && dpHere();
+  document.body.classList.toggle('dp-open', show);
+  const t=$('#dp-tab'), p=$('#datapanel');
+  if(t){ t.style.display=dpHere()?'flex':'none'; t.setAttribute('aria-expanded',show); t.querySelector('span:last-child').textContent=show?'Hide data':'View data'; }
+  if(p) p.setAttribute('aria-hidden', !show);
+  if(show) renderDataPanel();
+}
+async function renderDataPanel(){
+  const p=$('#datapanel'); if(!p || !DP.open || !dpHere()) return;
+  const focus = (cur===5 && typeof curField==='function' && curField()) ? curField().name : null;
+  let cols, rows, total, cleaned=false;
+  if(cur===4 || !SESSION_ID){
+    cols=COLREVIEW.filter(c=>!c.dropped).map(c=>({key:c.original,label:c.name||c.original}));
+    rows=(COL_SAMPLE||[]).map((r,i)=>({row:i, before:r, after:r})); total=rows.length;
+  } else {
+    cleaned=true;
+    const key=SESSION_ID+':'+DP.off;
+    if(DP.key!==key){
+      p.innerHTML='<div class="dp-head"><b>Your data</b><button class="x" onclick="setDataPanel(false)" aria-label="Close">\u2715</button></div><div class="dp-loading">'+DOTS_HTML+'</div>';
+      try{ const r=await (await fetch('/api/session/rows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SESSION_ID,offset:DP.off,limit:50})})).json();
+        if(r.error) throw new Error(r.error); DP.data=r; DP.key=key; }
+      catch(e){ p.innerHTML='<div class="dp-head"><b>Your data</b><button class="x" onclick="setDataPanel(false)">\u2715</button></div><p class="dp-note">'+esc(e.message||'Could not load the data.')+'</p>'; return; }
+    }
+    cols=DP.data.columns.map(c=>({key:c,label:c})); rows=DP.data.rows; total=DP.data.total;
+  }
+  const showAfter = cleaned && DP.view==='cleaned';
+  const head='<tr><th class="dp-n">#</th>'+cols.map(c=>'<th class="'+(c.key===focus?'dp-focus':'')+'">'+esc(labelOf?labelOf(c.label):c.label)+'</th>').join('')+'</tr>';
+  const body=rows.map(r=>'<tr><td class="dp-n">'+(r.row+1)+'</td>'+cols.map(c=>{
+      const b=(r.before||{})[c.key]==null?'':String(r.before[c.key]); let a=(r.after||{})[c.key]==null?'':String(r.after[c.key]);
+      // show the file as it stands: accepted columns cleaned, the column being
+      // decided shown as proposed, everything else as uploaded
+      const f=FIELDS.find(x=>x.name===c.key);
+      const accepted=f&&f.decision==='accept', proposing=(c.key===focus)&&!(f&&f.decision==='reject');
+      const kept=KEEP_ROWS[c.key]&&KEEP_ROWS[c.key].has(r.row);
+      if(!(accepted||proposing) || kept || cur===4) a=b;
+      const chg=cleaned && a!==b;
+      const v=showAfter?a:b;
+      const cls=(c.key===focus?'dp-focus ':'')+(chg&&showAfter?(proposing&&!accepted?'dp-chg':'dp-done'):'');
+      return '<td class="'+cls+'"'+(chg&&showAfter?' title="Was: '+esc(b||'(blank)')+'"':'')+'>'+(esc(v)||'<span class="dp-blank">\u00b7</span>')+'</td>'; }).join('')+'</tr>').join('');
+  const pages=cleaned?Math.ceil(total/50):1, pg=Math.floor(DP.off/50);
+  p.innerHTML='<div class="dp-head"><b>Your data</b>'+
+      (cleaned?'<span class="dp-seg"><button class="'+(DP.view==='cleaned'?'on':'')+'" onclick="DP.view=\'cleaned\';renderDataPanel()">Cleaned</button><button class="'+(DP.view==='original'?'on':'')+'" onclick="DP.view=\'original\';renderDataPanel()">Original</button></span>':'')+
+      '<button class="x" onclick="setDataPanel(false)" aria-label="Close">\u2715</button></div>'+
+    '<p class="dp-note">'+(cleaned?(showAfter?((focus?'Highlighted: what would change in '+esc(labelOf(focus))+'. ':'')+'Columns you accepted show their cleaned values. Hover a changed cell to see what it was. Nothing is saved until you export.'):'Your file exactly as it was uploaded.'):'A preview of the first rows, before any cleaning.')+'</p>'+
+    '<div class="dp-wrap"><table class="dp-table"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+
+    (pages>1?'<div class="dp-pages"><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="DP.off=0;renderDataPanel()">\u00ab</button><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="DP.off-=50;renderDataPanel()">\u2039</button>'+
+      '<span>Rows '+(DP.off+1)+'\u2013'+Math.min(total,DP.off+50)+' of '+total+'</span><button class="btn ghost sm" '+(pg>=pages-1?'disabled':'')+' onclick="DP.off+=50;renderDataPanel()">\u203a</button></div>':'');
+  if(focus){ const th=p.querySelector('th.dp-focus'); const w=p.querySelector('.dp-wrap'); if(th&&w) w.scrollLeft=Math.max(0, th.offsetLeft-80); }
+}
 function renderReview(){
   if(!CARDS.length) buildCards();
   if(!CARDS.length) return;
@@ -1770,6 +1869,7 @@ function renderReview(){
   const N=CARDS.length, c=CARDS[idx];
   const stepN=Math.min(idx+1,N-1), total=Math.max(1,N-1);
   $('#rvpos').textContent = c.kind==='done' ? 'Review complete' : ('Step '+stepN+' of '+total);
+  if(DP.open) setTimeout(renderDataPanel, 0);
   $('#rvbar').style.width=(100*idx/Math.max(1,N-1))+'%';
   $('#rvcount').textContent = c.kind==='done' ? 'all done' : (idx+' of '+total+' done');
   $('#backbtn').disabled=idx===0;
@@ -1807,7 +1907,7 @@ function cardColumn(c){
   const f=c.field, nChg=(f.rows||[]).length, hasGroups=c.groups.length>0;
   let h='<div class="card rcard"><div class="rc-name">'+esc(labelOf(f.name))+'</div>'+typeRow(f);
   if(!hasGroups){
-    h+='<div class="rc-summary">'+summarise(f)+'</div>'+(nChg?seeChangesHTML(nChg):'')+
+    h+='<div class="rc-summary">'+summarise(f)+'</div>'+(nChg?seeChangesHTML(nChg):'')+rowPickLine(f)+
       '<div class="rc-decide">'+
       '<button class="big ok" onclick="cardDecide(\'accept\')"><b>✓ Yes, tidy it</b><span>make it neat</span></button>'+
       '<button class="big no" onclick="cardDecide(\'reject\')"><b>Leave it</b><span>do not change it</span></button>'+
@@ -1820,6 +1920,7 @@ function cardColumn(c){
        ' (spacing, case). This does not change meaning. <a class="link tiny" onclick="tidyPeek(this)">see</a>'+
        '<div class="col-peek" style="display:none"><div class="rc-changes" id="chglist"></div></div></div>';
   }
+  h+=rowPickLine(f);
   h+='<div class="col-groups-h">Possible duplicates</div>';
   c.groups.forEach((g,gi)=>{ h+=groupBlock(c,g,gi); });
   h+='<div class="rc-decide"><button class="big ok wide" onclick="commitColumn()"><b>Save and next →</b><span>go to the next column</span></button></div></div>';
@@ -1966,6 +2067,54 @@ function cardDone(){
     '</div>';
 }
 function advanceCard(){ if(idx<CARDS.length-1){ idx++; setTimeout(renderReview,140); } else renderReview(); }
+// ---- apply a change to only some rows ----
+let KEEP_ROWS={}, RP={col:null,off:0,total:0,rows:[],q:''};
+function rowPickLine(f){
+  if(!SESSION_ID || !(f.nChanged>0)) return '';
+  const kept=(KEEP_ROWS[f.name]||new Set()).size, n=f.nChanged;
+  const txt=kept? ('Applying to <b>'+(n-kept)+'</b> of '+n+' rows. '+kept+' kept as '+(kept>1?'they were':'it was')+'.') : ('Applies to all <b>'+n+'</b> changed rows.');
+  return '<div class="rp-line"><span>'+txt+'</span> <a class="link" onclick="openRowPicker()">Choose rows</a></div>';
+}
+async function openRowPicker(off){
+  const f=curField(); if(!f||!SESSION_ID) return;
+  RP.col=f.name; RP.off=off||0;
+  let m=$('#rowpick'); if(!m){ m=document.createElement('div'); m.id='rowpick'; m.className='modal'; document.body.appendChild(m); }
+  m.innerHTML='<div class="modal-card rp-card"><div class="rp-loading">'+DOTS_HTML+'<p>Loading the rows\u2026</p></div></div>'; m.classList.add('on');
+  try{
+    const r=await (await fetch('/api/session/rows',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session_id:SESSION_ID,column:f.name,only_changed:true,offset:RP.off,limit:200})})).json();
+    if(r.error) throw new Error(r.error);
+    RP.total=r.total; RP.rows=r.rows||[]; RP.ctx=r.context_columns||[];
+    renderRowPicker();
+  }catch(e){ m.innerHTML='<div class="modal-card rp-card"><p>'+esc(e.message||'Could not load the rows.')+'</p><div class="modal-foot"><button class="btn" onclick="closeRowPicker()">Close</button></div></div>'; }
+}
+function renderRowPicker(){
+  const m=$('#rowpick'); const keep=KEEP_ROWS[RP.col]||(KEEP_ROWS[RP.col]=new Set());
+  const q=(RP.q||'').toLowerCase();
+  const rows=RP.rows.filter(r=>!q||String(r.before).toLowerCase().includes(q)||String(r.after).toLowerCase().includes(q)||Object.values(r.context||{}).some(v=>String(v).toLowerCase().includes(q)));
+  const head='<tr><th class="rp-ck">Apply</th><th>Row</th>'+RP.ctx.map(c=>'<th>'+esc(labelOf(c))+'</th>').join('')+'<th>Now</th><th></th><th>Becomes</th></tr>';
+  const body=rows.map(r=>{ const on=!keep.has(r.row);
+    return '<tr class="'+(on?'':'rp-off')+'"><td class="rp-ck"><input type="checkbox" aria-label="Apply to row '+(r.row+1)+'" '+(on?'checked':'')+' onchange="rpToggle('+r.row+',this.checked)"></td>'+
+      '<td class="rp-n">'+(r.row+1)+'</td>'+RP.ctx.map(c=>'<td class="rp-ctx">'+esc((r.context||{})[c]||'')+'</td>').join('')+
+      '<td class="rp-b">'+(esc(r.before)||'<i>blank</i>')+'</td><td class="rp-ar">\u2192</td><td class="rp-a">'+(esc(r.after)||'<i>blank</i>')+'</td></tr>'; }).join('');
+  const pages=Math.ceil(RP.total/200), pg=Math.floor(RP.off/200);
+  const kept=keep.size;
+  m.innerHTML='<div class="modal-card rp-card"><div class="modal-head"><h2>Choose rows: '+esc(labelOf(RP.col))+'</h2>'+
+    '<button class="x" onclick="closeRowPicker()" aria-label="Close">\u2715</button></div>'+
+    '<p class="set-sub">Untick a row to leave it exactly as it is in your file. Ticked rows get the change.</p>'+
+    '<div class="rp-tools"><input class="rp-search" placeholder="Search these rows" value="'+esc(RP.q||'')+'" oninput="RP.q=this.value;renderRowPicker();this.focus();this.setSelectionRange(this.value.length,this.value.length)">'+
+      '<button class="btn ghost sm" onclick="rpAll(true)">Tick all shown</button><button class="btn ghost sm" onclick="rpAll(false)">Untick all shown</button></div>'+
+    '<div class="rp-wrap"><table class="rp-table"><thead>'+head+'</thead><tbody>'+(body||'<tr><td colspan="9" class="rp-empty">No rows match.</td></tr>')+'</tbody></table></div>'+
+    (pages>1?'<div class="rp-pages"><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="openRowPicker('+(RP.off-200)+')">\u2039 Previous 200</button><span>Rows '+(RP.off+1)+'\u2013'+Math.min(RP.total,RP.off+200)+' of '+RP.total+' changed</span><button class="btn ghost sm" '+(pg>=pages-1?'disabled':'')+' onclick="openRowPicker('+(RP.off+200)+')">Next 200 \u203a</button></div>':'')+
+    '<div class="modal-foot"><span class="rp-sum">'+(RP.total-kept)+' of '+RP.total+' rows will change</span><button class="btn" onclick="closeRowPicker()">Done</button></div></div>';
+  m.classList.add('on');
+}
+function rpToggle(row,on){ const k=KEEP_ROWS[RP.col]; if(on) k.delete(row); else k.add(row); renderRowPicker(); }
+function rpAll(on){ const k=KEEP_ROWS[RP.col]; const q=(RP.q||'').toLowerCase();
+  RP.rows.filter(r=>!q||String(r.before).toLowerCase().includes(q)||String(r.after).toLowerCase().includes(q)).forEach(r=>{ if(on) k.delete(r.row); else k.add(r.row); }); renderRowPicker(); }
+function closeRowPicker(){ const m=$('#rowpick'); if(m) m.classList.remove('on');
+  const k=KEEP_ROWS[RP.col]; if(k&&k.size) logEvent('\u270E','Chose rows for '+RP.col+': '+k.size+' left as they were');
+  renderReview(); }
 function cardDecide(d){ const c=CARDS[idx]; c.decision=d;
   if(c.kind==='column') c.field.decision=(d==='accept')?'accept':'reject';
   advanceCard();
@@ -2096,7 +2245,8 @@ async function doExport(){
     reject: FIELDS.filter(f=>f.decision==='reject' || (f.decision!=='accept' && f.nChanged>0)).map(f=>f.name),
     setall: WL_SETALL,
     merges: WL_MERGES,
-    remove_duplicates: WL_REMOVE_DUPES
+    remove_duplicates: WL_REMOVE_DUPES,
+    keep_rows: Object.fromEntries(Object.entries(KEEP_ROWS).filter(([k,v])=>v&&v.size&&FIELDS.some(f=>f.name===k&&f.decision==='accept')).map(([k,v])=>[k,[...v]]))
   };
   makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
   try{
@@ -3282,7 +3432,7 @@ function buildFieldsFromAPI(data, filename){
             rows:rows,outliers:[],decision:null,_real:true};
   });
   idx=0;
-  WORKLIST=data.worklist||null; WLDECISIONS={};
+  WORKLIST=data.worklist||null; WLDECISIONS={}; KEEP_ROWS={}; DP.key=''; DP.off=0;
   CARDS=[];
   SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
   SKIPPED=(data.skipped_rows||[]); HEADER_ROW=data.header_row||null;

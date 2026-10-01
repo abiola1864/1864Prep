@@ -417,7 +417,7 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     yield json.dumps({"t": "progress", "pct": 0.88 + 0.10 * (k + 1) / M,
                                       "stage": f"Finding matches ({k+1} of {M})"}) + "\n"
             sid = _uuid.uuid4().hex[:12]
-            _SESSIONS[sid] = {"df": df, "types": types, "plan": plan}
+            _SESSIONS[sid] = {"df": df, "types": types, "plan": plan, "cleaned": cleaned}
             from engine.headers import propose_headers, abnormal_count
             from engine.domains import detect_domain as _dd
             _doms_s = [_dd(df[c].tolist(), str(c)) for c in cols]
@@ -529,6 +529,16 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), a
             cleaned.loc[mask, col] = into
             audit.append({"column": col, "action": f"merged {len(members)} spellings into '{into}'", "count": n, "by": "you"})
 
+    # 3b) rows the person chose to leave as they were, per column
+    keep_rows = dec.get("keep_rows", {}) or {}
+    for col, rows in keep_rows.items():
+        if col in cleaned.columns and col in df.columns and rows:
+            idx = [int(r) for r in rows if 0 <= int(r) < len(cleaned)]
+            if idx:
+                cleaned.loc[cleaned.index[idx], col] = df.loc[df.index[idx], col].values
+                audit.append({"column": col, "action": f"kept the original value in {len(idx)} row(s), your choice",
+                              "count": len(idx), "by": "you"})
+
     # 4) remove duplicate rows
     if remove_dupes:
         groups = near_duplicate_rows(df)
@@ -545,6 +555,38 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), a
     return {"result_id": rid, "audit_id": rid + "_audit", "rows_out": len(cleaned),
             "cols_out": len(cleaned.columns), "audit": audit[:200],
             "changes_total": sum(int(a["count"]) for a in audit if str(a["count"]).isdigit())}
+
+
+def _cell(v):
+    import pandas as _pd
+    if v is None or (isinstance(v, float) and _pd.isna(v)):
+        return ""
+    return str(v)
+
+
+@app.post("/api/session/rows")
+async def session_rows(payload: dict):
+    """Rows of a cleaned session, original beside cleaned, for the side panel and
+    the row picker. Body: {session_id, offset?, limit?, column?, only_changed?}.
+    With column + only_changed: just the rows where that column would change."""
+    sess = _SESSIONS.get(payload.get("session_id") or "")
+    if not sess or "cleaned" not in sess:
+        return JSONResponse(status_code=404, content={"error": "This session has expired. Clean the file again."})
+    df, cl = sess["df"], sess["cleaned"]
+    cols = [c for c in df.columns if c in cl.columns]
+    col = payload.get("column")
+    off = max(0, int(payload.get("offset", 0) or 0)); lim = max(1, min(500, int(payload.get("limit", 50) or 50)))
+    if col and col in cols and payload.get("only_changed"):
+        b = df[col].map(_cell); a = cl[col].map(_cell)
+        pos = [i for i, (x, y) in enumerate(zip(b.tolist(), a.tolist())) if x != y]
+        ctx = [c for c in cols if c != col][:2]          # a little context to recognise each row
+        out = [{"row": i, "before": b.iloc[i], "after": a.iloc[i],
+                "context": {c: _cell(df[c].iloc[i]) for c in ctx}} for i in pos[off:off + lim]]
+        return {"column": col, "context_columns": ctx, "total": len(pos), "offset": off, "rows": out}
+    sl = range(off, min(len(df), off + lim))
+    rows = [{"row": i, "before": {c: _cell(df[c].iloc[i]) for c in cols},
+             "after": {c: _cell(cl[c].iloc[i]) for c in cols}} for i in sl]
+    return {"columns": cols, "total": len(df), "offset": off, "rows": rows}
 
 
 @app.post("/api/tool/{name}")
