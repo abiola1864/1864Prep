@@ -547,6 +547,9 @@
 .col-bin{border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:15px;opacity:.5;transition:.12s;border-radius:6px;padding:4px}.col-bin:hover{opacity:1;color:var(--stop);background:var(--stop-bg)}.mrow.dropped{grid-template-columns:1fr 26px 1fr auto;opacity:.7;background:var(--stop-bg)}.drop-note{font-size:12.5px;color:var(--stop);font-style:italic}.drop-restore{color:var(--navy);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline}
 .aim-test{display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-size:12.5px}.aim-test .t-ok{color:var(--ok,#1E8A6B);font-weight:600}.aim-test .t-bad{color:var(--stop,#C2452F)}
 .ai-working{display:flex;align-items:center;gap:12px;justify-content:space-between}.ai-working span{flex:1}
+.aim-opt.disabled{opacity:.45;cursor:not-allowed;filter:grayscale(1)}.aim-full-note{font-size:12px;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5}
+.dataflow-note{font-size:12.5px;color:var(--ink-soft);background:#f3ede1;border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin:10px 0 4px;line-height:1.55;max-width:640px}
+.pv-card{max-width:580px;text-align:left}.pv-list{display:flex;flex-direction:column;gap:12px;margin:18px 0 8px}.pv-row{display:flex;gap:14px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.pv-ic{flex:0 0 28px;font-size:18px;text-align:center}.pv-row b{display:block;font-size:14px;color:var(--ink);margin-bottom:2px}.pv-row span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.5}.pv-foot{font-size:12.5px;color:var(--ink-soft);margin:4px 2px 10px}
 </style>
 </head>
 <body>
@@ -565,8 +568,8 @@
       <li data-s="5"><span class="n"><span>3</span></span> Review</li>
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
-    <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v56</div>
+    <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v60</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -595,7 +598,8 @@
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
       <p class="eyebrow">Upload</p><h1>Upload your file</h1>
-      <p class="lead">Drop in a messy file. CSV, Excel, JSON or PDF. It's read and cleaned right here.</p>
+      <p class="lead" id="upload-lead">Drop in a messy file. CSV, Excel, JSON or PDF.</p>
+      <div id="dataflow-note" class="dataflow-note"></div>
       <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
       <div class="drop" onclick="document.getElementById('realfile').click()">
         <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
@@ -723,6 +727,7 @@
             <button type="button" class="aim-opt" data-mode="full" onclick="pickAIMode('full')">
               <span class="ico">✸</span><span class="lab">Full AI clean</span><span class="hint">Columns + values, all columns (local model only)</span></button>
           </div>
+          <p id="aim-full-note" class="aim-full-note"></p>
         </div>
 
         <div class="aim-step" id="ai-provider-sec" style="display:none">
@@ -1019,6 +1024,7 @@ async function bootApp(){
   };
   // backward-compatible aliases (older code paths still read these)
   window.__WEB__ = ENV.web; window.__DESKTOP__ = ENV.desktop;
+  try{ setEnvPrivacyCopy(); }catch(e){}
   // On the web, a local model can't run — default the AI provider to cloud so the
   // whole app (onboarding, setup, run) is aligned to cloud from the first screen.
   if(ENV.web){ try{ if(!SETTINGS.provider || (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; } }catch(e){} }
@@ -1056,7 +1062,7 @@ function onbNext(){ ONB.step++; showOnboard(); }
 function onbBack(){ ONB.step=Math.max(0,ONB.step-1); showOnboard(); }
 function showOnboard(){
   const ob=$('#onboard'); ob.style.display='flex';
-  const steps=[obWelcome, obBasics, obSector, obTypes, obAIKey, obPassword, obDone];
+  const steps=[obWelcome, obPrivacy, obBasics, obSector, obTypes, obAIKey, obPassword, obDone];
   ob.querySelector('#onb-body').innerHTML = steps[Math.min(ONB.step,steps.length-1)]();
   const dots=ob.querySelector('#onb-dots');
   if(dots) dots.innerHTML=steps.map((_,i)=>'<i class="'+(i<=ONB.step?'on':'')+'"></i>').join('');
@@ -1072,6 +1078,23 @@ function obWelcome(){
     '</div>'+
     '<div class="onb-actions" style="justify-content:center"><button class="btn lg" onclick="onbNext()">Get started \u2192</button></div>'+
     '<p class="onb-skip" onclick="onbSkipAll()">Skip setup, just let me upload</p></div>';
+}
+function obPrivacy(){
+  const web = !!(window.ENV && ENV.web);
+  const where = web
+    ? '<div class="pv-row"><div class="pv-ic">☁️</div><div><b>You\u2019re on the hosted demo (web)</b><span>Your file is sent to our server, cleaned for that run, and <b>not stored</b>. The page also clears when you reload. Best for trying the tool with non-sensitive or sample data. For real, sensitive data, use the free desktop app below.</span></div></div>'
+    : '<div class="pv-row"><div class="pv-ic">💻</div><div><b>You\u2019re on the desktop app</b><span>Everything happens on <b>this computer</b>. Your file is read and cleaned locally and is <b>never uploaded</b> anywhere.</span></div></div>';
+  return '<div class="onb-card pv-card"><p class="eyebrow">Your privacy</p><h1>Where your data goes</h1>'+
+    '<p class="lead">Plain and honest, so you know exactly what happens to a file you open.</p>'+
+    '<div class="pv-list">'+
+      where+
+      '<div class="pv-row"><div class="pv-ic">📄</div><div><b>The engine reads your whole file</b><span>To clean every row, the built-in engine needs to read the entire file. It does this '+(web?'on the server for the run':'on your machine')+', using rules only, no AI. This is how ~80% of cleaning happens.</span></div></div>'+
+      '<div class="pv-row"><div class="pv-ic">✦</div><div><b>AI (optional) sees only a tiny masked sample</b><span>If you switch AI on, it never receives your whole file, only the column names and a few masked example values. Sensitive-looking columns are masked first, and you approve every change.</span></div></div>'+
+      '<div class="pv-row"><div class="pv-ic">🔑</div><div><b>Keys stay with you</b><span>Any AI key you add is kept on '+(web?'your browser session':'your computer')+', used only at the moment of a call, and is never stored or sent to us.</span></div></div>'+
+      '<div class="pv-row"><div class="pv-ic">✓</div><div><b>Nothing changes without your say-so</b><span>Every proposed change is shown for you to accept or reject, and a full activity log records what was done, by you, the engine, or AI.</span></div></div>'+
+    '</div>'+
+    (web?'<p class="pv-foot">Want the fully-private version where nothing leaves your computer? Ask us for the free desktop app.</p>':'')+
+    '<div class="onb-actions" style="justify-content:space-between"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button><button class="btn" onclick="onbNext()">Got it \u2192</button></div></div>';
 }
 function obBasics(){
   return '<div class="onb-card"><p class="eyebrow">A little about you</p><h1>Who\u2019s the administrator?</h1>'+
@@ -1310,12 +1333,32 @@ function openAIModal(){
     if(AIM_PROV==='ollama'){ AIM_PROV='ollama_cloud'; }
     if(localBtn){ localBtn.disabled=true; localBtn.title='Local model is only available in the desktop app'; localBtn.style.opacity=.4; localBtn.style.cursor='not-allowed'; }
   } else if(localBtn){ localBtn.disabled=false; localBtn.style.opacity=''; localBtn.style.cursor=''; }
+  // On the web, Full AI clean can't run (local-only) — gray the card + show why.
+  const fullCard=document.querySelector('#aim-opts [data-mode="full"]');
+  const fullNote=$('#aim-full-note');
+  if(window.ENV && !ENV.localAI){
+    if(fullCard){ fullCard.classList.add('disabled'); fullCard.title='Local model only — use the desktop app'; }
+    if(fullNote) fullNote.innerHTML='Full AI clean runs on a <b>local model only</b> (desktop app), so nothing leaves your computer. Not available on the web.';
+    if(AIM_MODE==='full'){ AIM_MODE='assist'; }
+  } else {
+    if(fullCard){ fullCard.classList.remove('disabled'); fullCard.title=''; }
+    if(fullNote) fullNote.innerHTML='';
+  }
   $('#ai-key').value=SETTINGS.key||''; $('#ai-model').value=SETTINGS.model||'';
   paintAIMode(); paintAIProvider(true);
 }
 function closeAIModal(){ $('#aimodal').classList.remove('on'); }
 function aiKeyHelpKey(){ return AIM_PROV==='openai'?'api_key_openai':AIM_PROV==='anthropic'?'api_key_anthropic':AIM_PROV==='ollama_cloud'?'api_key_ollama_cloud':'api_key_ollama'; }
-function pickAIMode(m){ AIM_MODE=m; paintAIMode(); }
+function pickAIMode(m){
+  // Full AI clean is local-only (it sends more than masked headers), so it cannot
+  // run on the hosted web. Explain and steer to the desktop app instead.
+  if(m==='full' && window.ENV && !ENV.localAI){
+    const note=$('#aim-full-note');
+    if(note) note.innerHTML='<b>Full AI clean isn\u2019t available on the web.</b> It sends a fuller sample of your data to the model, so we keep it to a <b>local model only</b>, where nothing leaves your computer. On the web you can still use AI to check columns and tidy values (masked samples). For a full AI clean, use the free <b>desktop app</b>.';
+    return;   // don't select it
+  }
+  AIM_MODE=m; paintAIMode();
+}
 function paintAIMode(){
   document.querySelectorAll('#aim-opts .aim-opt').forEach(b=>b.classList.toggle('sel', b.dataset.mode===AIM_MODE));
   var sec=document.getElementById('ai-provider-sec');
@@ -1350,8 +1393,8 @@ async function testOnbConnection(){
     const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({column:'test',values:['1','2','3'],task:'type',provider:prov,
         url:(d.local?key:''),model:model,api_key:(d.local?'':key)})})).json();
-    if(r.ok){ out.innerHTML='<span class="t-ok">✓ connected ('+esc(r.where&&r.where.location||'')+')</span>'; }
-    else { out.innerHTML='<span class="t-bad">✕ '+esc(String(r.error||'no response').slice(0,60))+'</span>'; }
+    if(r.ok){ ONB.aiProvider=prov; ONB.aiKey=key; out.innerHTML='<span class="t-ok">✓ connected and saved ('+esc(r.where&&r.where.location||'')+')</span>'; }
+    else { out.innerHTML='<span class="t-bad">✕ '+esc(String(r.error||'no response').slice(0,120))+'</span>'; }
   }catch(e){ out.innerHTML='<span class="t-bad">✕ '+esc(e.message||'failed')+'</span>'; }
 }
 async function testAIConnection(){
@@ -1363,8 +1406,13 @@ async function testAIConnection(){
     const r=await (await fetch('/api/ai/ask',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({column:'test',values:['1','2','3'],task:'type',provider:prov,
         url:(d.local?key:''),model:model,api_key:(d.local?'':key)})})).json();
-    if(r.ok){ out.innerHTML='<span class="t-ok">✓ connected ('+esc(r.where&&r.where.location||'')+')</span>'; }
-    else { out.innerHTML='<span class="t-bad">✕ '+esc(String(r.error||'no response').slice(0,60))+'</span>'; }
+    if(r.ok){
+      // a successful test IS the setup: persist exactly what we validated
+      SETTINGS.provider=prov; SETTINGS.key=(d.local?(key||d.url):key); SETTINGS.model=model;
+      try{ _pset('prep_settings', SETTINGS); }catch(e){}
+      out.innerHTML='<span class="t-ok">✓ connected and saved ('+esc(r.where&&r.where.location||'')+')</span>';
+    }
+    else { out.innerHTML='<span class="t-bad">✕ '+esc(String(r.error||'no response').slice(0,120))+'</span>'; }
   }catch(e){ out.innerHTML='<span class="t-bad">✕ '+esc(e.message||'failed')+'</span>'; }
 }
 function saveAIModal(){
@@ -2570,6 +2618,24 @@ function renderAIContext(){
     (configured?``:` (you'll add a key first)`)+`</span></label>`+
     `<div class="run-ai-note">${note} 1864 Prep is local-first and solves most cases on its own; AI is optional.</div>`+
     `<div class="run-ai-status" id="ai-run-status"></div>`;
+}
+// One place that states, truthfully, where the data goes — differs web vs desktop.
+function setEnvPrivacyCopy(){
+  const web = !!(window.ENV && ENV.web);
+  const rf=$('#rf-privacy'); if(rf) rf.textContent = web ? 'Hosted demo.' : 'Runs on this computer.';
+  const lead=$('#upload-lead'); if(lead) lead.textContent = 'Drop in a messy file. CSV, Excel, JSON or PDF.';
+  const note=$('#dataflow-note');
+  if(note){
+    if(web){
+      note.innerHTML='<b>Where your data goes:</b> this is the hosted demo, so your file is sent to our server, '+
+        'cleaned there for the run, and <b>not stored</b> (the page also clears on reload). The optional AI only ever '+
+        'sees a small <b>masked sample</b>, never the whole file. For fully private use where <b>nothing leaves your '+
+        'computer</b>, use the free desktop app.';
+    } else {
+      note.innerHTML='<b>Where your data goes:</b> nothing leaves this computer. The engine reads and cleans your whole '+
+        'file <b>locally</b>, and the optional AI only sees a small <b>masked sample</b> of columns — and only if you turn it on.';
+    }
+  }
 }
 // Is AI actually usable right now, in THIS environment?
 // - a local model only works on the desktop app (never on the hosted web)
