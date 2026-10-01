@@ -548,8 +548,10 @@
 .aim-test{display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-size:12.5px}.aim-test .t-ok{color:var(--ok,#1E8A6B);font-weight:600}.aim-test .t-bad{color:var(--stop,#C2452F)}
 .ai-working{display:flex;align-items:center;gap:12px;justify-content:space-between}.ai-working span{flex:1}
 .aim-opt.disabled{opacity:.45;cursor:not-allowed;filter:grayscale(1)}.aim-full-note{font-size:12px;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5}
-.dataflow-note{font-size:12.5px;color:var(--ink-soft);background:#f3ede1;border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin:10px 0 4px;line-height:1.55;max-width:640px}
+
 .pv-card{max-width:580px;text-align:left}.pv-list{display:flex;flex-direction:column;gap:12px;margin:18px 0 8px}.pv-row{display:flex;gap:14px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}.pv-ic{flex:0 0 28px;font-size:18px;text-align:center}.pv-row b{display:block;font-size:14px;color:var(--ink);margin-bottom:2px}.pv-row span{display:block;font-size:12.5px;color:var(--ink-soft);line-height:1.5}.pv-foot{font-size:12.5px;color:var(--ink-soft);margin:4px 2px 10px}
+.dataflow-card{position:fixed;left:16px;bottom:16px;z-index:60;max-width:250px;display:flex;align-items:flex-start;gap:9px;background:var(--card,#fff);border:1px solid var(--line,#e3decf);border-radius:14px;box-shadow:0 6px 24px rgba(43,55,66,.14);padding:12px 32px 12px 13px;font-size:12.5px;color:var(--ink-soft)}.dataflow-card .df-ic{font-size:16px;line-height:1.2}.dataflow-card .df-tx b{color:var(--ink)}.dataflow-card .df-x{position:absolute;top:7px;right:9px;border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:12px;line-height:1}.dataflow-card .df-x:hover{color:var(--ink)}.dataflow-card .df-more{position:absolute;bottom:8px;right:11px;font-size:11px;color:var(--navy);text-decoration:underline}@media (max-width:640px){.dataflow-card{display:none}}
+.col-pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0;max-width:860px}.col-pageinfo{font-size:12.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -569,7 +571,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v62</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v65</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -599,7 +601,7 @@
     <section class="screen" data-screen="3">
       <p class="eyebrow">Upload</p><h1>Upload your file</h1>
       <p class="lead" id="upload-lead">Drop in a messy file. CSV, Excel, JSON or PDF.</p>
-      <div id="dataflow-note" class="dataflow-note"></div>
+
       <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
       <div class="drop" onclick="document.getElementById('realfile').click()">
         <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
@@ -2367,7 +2369,7 @@ function downloadSample(){
   toast('Sample downloaded. Now drop it in the box above to run the real flow.');
 }
 
-let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[], CURRENT_SHEET=null, SHEET_QUEUE=[], SHEET_DONE=[];
+let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[], CURRENT_SHEET=null, SHEET_QUEUE=[], SHEET_DONE=[], COL_PAGE=0;
 
 // Phase 1: read the file's STRUCTURE only (no cleaning yet), so the person can
 // see and correct the columns first, for every upload, the same way.
@@ -2485,6 +2487,7 @@ async function doReshape(){
 
 // build the editable column list from the engine's real detection
 function buildColumnReview(data,filename){
+  COL_PAGE=0;
   const heads=data.headers||[];
   const cols=data.columns||[];
   COL_SAMPLE = data.preview || [];
@@ -2574,11 +2577,18 @@ function renderAITopBanner(){
       '<button class="btn sm" onclick="onRunAITick(true); renderColumnReview();">Use AI</button></div>';
   } else { box.style.display='none'; box.innerHTML=''; }
 }
+function scrollColsTop(){ const h=document.querySelector('[data-screen="4"] h1'); if(h) h.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderColumnReview(){
   renderShapeNotice();
   renderAITopBanner();
   const abn=COLREVIEW.filter(c=>c.abnormal).length;
+  // paginate long files so the list stays manageable (keeps real indices intact)
+  const PER=12, total=COLREVIEW.length, pages=Math.max(1, Math.ceil(total/PER));
+  if(COL_PAGE==null) COL_PAGE=0;
+  COL_PAGE=Math.min(Math.max(0,COL_PAGE), pages-1);
+  const start=COL_PAGE*PER, end=Math.min(total, start+PER);
   const rows=COLREVIEW.map((c,i)=>{
+    if(i<start || i>=end) return '';   // only render the current page's rows
     let status;
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
     else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
@@ -2596,6 +2606,16 @@ function renderColumnReview(){
       ${typeSelect(i,c.type)}
       <button class="col-bin" title="Remove this column from the cleaned file" onclick="deleteColumn(${i})">🗑</button></div>`;}).join('');
   $('#matchrows').innerHTML=rows;
+  // pager (only when more than one page)
+  let pager=$('#col-pager');
+  if(!pager){ pager=document.createElement('div'); pager.id='col-pager'; pager.className='col-pager';
+    const mt=$('#matchtable'); if(mt&&mt.parentNode) mt.parentNode.insertBefore(pager, mt.nextSibling); }
+  if(pages>1){
+    pager.style.display='flex';
+    pager.innerHTML='<button class="btn ghost sm" '+(COL_PAGE<=0?'disabled':'')+' onclick="COL_PAGE--;renderColumnReview();scrollColsTop()">\u2190 Prev</button>'+
+      '<span class="col-pageinfo">Columns '+(start+1)+'\u2013'+end+' of '+total+' · page '+(COL_PAGE+1)+'/'+pages+'</span>'+
+      '<button class="btn ghost sm" '+(COL_PAGE>=pages-1?'disabled':'')+' onclick="COL_PAGE++;renderColumnReview();scrollColsTop()">Next \u2192</button>';
+  } else { pager.style.display='none'; pager.innerHTML=''; }
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
   if(miss){
@@ -2624,23 +2644,39 @@ function renderAIContext(){
     `<div class="run-ai-status" id="ai-run-status"></div>`;
 }
 // One place that states, truthfully, where the data goes — differs web vs desktop.
+
+function openPrivacy(){
+  const web=!!(window.ENV&&ENV.web);
+  let m=$('#privmodal'); if(!m){ m=document.createElement('div'); m.id='privmodal'; m.className='modal'; document.body.appendChild(m); }
+  const line1 = web
+    ? '<b>Hosted demo.</b> Your file is sent to our server, cleaned for the run, and not stored (clears on reload). Use the desktop app for sensitive data.'
+    : '<b>Private.</b> Your whole file is read and cleaned on this computer. Nothing is uploaded.';
+  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>How your data is handled</h2>'+
+    '<button class="x" onclick="$(\'#privmodal\').classList.remove(\'on\')">\u2715</button></div>'+
+    '<div class="pv-list">'+
+      '<div class="pv-row"><div class="pv-ic">'+(web?'☁️':'💻')+'</div><div><span>'+line1+'</span></div></div>'+
+      '<div class="pv-row"><div class="pv-ic">✦</div><div><b>AI sees only a masked sample</b><span>Column names and a few masked values, never the whole file. You approve every change.</span></div></div>'+
+      '<div class="pv-row"><div class="pv-ic">🔑</div><div><b>Your key stays with you</b><span>Kept on your device, used only for the call, never stored or sent to us.</span></div></div>'+
+    '</div></div>';
+  m.classList.add('on');
+}
+
 function setEnvPrivacyCopy(){
   const web = !!(window.ENV && ENV.web);
   const rf=$('#rf-privacy'); if(rf) rf.textContent = web ? 'Hosted demo.' : 'Runs on this computer.';
   const lead=$('#upload-lead'); if(lead) lead.textContent = 'Drop in a messy file. CSV, Excel, JSON or PDF.';
-  const note=$('#dataflow-note');
-  if(note){
-    if(web){
-      note.innerHTML='<b>Where your data goes:</b> this is the hosted demo, so your file is sent to our server, '+
-        'cleaned there for the run, and <b>not stored</b> (the page also clears on reload). The optional AI only ever '+
-        'sees a small <b>masked sample</b>, never the whole file. For fully private use where <b>nothing leaves your '+
-        'computer</b>, use the free desktop app.';
-    } else {
-      note.innerHTML='<b>Where your data goes:</b> nothing leaves this computer. The engine reads and cleans your whole '+
-        'file <b>locally</b>, and the optional AI only sees a small <b>masked sample</b> of columns — and only if you turn it on.';
-    }
-  }
+  // a small floating card at the far-left bottom — doesn't affect the page flow,
+  // and can be dismissed. Shown once per session unless dismissed.
+  if(sessionStorage.getItem('df_dismissed')) return;
+  let card=$('#dataflow-card');
+  if(!card){ card=document.createElement('div'); card.id='dataflow-card'; card.className='dataflow-card'; document.body.appendChild(card); }
+  card.innerHTML = (web
+      ? '<span class="df-ic">☁️</span><span class="df-tx"><b>Hosted demo</b><br>Processed on our server, not stored.</span>'
+      : '<span class="df-ic">🔒</span><span class="df-tx"><b>Private</b><br>Everything stays on this computer.</span>')
+    + '<button class="df-x" title="Dismiss" onclick="dismissDataflow()">✕</button>'
+    + '<a class="df-more" href="#" onclick="openPrivacy();return false;">Details</a>';
 }
+function dismissDataflow(){ try{ sessionStorage.setItem('df_dismissed','1'); }catch(e){} const c=$('#dataflow-card'); if(c) c.remove(); }
 // Is AI actually usable right now, in THIS environment?
 // - a local model only works on the desktop app (never on the hosted web)
 // - a cloud provider needs a key
@@ -2750,7 +2786,17 @@ async function runWholeFileReview(){
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},signal:(AI_ABORT&&AI_ABORT.signal),
       body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
-    if(!r.ok){ if(st) st.innerHTML='\u26A0\uFE0E Could not complete the review'+(r.error?': '+esc(String(r.error).slice(0,90)):'')+'. Kept the engine reading.'; return; }
+    if(!r.ok){
+      const emsg=String(r.error||'');
+      // a key/auth problem -> reopen AI setup so the user can fix the key right away
+      if(/wasn.t accepted|key|unauthor|401|403/i.test(emsg)){
+        if(st) st.innerHTML='\u26A0\uFE0E '+esc(emsg);
+        AI_PENDING_RUN=true; openAIModal();
+      } else {
+        if(st) st.innerHTML='\u26A0\uFE0E Couldn\u2019t complete the review: '+esc(emsg)+' Kept the engine\u2019s reading.';
+      }
+      return;
+    }
     let changed=0; const byName={};
     (r.columns||[]).forEach(c=>{ if(c.name) byName[String(c.name).toLowerCase().trim()]=c; });
     COLREVIEW.forEach(col=>{ const v=byName[String(col.original).toLowerCase().trim()];
