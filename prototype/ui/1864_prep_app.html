@@ -566,7 +566,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v52</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v54</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2589,14 +2589,7 @@ async function runAIAssist(){
     AI_RUNNING=false; AI_PENDING_RUN=true; openAIModal();
     return;
   }
-  if(!d.local){
-    // cloud: whole-file review is local-only for privacy, so on cloud we stop after
-    // the instant value tidy and tell you clearly.
-    if(st) st.innerHTML='<span class="ai-done">✓ values tidied locally.</span> Deeper AI column review runs on a local model only (nothing leaves your computer); your cloud key is saved for per-column checks.';
-    AI_RUNNING=false; return;
-  }
-  // local model: run the whole-file column/type review (bounded, won\u2019t hang)
-  aiWorking('<span class="spin"></span> checking columns with your local model…');
+  // column/type review — runs on local OR cloud (only a masked sample is sent)
   await runWholeFileReview();
   AI_RUNNING=false;
 }
@@ -2647,13 +2640,13 @@ async function runValueCleanup(){
 // per-column suggestions as annotations the user can keep or change.
 async function runWholeFileReview(){
   const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
-  if(!d.local){ if(st) st.innerHTML='\u26A0\uFE0E Whole-file review needs a <b>local</b> model. Choose Local (Ollama) in \u2726 AI setup.'; return; }
   const headers=COLREVIEW.map(c=>c.original);
   const sample=(COL_SAMPLE||[]).slice(0,8);
-  if(st) st.innerHTML='<span class="spin"></span> AI is reviewing your whole file (local model  this can take up to a minute)\u2026';
+  const where=d.local?'local model':'Ollama Cloud';
+  aiWorking('<span class="spin"></span> checking columns with '+where+' (only a masked sample is sent)\u2026');
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},signal:(AI_ABORT&&AI_ABORT.signal),
-      body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:SETTINGS.key, model:SETTINGS.model})})).json();
+      body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
     if(!r.ok){ if(st) st.innerHTML='\u26A0\uFE0E Could not complete the review'+(r.error?': '+esc(String(r.error).slice(0,90)):'')+'. Kept the engine reading.'; return; }
     let changed=0; const byName={};
     (r.columns||[]).forEach(c=>{ if(c.name) byName[String(c.name).toLowerCase().trim()]=c; });

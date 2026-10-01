@@ -46,6 +46,65 @@ def classify_endpoint(provider: str, url: str = "", model: str = "") -> dict:
             "note": "Unknown provider - treat as off-device."}
 
 
+import urllib.error
+import socket
+
+
+def _provider_label(provider):
+    return {"ollama": "the local AI (Ollama)", "ollama_cloud": "Ollama Cloud",
+            "openai": "OpenAI", "anthropic": "Claude"}.get(provider, provider or "the AI service")
+
+
+def _friendly_error(exc, provider, model=""):
+    """Turn any network/auth failure into one plain-English sentence. Never shows
+    a raw HTTP code. Covers wrong key, wrong model, service not reachable, no
+    internet, local model not running, timeouts, and rate limits."""
+    who = _provider_label(provider)
+    is_local = provider == "ollama"
+    # 1) HTTP errors (the service answered with a status)
+    if isinstance(exc, urllib.error.HTTPError):
+        code = exc.code
+        if code in (401, 403):
+            if is_local:
+                return f"Couldn't use {who}. It refused the request — restart Ollama and try again."
+            if provider == "ollama_cloud":
+                return ("Your Ollama Cloud key wasn't accepted. Open ✦ AI setup and paste the "
+                        "secret key from ollama.com/settings/keys (not the public one), and make "
+                        "sure cloud access is enabled on your Ollama account.")
+            return (f"Your {who} key wasn't accepted. Open ✦ AI setup and check you pasted the full, "
+                    f"active key with no extra spaces.")
+        if code == 404:
+            return (f"{who} doesn't have a model called \u201c{model or 'that'}\u201d. "
+                    f"Open ✦ AI setup and pick a model your account can use"
+                    + (" (for example gpt-oss:20b)." if provider == "ollama_cloud" else "."))
+        if code == 429:
+            return f"{who} is busy or you've hit its rate limit. Wait a moment and try again."
+        if 500 <= code <= 599:
+            return f"{who} had a server problem on its end. Try again in a minute."
+        return f"{who} couldn't complete the request. Try again, or pick a different model in ✦ AI setup."
+    # 2) Connection errors (couldn't reach the service at all)
+    if isinstance(exc, urllib.error.URLError):
+        reason = getattr(exc, "reason", exc)
+        if isinstance(reason, (ConnectionRefusedError,)) or "refused" in str(reason).lower():
+            if is_local:
+                return ("Couldn't reach the local AI. Ollama doesn't seem to be running on this "
+                        "computer — start the Ollama app (or run it), then try again. "
+                        "If you meant to use the cloud, switch to Ollama Cloud in ✦ AI setup.")
+            return f"Couldn't reach {who}. Check your internet connection and try again."
+        if isinstance(reason, socket.timeout) or "timed out" in str(reason).lower():
+            return (f"{who} took too long to respond. "
+                    + ("The local model may still be loading — try once more." if is_local
+                       else "Check your internet connection and try again."))
+        if "name or service" in str(reason).lower() or "getaddrinfo" in str(reason).lower() or "nodename" in str(reason).lower():
+            return (f"Couldn't find {who} online. Check your internet connection"
+                    + ("" if not is_local else ", or confirm the local server address in ✦ AI setup") + ".")
+        return f"Couldn't connect to {who}. Check your setup in ✦ AI setup and try again."
+    if isinstance(exc, socket.timeout):
+        return f"{who} took too long to respond. Try again."
+    # 3) anything else
+    return f"Couldn't use {who} right now. Try again, or check ✦ AI setup."
+
+
 def _post(url: str, payload: dict, headers: dict, timeout: float = 30.0) -> dict:
     data = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json", **headers})
@@ -65,6 +124,11 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
     Returns {ok, text, location, leaves_device, error?}. Never raises."""
     loc = classify_endpoint(provider, url, model)
     out = {"ok": False, "text": "", **loc}
+    # one place to clean a pasted key for ANY cloud provider (stray spaces/newlines,
+    # surrounding quotes, or an accidental "Bearer " prefix are the usual 401 causes)
+    key = (api_key or "").strip().strip('"').strip("'")
+    if key.lower().startswith("bearer "):
+        key = key[7:].strip()
     try:
         provider = (provider or "ollama").lower()
         if provider == "ollama":
@@ -78,8 +142,9 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
                 names = [m.get("name","") for m in (tags.get("models") or [])]
                 base_names = [n.split(":")[0] for n in names]
                 if names and model not in names and model.split(":")[0] not in base_names:
-                    out["error"] = ("model '%s' is not installed in Ollama. Installed: %s. "
-                                    "Run:  ollama pull %s" % (model, ", ".join(names) or "(none)", model))
+                    out["error"] = ("The local AI doesn't have the model \u201c%s\u201d yet. "
+                                    "In a terminal run:  ollama pull %s  (installed now: %s)."
+                                    % (model, model, ", ".join(names) or "none"))
                     return out
             except Exception:
                 pass  # if /api/tags fails, fall through and let the generate call report
@@ -88,28 +153,27 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
                          {}, timeout)
             out["text"] = (resp.get("response") or "").strip(); out["ok"] = True
         elif provider == "ollama_cloud":
-            # Ollama Cloud, OpenAI-compatible endpoint, uses your SECRET api key
             resp = _post("https://ollama.com/v1/chat/completions",
                          {"model": model or "gpt-oss:20b",
                           "messages": [{"role": "user", "content": question}]},
-                         {"Authorization": f"Bearer {api_key}"}, timeout)
+                         {"Authorization": f"Bearer {key}"}, timeout)
             out["text"] = resp["choices"][0]["message"]["content"].strip(); out["ok"] = True
         elif provider == "openai":
             resp = _post("https://api.openai.com/v1/chat/completions",
                          {"model": model or "gpt-4o-mini",
                           "messages": [{"role": "user", "content": question}]},
-                         {"Authorization": f"Bearer {api_key}"}, timeout)
+                         {"Authorization": f"Bearer {key}"}, timeout)
             out["text"] = resp["choices"][0]["message"]["content"].strip(); out["ok"] = True
         elif provider == "anthropic":
             resp = _post("https://api.anthropic.com/v1/messages",
                          {"model": model or "claude-3-5-haiku-latest", "max_tokens": 256,
                           "messages": [{"role": "user", "content": question}]},
-                         {"x-api-key": api_key, "anthropic-version": "2023-06-01"}, timeout)
+                         {"x-api-key": key, "anthropic-version": "2023-06-01"}, timeout)
             out["text"] = resp["content"][0]["text"].strip(); out["ok"] = True
         else:
-            out["error"] = f"unknown provider {provider!r}"
+            out["error"] = "That AI provider is not set up. Open \u2726 AI setup and choose Local, Ollama Cloud, OpenAI, or Claude."
     except Exception as e:
-        out["error"] = str(e)
+        out["error"] = _friendly_error(e, provider, model)
     return out
 
 
@@ -139,13 +203,11 @@ def parse_review(text: str) -> dict:
     return {"columns": cols, "note": note}
 
 
-def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30.0) -> dict:
-    """ONE whole-file pass. Local-only: refuses if the endpoint would leave the device."""
+def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30.0, api_key="") -> dict:
+    """ONE whole-file pass. Works on local or cloud; only a masked header + small
+    sample is sent. The caller decides whether leaving the device is acceptable."""
     loc=classify_endpoint(provider, url, model)
     out={"ok": False, "columns": [], "note": "", "raw": "", **loc}
-    if loc.get("leaves_device"):
-        out["error"]="Whole-file AI review runs only on a local model (nothing leaves the device). Choose Local (Ollama) in AI setup."
-        return out
     hdr=", ".join(str(h) for h in (headers or []))
     sample=json.dumps(sample_rows[:8])[:3000]
     prompt=("You are a data analyst. Given a table's header and sample rows, identify each "

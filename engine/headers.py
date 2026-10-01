@@ -55,10 +55,16 @@ def is_abnormal(name: str) -> tuple[bool, str]:
         return True, "a date used as a header"
     if _JUNK.search(s):
         return True, "contains broken characters"
-    if len(s) > 60:
-        return True, "unusually long"
     if re.fullmatch(r"[\W_]+", s):
         return True, "only symbols"
+    # A long header that is real words (e.g. a full survey question) is a VALID
+    # header, just verbose — not "missing". We'll suggest a short name for it, but
+    # we do NOT flag it as needing one. Only flag an over-long header if it isn't
+    # made of readable words (e.g. a giant code/blob).
+    if len(s) > 80:
+        words = re.findall(r"[A-Za-z]{2,}", s)
+        if len(words) < 3:
+            return True, "unusually long"
     return False, ""
 
 

@@ -726,7 +726,7 @@ async def ai_review(payload: dict):
             mr[k] = _mask(str(v)) if looks_sensitive(str(k)) else v
         masked.append(mr)
     return review(headers, masked, provider=payload.get("provider", "ollama"),
-                  url=payload.get("url", ""), model=payload.get("model", ""))
+                  url=payload.get("url", ""), model=payload.get("model", ""), api_key=payload.get("api_key", ""))
 
 
 @app.get("/api/config")
