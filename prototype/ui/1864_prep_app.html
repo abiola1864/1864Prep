@@ -566,7 +566,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div>Runs on this computer.<b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v54</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v56</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1007,11 +1007,23 @@ async function bootApp(){
   // opted out of a password during setup).
   let cfg={};
   try{ cfg = await (await fetch('/api/config')).json(); }catch(e){}
-  if(cfg && cfg.desktop){ window.__DESKTOP__ = true; }
-  // Treat any hosted web deployment as the demo (clears on reload), even if the
-  // PREP_DEMO env var wasn't set — desktop is detected explicitly above.
+  // ── Single source of truth for the environment, detected ONCE here. Every page
+  //    and feature reads ENV instead of re-checking hostnames or flags. ──
   const isWebHost = !cfg.desktop && /onrender\.com$|\.web\.app$|\.vercel\.app$|herokuapp\.com$/i.test(location.hostname);
-  if((cfg && cfg.demo) || isWebHost){
+  const isWeb = !!((cfg && cfg.demo) || isWebHost);
+  window.ENV = {
+    web: isWeb,                 // hosted/cloud deployment (no local model possible)
+    desktop: !!(cfg && cfg.desktop),
+    localAI: !isWeb,            // a local Ollama model can only be used off the web
+    savesToDisk: !!(cfg && cfg.desktop)
+  };
+  // backward-compatible aliases (older code paths still read these)
+  window.__WEB__ = ENV.web; window.__DESKTOP__ = ENV.desktop;
+  // On the web, a local model can't run — default the AI provider to cloud so the
+  // whole app (onboarding, setup, run) is aligned to cloud from the first screen.
+  if(ENV.web){ try{ if(!SETTINGS.provider || (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; } }catch(e){} }
+  if(cfg && cfg.desktop){ window.__DESKTOP__ = true; }
+  if(ENV.web){
     window.__WEB__ = true;
     // Public web deployment: clear everything and start fresh on every reload, so
     // no data or profile lingers in the browser between visitors (a privacy measure).
@@ -1291,6 +1303,13 @@ function openAIModal(){
   $('#aimodal').classList.add('on');
   AIM_MODE = AI_MODE || 'off';
   AIM_PROV = SETTINGS.provider || 'ollama';
+  // On the web a local model can't run: disable the Local button and move any
+  // local selection to Ollama Cloud, so the whole setup is aligned to the environment.
+  const localBtn = document.querySelector('#aim-provseg [data-prov="ollama"]');
+  if(window.ENV && !ENV.localAI){
+    if(AIM_PROV==='ollama'){ AIM_PROV='ollama_cloud'; }
+    if(localBtn){ localBtn.disabled=true; localBtn.title='Local model is only available in the desktop app'; localBtn.style.opacity=.4; localBtn.style.cursor='not-allowed'; }
+  } else if(localBtn){ localBtn.disabled=false; localBtn.style.opacity=''; localBtn.style.cursor=''; }
   $('#ai-key').value=SETTINGS.key||''; $('#ai-model').value=SETTINGS.model||'';
   paintAIMode(); paintAIProvider(true);
 }
@@ -2552,10 +2571,23 @@ function renderAIContext(){
     `<div class="run-ai-note">${note} 1864 Prep is local-first and solves most cases on its own; AI is optional.</div>`+
     `<div class="run-ai-status" id="ai-run-status"></div>`;
 }
+// Is AI actually usable right now, in THIS environment?
+// - a local model only works on the desktop app (never on the hosted web)
+// - a cloud provider needs a key
+function aiReady(){
+  const d=AI_DEFAULTS[SETTINGS.provider]||{};
+  const localOK = d.local && (window.ENV? ENV.localAI : true);
+  const cloudOK = !d.local && SETTINGS.key && SETTINGS.key.trim();
+  return !!(localOK || cloudOK);
+}
 function onRunAITick(on){
   RUN_AI=on;
-  const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
-  if(on && !configured){ RUN_AI=false; AI_PENDING_RUN=true; openAIModal(); return; }   // add a key first
+  if(on && !aiReady()){
+    RUN_AI=false; AI_PENDING_RUN=true;
+    // on the web a local model can't run, so steer to a cloud key
+    if(window.ENV && ENV.web && (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; }
+    openAIModal(); return;
+  }
   if(on){ runAIAssist(); }
   else { COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; }}); window.__AI_MERGES__={}; renderColumnReview(); }
 }
@@ -2581,12 +2613,13 @@ async function runAIAssist(){
   // STEP 1 — tidy messy values. This is LOCAL and INSTANT (no model, no key, no
   // network): it runs immediately and always, and shows exactly what it grouped.
   await runValueCleanup();
-  // STEP 2 — the AI column/type review needs a model. Local needs Ollama running;
-  // cloud needs your API key. If that isn't set up, ask for it (don't hang).
-  const hasKey = (SETTINGS.key && SETTINGS.key.trim());
-  if(!d.local && !hasKey){
-    // cloud provider chosen but no key -> pop the setup so you can add it
-    AI_RUNNING=false; AI_PENDING_RUN=true; openAIModal();
+  // STEP 2 — the AI column/type review needs a usable model. Local works only on
+  // the desktop app; cloud needs a key. If it isn't usable here, ask for setup —
+  // never attempt a local server on the hosted web.
+  if(!aiReady()){
+    AI_RUNNING=false; AI_PENDING_RUN=true;
+    if(window.ENV && ENV.web && d.local){ SETTINGS.provider='ollama_cloud'; }
+    openAIModal();
     return;
   }
   // column/type review — runs on local OR cloud (only a masked sample is sent)
