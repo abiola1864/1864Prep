@@ -66,7 +66,7 @@ def _friendly_error(exc, provider, model=""):
         code = exc.code
         if code in (401, 403):
             if is_local:
-                return f"Couldn't use {who}. It refused the request — restart Ollama and try again."
+                return f"Couldn't use {who}. It refused the request. Restart Ollama and try again."
             if provider == "ollama_cloud":
                 return ("Your Ollama Cloud key wasn't accepted. Open ✦ AI setup and paste the "
                         "secret key from ollama.com/settings/keys (not the public one), and make "
@@ -88,12 +88,12 @@ def _friendly_error(exc, provider, model=""):
         if isinstance(reason, (ConnectionRefusedError,)) or "refused" in str(reason).lower():
             if is_local:
                 return ("Couldn't reach the local AI. Ollama doesn't seem to be running on this "
-                        "computer — start the Ollama app (or run it), then try again. "
+                        "computer. Start the Ollama app, then try again. "
                         "If you meant to use the cloud, switch to Ollama Cloud in ✦ AI setup.")
             return f"Couldn't reach {who}. Check your internet connection and try again."
         if isinstance(reason, socket.timeout) or "timed out" in str(reason).lower():
             return (f"{who} took too long to respond. "
-                    + ("The local model may still be loading — try once more." if is_local
+                    + ("The local model may still be loading. Try once more." if is_local
                        else "Check your internet connection and try again."))
         if "name or service" in str(reason).lower() or "getaddrinfo" in str(reason).lower() or "nodename" in str(reason).lower():
             return (f"Couldn't find {who} online. Check your internet connection"

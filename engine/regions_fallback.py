@@ -11,6 +11,7 @@ from dataclasses import dataclass
 class Region:
     code: str = "generic"
     name: str = "Generic"
+    date_order: str = "DMY"     # day-first unless a column's own values prove otherwise
 
     @property
     def key(self):

@@ -155,6 +155,15 @@ class NumericTransform(Transform):
             return "", True, "empty numeric"
         if not any(ch.isdigit() for ch in s):
             return value, True, "not numeric (no digits)"
+        # Only currency marks, signs, %, brackets and separators may be dropped.
+        # Anything else (a range '12-15', a suffix '2.5m', words, 'about 50') must
+        # be checked by a person: stripping it would silently produce a wrong number.
+        core = re.sub(r"^\s*(?:ngn|naira|n|₦|\$|£|€|usd)\.?\s*", "", s, flags=re.I)
+        core = re.sub(r"\s*(?:ngn|naira|₦)\s*$", "", core, flags=re.I)
+        core = core.strip().strip("()").strip()
+        core = re.sub(r"^[-+\u2212]\s*", "", core).rstrip("%").strip()
+        if not re.fullmatch(r"[0-9][0-9.,\s]*", core) or re.search(r"\d\s+\d", core.replace(",", "").replace(".", "")) and not re.fullmatch(r"\d{1,3}(?:[ ,.]\d{3})+(?:[.,]\d+)?", core):
+            return value, True, "not a plain number, please check"
         convention = self.params.get("decimal", "dot")
         amount, neg, pct = self._parse(s, convention)
         if amount is None:

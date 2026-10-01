@@ -68,7 +68,9 @@ def _titlecase(s: str) -> str:
         if w.lower() in {"and"}:
             out.append("&")
         elif w.isupper() and len(w) <= 4:
-            out.append(w)                     # keep acronyms (NGO, ICT)
+            out.append(w)                     # keep acronyms (NGO, ICT, FCT)
+        elif w.isupper():
+            out.append(w[:1] + w[1:].lower())  # SHOUTED words -> Title case
         else:
             out.append(w[:1].upper() + w[1:])
     return " ".join(out)
@@ -101,7 +103,15 @@ def induce_vocabulary(values, threshold: float = 0.86) -> InducedVocab:
     mapping, clusters = {}, {}
     for members in groups.values():
         # label = the most frequent spelling, tidied for display
-        rep = sorted(members, key=lambda m: (counts[m], len(m)), reverse=True)[0]
+        # prefer a properly cased spelling ('Aisha Bello') over ALL CAPS or all
+        # lower case, then the most frequent one
+        def _case_rank(m):
+            letters = [c for c in m if c.isalpha()]
+            if not letters: return 1
+            if all(c.isupper() for c in letters): return 0 if len(letters) > 4 else 1
+            if all(c.islower() for c in letters): return 0
+            return 2
+        rep = sorted(members, key=lambda m: (_case_rank(m), counts[m], -len(m)), reverse=True)[0]
         label = _titlecase(rep)
         clusters[label] = sorted(members, key=lambda m: counts[m], reverse=True)
         for m in members:

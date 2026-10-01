@@ -157,8 +157,18 @@ def _header_band(rows: list[list[str]], data_start: int) -> tuple[int, int]:
     j = header_j - 1                                         # stacked header rows ABOVE
     while j >= lo and _row_width(rows[j]) >= floor:
         start = j; j -= 1
+    # sub-header rows BELOW only make sense under a spanning parent header: one
+    # with gaps or a repeated group label ('Score','Score'). A complete row of
+    # distinct labels has nothing to span, so the rows under it are DATA. Without
+    # this, an all-text first data row ('Aisha Bello, Kano, fifty thousand') was
+    # glued onto the header ('Full Name - Aisha Bello').
+    anchor = [str(c).strip() for c in rows[header_j]]
+    ne_anchor = [c for c in anchor if c]
+    last = max((i for i, c in enumerate(anchor) if c), default=-1)
+    has_span = (len(set(ne_anchor)) < len(ne_anchor)) or any(not anchor[i] for i in range(0, last + 1)) \
+        or (data_start < len(rows) and len([c for c in rows[data_start] if str(c).strip()]) > len(ne_anchor))
     k = header_j + 1                                         # sub-header rows BELOW, up to the data
-    while k < data_start and _is_subheader_row(rows[k]):
+    while has_span and k < data_start and _is_subheader_row(rows[k]):
         end = k; k += 1
     if end - start + 1 > 3:
         start = end - 2
@@ -184,7 +194,7 @@ def _detect_header_row(rows: list[list[str]]) -> int:
 
 
 def _looks_numeric(s: str) -> bool:
-    s = s.replace(",", "").replace("%", "").replace("$", "").strip()
+    s = s.replace(",", "").replace("%", "").replace("$", "").replace("\u20a6", "").strip()
     try:
         float(s)
         return True
@@ -234,7 +244,11 @@ def _resolve_header(rows: list[list[str]], hdr: int, forward_fill: bool = True) 
         start, end = _header_band(rows, data_start)
         levels = [rows[k] for k in range(start, end + 1)]
         if levels:
-            return _compose_multi(levels, forward_fill=forward_fill), data_start
+            # Data starts right under the header block. The "first data row"
+            # detector needs a number in the row, so an all-text first record
+            # (e.g. a blank amount) would otherwise be silently dropped.
+            first = min(end + 1, data_start)
+            return _compose_multi(levels, forward_fill=forward_fill), first
     return [re.sub(r"\s+", " ", str(rows[hdr][j] if j < len(rows[hdr]) else "").replace("\n", " ")).strip()
             for j in range(len(rows[hdr]))], hdr + 1
 
@@ -372,9 +386,32 @@ def detect_orientation(rows: list[list[str]]) -> str:
     row0_num = numshare(body[0])
     if ncols >= len(body) * 1.3 and col0_num < 0.1 and row0_num < 0.35:
         col0_distinct = len(set(v.lower() for v in col0 if v)) / max(1, len([v for v in col0 if v]))
-        if col0_distinct > 0.8:
+        if col0_distinct > 0.8 and _types_run_across_rows(body):
             return "transposed"
     return "normal"
+
+
+def _types_run_across_rows(body) -> bool:
+    """In a normal table each COLUMN holds one kind of value (all numbers, or all
+    text). In a transposed one each ROW does. Only call it transposed when rows
+    are clearly more uniform than columns, so a short, wide table is never
+    flipped on its side just because it has few records."""
+    grid = [[str(c).strip() for c in r[1:]] for r in body]
+    width = max((len(r) for r in grid), default=0)
+    if width < 2 or len(grid) < 2:
+        return False
+    def uniform(cells):
+        v = [c for c in cells if c]
+        if len(v) < 2:
+            return None
+        k = sum(1 for c in v if _looks_numeric(c))
+        return max(k, len(v) - k) / len(v)
+    cols = [uniform([r[j] if j < len(r) else "" for r in grid]) for j in range(width)]
+    rows_ = [uniform(r) for r in grid]
+    cols = [x for x in cols if x is not None]; rows_ = [x for x in rows_ if x is not None]
+    if not cols or not rows_:
+        return False
+    return (sum(rows_) / len(rows_)) > (sum(cols) / len(cols)) + 0.15
 
 
 def _maybe_form(rows):
@@ -534,6 +571,8 @@ def _read_one_sheet(path: Path, sheet: str, grid: list[list[str]], sheets: list[
     if _fdf is not None:
         _r=_form_report(path, 'xlsx', sheet=sheet); _r.rows=len(_fdf); _r.cols=2; return _fdf, _r   # a form, not a table
     raw = [r for r in raw if any(str(c).strip() for c in r)]
+    if not raw:
+        raise ValueError(f"The sheet {sheet!r} is empty. Pick a sheet that has data.")
     hdr = _detect_header_row([[str(c) for c in r] for r in raw])
     header, data_start = _resolve_header(raw, hdr, forward_fill=(not merged))
     header = [str(c).strip() or f"column_{j+1}_no_header" for j, c in enumerate(header)]
@@ -706,9 +745,14 @@ def list_sheets(path: Path) -> list[dict]:
         helper = bool(_HELPER_SHEET.search(s))
         score = (math.log1p(data_rows) + 0.3 * _sheet_density(grid)) * (0.5 if helper else 1.0)
         if score > best_score: best_score = score; best = s
-        out.append({"name": s, "rows": data_rows, "cols": cols, "helper": helper})
+        # first row with 2+ cells is (usually) the header: show a few column names
+        # so people recognise the sheet without opening Excel
+        head = next((r for r in grid if sum(1 for c in r if str(c).strip()) >= 2), [])
+        preview = [str(c).strip() for c in head if str(c).strip()][:5]
+        out.append({"name": s, "rows": max(0, data_rows - 1), "cols": cols, "helper": helper,
+                    "empty": data_rows < 2, "columns_preview": preview})
     for r in out:
-        r["recommended"] = (r["name"] == best and r["rows"] > 0)
+        r["recommended"] = (r["name"] == best and not r["empty"])
     return out
 
 

@@ -55,6 +55,7 @@ class TransformResult:
     n_total: int = 0
     n_changed: int = 0
     n_flagged: int = 0
+    n_blank: int = 0
     examples: list[Change] = field(default_factory=list)
     flags: list[Change] = field(default_factory=list)
 
@@ -66,6 +67,7 @@ class TransformResult:
             "rows": self.n_total,
             "changed": self.n_changed,
             "flagged": self.n_flagged,
+            "blank": self.n_blank,
             "examples": [
                 {"row": c.row, "before": _s(c.before), "after": _s(c.after)}
                 for c in self.examples[:5]
@@ -113,6 +115,11 @@ class Transform:
                 res.n_changed += 1
                 if len(res.examples) < 5:
                     res.examples.append(Change(i, val, new_val))
+            # A blank cell that stays blank is missing data, not an error to fix.
+            # Counting it as a flag buried real problems under hundreds of blanks.
+            if flagged and _s(val).strip() == "" and _s(new_val).strip() == "":
+                res.n_blank += 1
+                continue
             if flagged:
                 res.n_flagged += 1
                 res.flags.append(Change(i, val, new_val, flagged=True, reason=reason))

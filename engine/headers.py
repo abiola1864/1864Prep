@@ -105,7 +105,7 @@ def _uniquify(names: list[str]) -> list[str]:
     for n in names:
         if n in seen:
             seen[n] += 1
-            out.append(f"{n} {seen[n]}")
+            out.append(f"{n}_{seen[n]}" if re.fullmatch(r"[a-z0-9_]+", n) else f"{n} {seen[n]}")
         else:
             seen[n] = 1
             out.append(n)
@@ -116,11 +116,11 @@ _STOP = {"the","a","an","of","for","to","in","on","at","by","and","or","is","are
          "were","do","did","does","you","your","their","his","her","its","our","we","they",
          "he","she","it","this","that","these","those","what","which","who","whom","how",
          "many","much","please","kindly","respondent","survey","questionnaire","q","no",
-         "number","can","reach","second","name","of"}
+         "number","can","reach","second","of"}
 # words that carry meaning we want to KEEP even if short
 _KEEP = {"id","age","sex","dob","gps","lga","nin","bvn","pin","gender","phone","email",
          "state","city","town","date","time","year","month","day","amount","qty","price",
-         "code","vendor","contact","interviewer","enumerator","received","gift","gifts"}
+         "code","vendor","name","names","surname","contact","interviewer","enumerator","received","gift","gifts"}
 
 
 def snake_name(header: str, max_words: int = 4) -> str:
@@ -136,6 +136,7 @@ def snake_name(header: str, max_words: int = 4) -> str:
     # special cases that map to a canonical short name
     joined = " ".join(words)
     if "how old" in joined or joined in ("age", "your age"): return "age"
+    if joined in ("s n", "sn", "s no", "sno", "serial no", "serial number", "sl no"): return "serial_no"
     if "phone" in joined or "mobile" in joined or ("number" in joined and "contact" in joined): 
         base = "contact_number" if "contact" in joined else "phone_number"
         return base

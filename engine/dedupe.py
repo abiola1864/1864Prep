@@ -192,7 +192,13 @@ def cluster_similar(values, link_threshold: float = 0.72, semantic: bool = False
         cohesion = min(sims) if sims else 1.0        # weakest link
         avg = sum(sims) / len(sims) if sims else 1.0
         conf = "high" if cohesion >= 0.88 else ("medium" if avg >= 0.80 else "low")
-        rep = sorted(members, key=lambda m: (counts[m], len(m)), reverse=True)[0]
+        def _case_rank(m):                       # 'Aisha Bello' beats 'AISHA BELLO' / 'aisha bello'
+            letters = [c for c in m if c.isalpha()]
+            if not letters: return 1
+            if all(c.isupper() for c in letters): return 0 if len(letters) > 4 else 1
+            if all(c.islower() for c in letters): return 0
+            return 2
+        rep = sorted(members, key=lambda m: (_case_rank(m), counts[m], len(m)), reverse=True)[0]
         out.append({"representative": rep,
                     "members": sorted(members, key=lambda m: counts[m], reverse=True),
                     "size": len(members),

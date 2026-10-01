@@ -15,6 +15,23 @@ import dateparser
 from .base import Transform, _clean_str
 
 _SERIAL = re.compile(r"^\d{4,5}(?:\.\d+)?$")
+_YEAR_ONLY = re.compile(r"^(1[89]|20)\d{2}$")
+
+
+def _region_order(default: str = "DMY") -> str:
+    """Day/month order of the active region. Uses the same region source as the
+    server (regions.py if present, else the built-in fallback). If the region
+    doesn't say, assume day-first, which is the convention in Nigeria and most of
+    the world. A column's own evidence (a day > 12) always overrides this."""
+    for mod in ("regions", "engine.regions_fallback"):
+        try:
+            m = __import__(mod, fromlist=["get_active_region"])
+            o = getattr(m.get_active_region(), "date_order", None)
+            if o:
+                return o
+        except Exception:
+            continue
+    return default
 _EXCEL_EPOCH = _dt.date(1899, 12, 30)   # Excel's day 0
 
 
@@ -30,11 +47,7 @@ class DateISOTransform(Transform):
         elif params.get("dayfirst"):
             self._order = "DMY"
         else:
-            try:
-                from regions import get_active_region
-                self._order = get_active_region().date_order
-            except Exception:
-                self._order = "MDY"
+            self._order = _region_order()
         self._min = int(params.get("min_year", 1900))
         self._max = int(params.get("max_year", _dt.date.today().year + 1))
 
@@ -61,12 +74,15 @@ class DateISOTransform(Transform):
                 return (d.isoformat(), False, "") if self._in_range(d) else (value, True, "date out of range")
             except ValueError:
                 return value, True, "impossible date (month/day out of range)"
-        d = dateparser.parse(s, settings={
-            "DATE_ORDER": self._order,
-            "PREFER_DAY_OF_MONTH": "first",
-            "STRICT_PARSING": False,
-        })
+        # A bare year is NOT a full date. Never invent a month and day for it
+        # (dateparser fills missing parts from today's date).
+        if _YEAR_ONLY.match(s):
+            return value, True, "only a year, month and day unknown"
+        _set = {"DATE_ORDER": self._order, "PREFER_DAY_OF_MONTH": "first", "STRICT_PARSING": False}
+        d = dateparser.parse(s, settings={**_set, "REQUIRE_PARTS": ["day", "month", "year"]})
         if d is None:
+            if dateparser.parse(s, settings=_set) is not None:
+                return value, True, "incomplete date (day, month or year missing)"
             return value, True, "could not parse date"
         dd = d.date()
         if not self._in_range(dd):
@@ -81,11 +97,7 @@ class DateTimeISOTransform(Transform):
 
     def __init__(self, **params):
         super().__init__(**params)
-        try:
-            from regions import get_active_region
-            self._order = params.get("date_order") or get_active_region().date_order
-        except Exception:
-            self._order = params.get("date_order", "MDY")
+        self._order = params.get("date_order") or _region_order()
 
     def apply_value(self, value):
         s = _clean_str(value)

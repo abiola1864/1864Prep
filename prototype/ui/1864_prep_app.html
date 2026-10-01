@@ -8,7 +8,7 @@
 <style>
   :root{
     --ink:#2B3742;--ink-soft:#5C6773;--faint:#9AA4AE;--paper:#F4F1EA;--card:#FFFFFF;--line:#E3DECF;--line-soft:#EFEBE0;
-    --navy:#3E4E5E;--navy-d:#333F4B;--accent:#C99A4E;--accent-d:#A8823F;--terra:#B5623C;
+    --navy:#3E4E5E;--teal:#2C7A8C;--wash:#F6F4EE;--navy-d:#333F4B;--accent:#C99A4E;--accent-d:#A8823F;--terra:#B5623C;
     --ok:#4B7B5A;--ok-bg:#E7F0E9;--warn:#B5761C;--warn-bg:#F7EDD8;--stop:#B5623C;--stop-bg:#F3E4DC;
     --mono:"Inter","SF Pro Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--sans:"Inter","SF Pro Text",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   }
@@ -134,7 +134,7 @@
   .gate .msg{font-size:13px;color:var(--ink-soft)}.gate .msg b{color:var(--warn)}.gate .sp{flex:1}
   .toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%);background:var(--ok);color:#fff;padding:10px 18px;border-radius:8px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:.2s}.toast.show{opacity:1}
   .kpis{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 8px}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 15px;min-width:120px}.kpi .n{font-size:20px;font-weight:700;font-family:var(--mono)}.kpi .l{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 15px;min-width:120px}.kpi .n{font-size:20px;font-weight:700;font-family:var(--mono)}.kpi .l{font-size:12.5px;color:var(--ink-soft)}
   .rv-count{font-size:12.5px;color:var(--ink-soft);margin-left:auto}
   .rcard{max-width:640px;margin:18px auto 0;padding:26px 30px}
   .rc-name{font-size:23px;font-weight:700;letter-spacing:-.01em}
@@ -553,6 +553,42 @@
 .dataflow-card{position:fixed;left:16px;bottom:16px;z-index:60;max-width:250px;display:flex;align-items:flex-start;gap:9px;background:var(--card,#fff);border:1px solid var(--line,#e3decf);border-radius:14px;box-shadow:0 6px 24px rgba(43,55,66,.14);padding:12px 32px 12px 13px;font-size:12.5px;color:var(--ink-soft)}.dataflow-card .df-ic{font-size:16px;line-height:1.2}.dataflow-card .df-tx b{color:var(--ink)}.dataflow-card .df-x{position:absolute;top:7px;right:9px;border:0;background:transparent;color:var(--faint);cursor:pointer;font-size:12px;line-height:1}.dataflow-card .df-x:hover{color:var(--ink)}.dataflow-card .df-more{position:absolute;bottom:8px;right:11px;font-size:11px;color:var(--navy);text-decoration:underline}@media (max-width:640px){.dataflow-card{display:none}}
 .col-pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:14px 0;max-width:860px}.col-pageinfo{font-size:12.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .dup-compare{margin:8px 0 4px;padding:12px;border:1px dashed var(--line);border-radius:12px;background:#faf8f3}.dup-variants{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.dup-chip{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:18px;padding:5px 12px;font-size:13px;color:var(--ink)}.dup-plus{color:var(--faint);font-weight:700}.dup-arrow{font-size:11.5px;color:var(--ink-soft);margin:8px 0 6px;font-weight:600}.dup-canon input{width:100%;font-size:14.5px;font-weight:600;border:2px solid var(--accent,#C99A4E);border-radius:10px;padding:9px 12px;background:#fff;color:var(--ink)}.dup-actions{margin-top:8px}.mgg-keep{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}.mgg-keep-lbl{font-size:12px;color:var(--ink-soft)}
+.onb-err{color:#a4452c;font-size:13px;min-height:18px;margin:6px 0 0}.onb-sub{font-size:13px;color:var(--ink-soft,#5a6675);margin:18px 0 8px}.onb-chips{display:flex;flex-wrap:wrap;gap:8px}.onb-chip{border:1px solid var(--line,#e4eaf1);background:#fff;border-radius:999px;padding:7px 13px;font-size:13px;cursor:pointer;color:inherit}.onb-chip.on{border-color:var(--navy,#3E4E5E);background:var(--navy,#3E4E5E);color:#fff}.onb-chip:focus-visible,.onb-sector:focus-visible{outline:2px solid var(--accent,#C99A4E);outline-offset:2px}
+/* onboarding fits any screen: compact sector tiles, panel scrolls inside */
+#onboard{overflow-y:auto;align-items:flex-start !important;padding:24px 16px}
+#onboard .onb-panel{margin:auto}
+.onb-sectors{grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.onb-sector{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px}
+.onb-sector .ic{font-size:18px;flex:0 0 auto}.onb-sector b{margin-top:0;font-size:13px;display:inline}
+@media(max-width:560px){.onb-sectors{grid-template-columns:1fr 1fr}}
+#toast{display:none!important}
+.mgg-people{font-size:12.5px;color:var(--warn,#B5761C);margin:6px 2px 8px}
+.col-tools{margin:0 0 10px}.col-short{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--ink);cursor:pointer}.col-short-eg{color:var(--ink-soft)}
+.matchtable .mrow{padding-top:8px;padding-bottom:8px}
+.sheet-row.done{opacity:.7}.sheet-main{display:flex;flex-direction:column;gap:2px;min-width:0}.sheet-cols{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}.next-sheet .btn+.btn{margin-left:6px}
+.kpis{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.kpis .kpi{min-width:0}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.rail .brand b{color:var(--navy) !important}
+/* v68 */
+.ai-remember{display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:10px 0 0;cursor:pointer}.ai-remember span{color:var(--ink-soft)}
+.col-pager{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}
+.pg-btn,.pg-num{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;color:var(--ink)}
+.pg-btn[disabled]{opacity:.4;cursor:default}.pg-nums{display:flex;gap:4px;flex-wrap:wrap}
+.pg-num.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.pg-num.ai{box-shadow:inset 0 -3px 0 var(--teal)}.pg-info{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}
+.ai-pages-note,.ingest-notes{border-radius:10px;padding:10px 13px;font-size:13px;margin:0 0 10px}
+.ai-pages-note{background:#eaf3f5;border:1px solid #cfe3e8;color:#1f4f5b}.ai-pages-note a{text-decoration:underline;cursor:pointer;font-weight:600}
+.ai-pages-note,.ingest-notes,.col-pager{max-width:860px}
+.ingest-notes{background:var(--wash);border:1px solid var(--line);color:var(--ink-soft)}
+.aimiss-list{margin:8px 0 4px 18px;font-size:13.5px;line-height:1.7}
+.drop-hero{padding:40px 24px 34px;border:2px dashed #d9c9a6;background:#FFFDF8;transition:border-color .15s, background .15s}
+.drop-hero:hover,.drop-hero.over,.drop-hero:focus-visible{border-color:var(--accent);background:#fbf5e8;outline:none}
+.drop-ic{display:block;margin:0 auto 6px}
+.drop-title{font-size:26px;font-weight:800;letter-spacing:-.01em;color:var(--ink);margin:6px 0 6px}
+.drop-sub{font-size:15px;color:var(--ink-soft);margin:0 0 18px}.drop-btn{pointer-events:none}
+.cn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}.cn-actions{display:flex;gap:6px}
+.cn-need{margin-top:6px;font-size:12.5px;color:#7a5a14}
+.tidy-pick{display:block;cursor:pointer;padding:3px 0}
 </style>
 </head>
 <body>
@@ -572,7 +608,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v67</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v68</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -601,12 +637,22 @@
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
       <p class="eyebrow">Upload</p><h1>Upload your file</h1>
-      <p class="lead" id="upload-lead">Drop in a messy file. CSV, Excel, JSON or PDF.</p>
-
       <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
-      <div class="drop" onclick="document.getElementById('realfile').click()">
-        <div style="font-size:30px">📄</div><h3 style="margin:8px 0 4px">Drop your file, or click to browse</h3>
-        <p style="color:var(--ink-soft);margin:0;font-size:13px">.csv · .xlsx · .json · .pdf, cleaned by the engine</p>
+      <div class="drop drop-hero" id="dropzone" role="button" tabindex="0" onclick="document.getElementById('realfile').click()"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('realfile').click()}"
+           ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="onDropFile(event)">
+        <svg class="drop-ic" viewBox="0 0 120 100" width="168" height="140" aria-hidden="true">
+          <rect x="22" y="24" width="62" height="58" rx="6" transform="rotate(-8 53 53)" fill="#EFE7D6" stroke="#C99A4E" stroke-width="2"/>
+          <rect x="34" y="18" width="62" height="58" rx="6" transform="rotate(6 65 47)" fill="#FFFDF8" stroke="#C99A4E" stroke-width="2"/>
+          <g transform="rotate(6 65 47)" stroke="#C99A4E" stroke-width="3" stroke-linecap="round">
+            <path d="M46 34h28"/><path d="M46 44h36" opacity=".7"/><path d="M46 54h22" opacity=".5"/>
+            <path d="M74 54c4-3 8 3 12 0" fill="none"/></g>
+          <circle cx="92" cy="74" r="15" fill="#3E4E5E"/>
+          <path d="M92 81v-13m-5 5 5-5 5 5" stroke="#FFFDF8" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2 class="drop-title" id="upload-lead">Drop in a messy file</h2>
+        <p class="drop-sub">CSV, Excel, JSON or PDF. Messy is fine. That’s what this is for.</p>
+        <span class="btn drop-btn">Choose a file</span>
       </div>
       <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="downloadSample()">Download a sample file</a>, then upload it above to see the real flow.</p>
     </section>
@@ -616,6 +662,8 @@
       <p class="eyebrow">Step 1 · Columns first</p><h1>Check your columns</h1>
       <p class="lead">Confirm names and types before any value is touched. Nothing is cleaned until you continue.</p>
       <div id="ai-top-banner"></div>
+      <div id="ai-pages-note" class="ai-pages-note" style="display:none"></div>
+      <div id="ingest-notes" class="ingest-notes" style="display:none"></div>
       <div class="matchtable" id="matchtable">
         <div class="mh"><span>Name in your file</span><span></span><span>Column name (edit if needed)</span><span>Data type <button type="button" class="ibtn" title="More info" onclick="showHelp(event,'data_type')">i</button></span></div>
         <div id="matchrows"></div>
@@ -752,6 +800,7 @@
           <div class="aim-test"><button type="button" class="btn ghost sm" onclick="testAIConnection()">Test connection</button><span id="ai-test-out"></span></div>
           <p class="aim-priv" id="ai-priv"></p>
         </div>
+        <label id="ai-remember-row" class="ai-remember"><input type="checkbox" id="ai-remember"> Remember my key on this computer <span>(off: the key is forgotten when you close the app)</span></label>
 
         <div class="modal-foot">
           <button class="btn ghost" onclick="closeAIModal()">Cancel</button>
@@ -876,7 +925,17 @@
   Storage.prototype.removeItem=function(k){ _rem.call(this,k); if(this===window.localStorage && String(k).indexOf('prep_')===0) _sched(); };
   Storage.prototype.clear=function(){ _clr.call(this); if(this===window.localStorage) _sched(); };
 })();
-let SETTINGS=Object.assign({region:'generic',ai:false,provider:'ollama',key:'',model:'',contrib:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
+let SETTINGS=Object.assign({region:'generic',ai:false,provider:'ollama',key:'',model:'',contrib:false,remember_key:false}, (function(){try{return JSON.parse(localStorage.getItem('prep_settings'))||{}}catch(e){return {}}})());
+// PRIVACY: the AI key lives only for this session (sessionStorage, cleared when the
+// app or tab closes). It is written to this computer's disk only if the person ticks
+// "Remember my key on this computer". Any key saved by an older version is removed.
+(function(){
+  let sk=''; try{ sk=sessionStorage.getItem('prep_key')||''; }catch(e){}
+  if(!SETTINGS.remember_key){
+    if(SETTINGS.key){ try{ const c=Object.assign({},SETTINGS); delete c.key; Storage.prototype.setItem.call(localStorage,'prep_settings',JSON.stringify(c)); window.__flushLocalState&&window.__flushLocalState(); }catch(e){} }
+    SETTINGS.key=sk;
+  } else if(sk){ SETTINGS.key=sk; }
+})();
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=s=>(s==null?'':(''+s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 function toast(m, opts){
@@ -994,7 +1053,16 @@ let SECTOR=null,SELECTED=new Set(),RAWS=[],FIELDS=[],idx=0,reached=0,cur=0,USE_A
 // Everything is stored locally on this machine. After a one-time, very basic
 // setup, the app opens straight to Upload. Nothing is asked twice.
 function _pget(k,d){ try{ const v=localStorage.getItem(k); return v===null?d:JSON.parse(v); }catch(e){ return d; } }
-function _pset(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function _pset(k,v){
+  try{
+    if(k==='prep_settings' && v){
+      const c=Object.assign({},v);
+      try{ if(c.key) sessionStorage.setItem('prep_key',c.key); else sessionStorage.removeItem('prep_key'); }catch(e){}
+      if(!c.remember_key) delete c.key;          // the key never reaches disk unless asked
+      v=c;
+    }
+    localStorage.setItem(k,JSON.stringify(v));
+  }catch(e){} }
 async function _hash(s){
   try{ const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('1864:'+s));
        return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -1092,7 +1160,7 @@ function onbNext(){ ONB.step++; showOnboard(); }
 function onbBack(){ ONB.step=Math.max(0,ONB.step-1); showOnboard(); }
 function showOnboard(){
   const ob=$('#onboard'); ob.style.display='flex';
-  const steps=[obWelcome, obPrivacy, obBasics, obSector, obTypes, obAIKey, obPassword, obDone];
+  const steps=[obWelcome, obPrivacy, obBasics, obSector, obAIKey, obPassword, obDone];
   ONB._done = steps.length-1;   // index of the Done step, so finishing always lands there
   ob.querySelector('#onb-body').innerHTML = steps[Math.min(ONB.step,steps.length-1)]();
   const dots=ob.querySelector('#onb-dots');
@@ -1124,29 +1192,40 @@ function obPrivacy(){
     '<div class="onb-actions" style="justify-content:space-between"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button><button class="btn" onclick="onbNext()">Got it \u2192</button></div></div>';
 }
 function obBasics(){
-  return '<div class="onb-card"><p class="eyebrow">A little about you</p><h1>Who\u2019s the administrator?</h1>'+
-    '<p class="lead">So the app can label who cleaned what. This stays on your device.</p>'+
-    '<div class="onb-grid">'+
-      '<div class="field"><label>First name</label><input value="'+esc(ONB.first)+'" oninput="ONB.first=this.value"></div>'+
-      '<div class="field"><label>Surname</label><input value="'+esc(ONB.last)+'" oninput="ONB.last=this.value"></div>'+
-      '<div class="field"><label>Organization</label><input value="'+esc(ONB.org)+'" oninput="ONB.org=this.value"></div>'+
-      '<div class="field"><label>Your role in the organization</label><input placeholder="e.g. Data Officer" value="'+esc(ONB.orgRole)+'" oninput="ONB.orgRole=this.value"></div>'+
-    '</div>'+
-    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
-      '<button class="btn" onclick="onbSaveBasics()">Continue \u2192</button></div></div>';
+  const f=(id,label,key,ph)=>'<div class="field"><label for="'+id+'">'+label+'</label><input id="'+id+'" name="'+id+'" autocomplete="off"'+
+    (ph?' placeholder="'+ph+'"':'')+' value="'+esc(ONB[key]||'')+'" oninput="ONB.'+key+'=this.value;onbClearErr()" onkeydown="if(event.key===\'Enter\')onbSaveBasics()"></div>';
+  return '<div class="onb-card"><p class="eyebrow">A little about you</p><h1>Who\u2019s setting this up?</h1>'+
+    '<p class="lead">Your name goes on the change log, so everyone can see who cleaned what. It stays on this computer.</p>'+
+    '<div class="onb-grid">'+f('onb-first','First name','first','')+f('onb-last','Surname (optional)','last','')+
+      f('onb-org','Organization','org','e.g. Kaduna State SOCU')+f('onb-role','Your role (optional)','orgRole','e.g. Data Officer')+'</div>'+
+    '<p class="onb-err" id="onb-err" role="alert"></p>'+
+    '<div class="onb-actions"><button type="button" class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button type="button" class="btn" onclick="onbSaveBasics()">Continue \u2192</button></div></div>';
 }
+function onbClearErr(){ const e=$('#onb-err'); if(e) e.textContent=''; }
 function onbSaveBasics(){
-  if(!ONB.first.trim()||!ONB.org.trim()){ toast('Please add at least your first name and organization.'); return; }
+  const t=v=>(typeof v==='string'?v:'').trim();
+  const miss=[]; if(!t(ONB.first)) miss.push('your first name'); if(!t(ONB.org)) miss.push('your organization');
+  if(miss.length){
+    const e=$('#onb-err'); if(e) e.textContent='Add '+miss.join(' and ')+' to continue.';
+    const first=!t(ONB.first)?'#onb-first':'#onb-org'; const el=$(first); if(el) el.focus();
+    return;
+  }
   onbNext();
 }
 function obSector(){
-  const cards=SECTORS.map((s,i)=>'<div class="onb-sector'+(ONB.sector&&ONB.sector.name===s.name?' sel':'')+'" onclick="onbPickSector('+i+')">'+
+  const cards=SECTORS.map((s,i)=>'<div class="onb-sector'+(ONB.sector&&ONB.sector.name===s.name?' sel':'')+'" role="button" tabindex="0" onclick="onbPickSector('+i+')">'+
     '<div class="ic">'+s.ic+'</div><b>'+esc(s.name)+'</b></div>').join('');
-  return '<div class="onb-card"><p class="eyebrow">One-time choice</p><h1>What kind of data do you mostly work with?</h1>'+
-    '<p class="lead">This tailors a few hints. You can change it later in Settings, and won\u2019t be asked again.</p>'+
-    '<div class="onb-sectors">'+cards+'<div class="onb-sector'+(ONB.sector&&ONB.sector.name==='General / other'?' sel':'')+'" onclick="onbPickGeneral()"><div class="ic">📂</div><b>General / other</b></div></div>'+
-    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
-      '<button class="btn" onclick="onbNext()" '+(ONB.sector?'':'disabled')+'>Continue \u2192</button></div></div>';
+  ONB.types = ONB.types || [];
+  const chips=DATA_TYPES.map(([k,label])=>{ const on=ONB.types.includes(k);
+    return '<button type="button" class="onb-chip'+(on?' on':'')+'" aria-pressed="'+on+'" onclick="onbToggleType(\''+k+'\')">'+(on?'\u2713 ':'')+esc(label)+'</button>'; }).join('');
+  return '<div class="onb-card"><p class="eyebrow">Your data</p><h1>What kind of data do you work with?</h1>'+
+    '<p class="lead">This tailors a few hints. You can change it later in Settings.</p>'+
+    '<div class="onb-sectors">'+cards+'<div class="onb-sector'+(ONB.sector&&ONB.sector.name==='General / other'?' sel':'')+'" role="button" tabindex="0" onclick="onbPickGeneral()"><div class="ic">📂</div><b>General / other</b></div></div>'+
+    '<p class="onb-sub">Optional: which of these appear in your files? It helps with columns that could go either way, like all-digit IDs. '+infoBtn('data_type_prior')+'</p>'+
+    '<div class="onb-chips">'+chips+'</div>'+
+    '<div class="onb-actions"><button type="button" class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button type="button" class="btn" onclick="onbNext()" '+(ONB.sector?'':'disabled title="Pick one above"')+'>Continue \u2192</button></div></div>';
 }
 function onbPickSector(i){ ONB.sector={name:SECTORS[i].name, cols:SECTORS[i].cols}; showOnboard(); }
 function onbPickGeneral(){ ONB.sector={name:'General / other', cols:[]}; showOnboard(); }
@@ -1371,7 +1450,7 @@ function openAIModal(){
   const fullCard=document.querySelector('#aim-opts [data-mode="full"]');
   const fullNote=$('#aim-full-note');
   if(window.ENV && !ENV.localAI){
-    if(fullCard){ fullCard.classList.add('disabled'); fullCard.title='Local model only — use the desktop app'; }
+    if(fullCard){ fullCard.classList.add('disabled'); fullCard.title='Local model only. Use the desktop app'; }
     if(fullNote) fullNote.innerHTML='Full AI clean runs on a <b>local model only</b> (desktop app), so nothing leaves your computer. Not available on the web.';
     if(AIM_MODE==='full'){ AIM_MODE='assist'; }
   } else {
@@ -1413,6 +1492,7 @@ function paintAIProvider(keep){
   $('#ai-key').placeholder=local?'http://localhost:11434':(AIM_PROV==='ollama_cloud'?'paste your Ollama secret API key':('paste your '+AIM_PROV+' key'));
   $('#ai-model').placeholder=d.model;
   if(!keep){ $('#ai-key').value=local?d.url:''; $('#ai-model').value=d.model; }
+  const rk=$('#ai-remember-row'); if(rk){ rk.style.display=local?'none':'flex'; const cb=$('#ai-remember'); if(cb) cb.checked=!!SETTINGS.remember_key; }
   $('#ai-priv').innerHTML=local
     ? '🔒 Local, nothing leaves this computer.'
     : 'Only masked samples are sent to '+(AIM_PROV==='ollama_cloud'?'Ollama Cloud':AIM_PROV)+', never full records.';
@@ -1457,6 +1537,7 @@ function saveAIModal(){
   SETTINGS.ai_mode=mode; SETTINGS.ai=USE_AI; SETTINGS.provider=p;
   SETTINGS.key=($('#ai-key').value||'').trim()||(d.local?d.url:''); SETTINGS.model=($('#ai-model').value||'').trim()||d.model;
   if(mode!=='off') SETTINGS.last_ai_mode=mode;
+  { const cb=$('#ai-remember'); SETTINGS.remember_key=!!(cb&&cb.checked); }
   AI_CONNECTED = USE_AI && !!(SETTINGS.key||d.local);
   _pset('prep_settings', SETTINGS);
   try{ window.__flushLocalState && window.__flushLocalState(); }catch(e){}
@@ -1639,11 +1720,12 @@ function buildCards(){
   FIELDS.forEach(f=>{
     const groups=simByCol[f.name]||[];
     if(!(f.nChanged>0 || groups.length)) return;
-    if(f.nChanged>0 && !groups.length && isCosmetic(f)){ f.decision='accept'; cosmetic.push(f); return; }  // safe: apply, no card
+    if(f.nChanged>0 && !groups.length && isCosmetic(f)){ f.decision=null; cosmetic.push(f); return; }  // grouped into ONE decision, not applied silently
     CARDS.push({kind:'column', field:f, groups, applyClean:true,
       assign:groups.map(g=>g.members.map(()=>'A')),
       gnames:groups.map(g=>({A:g.representative||g.members[0]||'',B:'',C:''})),
-      gmerge:groups.map(()=>true), split:groups.map(()=>false)});
+      // only pre-tick a merge when the engine is highly confident AND it isn't people's names
+      gmerge:groups.map(g=>g.confidence==='high' && !g.people), split:groups.map(()=>false)});
   });
   COSMETIC_COUNT = cosmetic.length; COSMETIC_FIELDS = cosmetic;   // applied automatically; disclosed, not a decision
   ((WORKLIST&&WORKLIST.admin)||[]).forEach(a=>{ if(a.items&&a.items.length) CARDS.push({kind:'admin', col:a.column, level:a.level, items:a.items.map(it=>({...it, decision:null}))}); });
@@ -1652,6 +1734,7 @@ function buildCards(){
   CARDS.push({kind:'done'});
 }
 function curField(){ const c=CARDS[idx]; return c&&c.field; }
+function setCosmetic(d){ COSMETIC_FIELDS.forEach(f=>f.decision=d); logEvent('\u270E',(d==='accept'?'Applied':'Declined')+' spacing/capital fixes on '+COSMETIC_COUNT+' column(s)'); renderReview(); updateGate(); }
 function toggleCosmetic(){ COSMETIC_OPEN=!COSMETIC_OPEN; renderReview(); }
 function cosmeticDetail(){
   return '<div class="cn-detail">'+COSMETIC_FIELDS.map(f=>{
@@ -1674,8 +1757,12 @@ function renderReview(){
   $('#backbtn').disabled=idx===0;
   const cn=$('#cosmetic-note');
   if(cn){ if(COSMETIC_COUNT>0){ cn.style.display='block';
-      cn.innerHTML='✓ We tidied extra spaces and capital letters on <b>'+COSMETIC_COUNT+'</b> column'+(COSMETIC_COUNT===1?'':'s')+'. This does not change what your data means, so there is nothing to decide. '+
-        '<a class="cn-see" onclick="toggleCosmetic()">'+(COSMETIC_OPEN?'hide what changed':'see what changed')+'</a>'+
+      const dec=COSMETIC_FIELDS.every(f=>f.decision==='accept')?'accept':(COSMETIC_FIELDS.every(f=>f.decision==='reject')?'reject':null);
+      cn.innerHTML='<div class="cn-row"><span>Spacing and capital letters can be tidied on <b>'+COSMETIC_COUNT+'</b> column'+(COSMETIC_COUNT===1?'':'s')+'. Meaning stays the same. '+
+        '<a class="cn-see" onclick="toggleCosmetic()">'+(COSMETIC_OPEN?'hide changes':'see changes')+'</a></span>'+
+        '<span class="cn-actions"><button type="button" class="btn sm'+(dec==='accept'?'':' ghost')+'" onclick="setCosmetic(\'accept\')">'+(dec==='accept'?'\u2713 Applying':'Apply')+'</button>'+
+        '<button type="button" class="btn sm'+(dec==='reject'?'':' ghost')+'" onclick="setCosmetic(\'reject\')">'+(dec==='reject'?'\u2713 Keeping original':'Keep original')+'</button></span></div>'+
+        (dec?'':'<div class="cn-need">Choose one before you export.</div>')+
         (COSMETIC_OPEN?cosmeticDetail():'');
     } else { cn.style.display='none'; } }
   let html='';
@@ -1733,7 +1820,8 @@ function groupBlock(c,g,gi){
   let b='<div class="mgg"><div class="mgg-top"><span class="mg-badge '+(g.confidence||'')+'">'+(g.confidence||'')+'</span>'+
     '<span class="sp" style="flex:1"></span>'+
     '<label class="switch2 sm"><input type="checkbox" '+(merging?'checked':'')+' onchange="toggleGMerge('+gi+')"><span class="tk"></span></label>'+
-    '<span class="mgg-lbl">'+(merging?'merge':'keep')+'</span></div>';
+    '<span class="mgg-lbl">'+(merging?'merge':'keep')+'</span></div>'+
+    (g.people?'<div class="mgg-people">Similar names can belong to different people. Merge only if you know they are the same person.</div>':'');
   if(!merging){
     // not merging: show the distinct values plainly as separate chips (kept as-is)
     return b+'<div class="mgg-keep"><span class="mgg-keep-lbl">kept separate:</span>'+
@@ -1746,7 +1834,7 @@ function groupBlock(c,g,gi){
          '<div class="dup-arrow">\u2193 becomes</div>'+
          '<div class="dup-canon"><input value="'+esc(c.gnames[gi].A||g.members[0]||'')+'" oninput="setGName('+gi+',\'A\',this.value)" title="The single name all of these become"></div>'+
        '</div>';
-    b+='<div class="dup-actions"><button type="button" class="btn ghost sm" onclick="startSplit('+gi+')">These aren\u2019t the same \u2014 split</button></div>';
+    b+='<div class="dup-actions"><button type="button" class="btn ghost sm" onclick="startSplit('+gi+')">Not the same? Split them</button></div>';
   } else {
     b+='<div class="mgg-hint">Tap a value to move it to another set.</div><div class="mgg-members">'+
       g.members.map((m,mi)=>{const L=c.assign[gi][mi];
@@ -1894,8 +1982,12 @@ function rvBack(){ if(idx>0){ idx--; renderReview(); } }
 function toggleType(){ const el=$('#typepick'); el.style.display=el.style.display==='none'?'block':'none'; }
 function setType(v){ const f=curField(); if(!f)return; f.type=v; f.method=(TYPEMETA[v]||['format',0.9])[0]; f.rows=null; f.outliers=null; renderReview(); }
 function acceptRemaining(){ FIELDS.forEach(f=>{ if(!f.decision) f.decision='accept'; }); renderReview(); toast('Accepted all remaining columns'); }
-function updateGate(){ const N=FIELDS.length, reviewed=FIELDS.filter(f=>f.decision).length, left=N-reviewed;
-  $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' column'+(left>1?'s':'')+' still to review' : 'All '+N+' columns reviewed.';
+function updateGate(){
+  // count the same thing the header counts: review steps, not every column in the file
+  const steps=(CARDS||[]).filter(c=>c.kind!=='done'), N=steps.length+(((COSMETIC_FIELDS||[]).length)?1:0);
+  const left=steps.filter(c=>c.kind==='column' ? !c.field.decision : (c.kind==='admin' ? (c.items||[]).some(it=>!it.decision) : false)).length
+    + ((COSMETIC_FIELDS||[]).some(f=>!f.decision)?1:0);
+  $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' step'+(N>1?'s':'')+' still to review' : (N? 'All '+N+' steps reviewed.' : 'Nothing needs your decision.');
   $('#finish').disabled = left>0; }
 
 function wlSet(key,choice){ WLDECISIONS[key]=choice; if(key.indexOf('dup:')===0 && /remove/.test(choice)) WL_REMOVE_DUPES=true; renderWorklist(); toast('Choice recorded'); }
@@ -1980,8 +2072,10 @@ function wlCombine(col,ci,gi){
 async function doExport(){
   const out=$('#expout');
   if(!SESSION_ID){ out.innerHTML='<div class="wl-empty">Export applies to an uploaded file. Upload real data (not the sample walk-through) to produce a cleaned file.</div>'; return; }
+  if((COSMETIC_FIELDS||[]).some(f=>!f.decision)){ toast('First choose whether to apply the spacing and capital-letter fixes.'); go(5); return; }
+  // a column the person never decided on is NOT cleaned: only approved changes are applied
   const decisions={
-    reject: FIELDS.filter(f=>f.decision==='reject').map(f=>f.name),
+    reject: FIELDS.filter(f=>f.decision==='reject' || (f.decision!=='accept' && f.nChanged>0)).map(f=>f.name),
     setall: WL_SETALL,
     merges: WL_MERGES,
     remove_duplicates: WL_REMOVE_DUPES
@@ -1989,7 +2083,9 @@ async function doExport(){
   makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
   try{
     // fold AI-suggested value merges into the decisions so they're applied + logged
-    const aim=window.__AI_MERGES__||{};
+    const aim={}; const ok=window.__AI_MERGES_OK__||{};
+    Object.keys(window.__AI_MERGES__||{}).forEach(col=>{ Object.keys(window.__AI_MERGES__[col]).forEach(canon=>{
+      if(ok[col+'\u0001'+canon]){ (aim[col]=aim[col]||{})[canon]=window.__AI_MERGES__[col][canon]; } }); });
     if(Object.keys(aim).length){
       if(!Array.isArray(decisions.merges)) decisions.merges=[];
       Object.keys(aim).forEach(col=>{ Object.keys(aim[col]).forEach(canon=>{
@@ -2019,24 +2115,22 @@ async function doExport(){
         d.audit.map(a=>{ const by=a.by||'engine'; const bytag = by==='AI'?'<span class="ai-tag">✦ AI</span>':(by==='you'?'<span class="by-you">you</span>':'<span class="by-eng">engine</span>');
           return '<tr><td>'+esc(a.column)+'</td><td>'+esc(a.action)+'</td><td>'+bytag+'</td><td>'+esc(String(a.count))+'</td></tr>'; }).join('')+'</tbody></table></div></details>';
     }
-    // multi-sheet: record this sheet's result; if more sheets are queued, offer to continue
-    if(CURRENT_SHEET){
-      SHEET_DONE.push({sheet:CURRENT_SHEET, result_id:d.result_id});
-      if(SHEET_QUEUE.length){
-        const next=SHEET_QUEUE[0];
-        html+='<div class="next-sheet">✓ Cleaned <b>'+esc(CURRENT_SHEET)+'</b>. '+
-          '<button class="btn sm" onclick="cleanNextSheet()">Next sheet: '+esc(next)+' →</button></div>';
-      } else if(SHEET_DONE.length>1){
-        html+='<div class="next-sheet">✓ All '+SHEET_DONE.length+' sheets cleaned. '+
-          '<button class="btn sm" onclick="downloadAllSheets()">Download all sheets (one Excel file)</button></div>';
-      }
+    // multi-sheet: remember this sheet's result, then offer another sheet and a combined download
+    if(CURRENT_SHEET && SHEET_LIST.length>1){
+      SHEET_DONE=SHEET_DONE.filter(x=>x.sheet!==CURRENT_SHEET); SHEET_DONE.push({sheet:CURRENT_SHEET, result_id:d.result_id});
+      const left=SHEET_LIST.filter(x=>!SHEET_DONE.some(y=>y.sheet===x.name)).length;
+      html+='<div class="next-sheet"><b>'+esc(CURRENT_SHEET)+'</b> is cleaned. '+
+        (left?left+' other sheet'+(left>1?'s':'')+' in this file. ':'Every sheet in this file is cleaned. ')+
+        (left?'<button class="btn sm" onclick="showSheetPicker(SHEET_LIST)">Clean another sheet</button>':'')+
+        (SHEET_DONE.length>1?'<button class="btn sm ghost" onclick="downloadAllSheets()">Download all '+SHEET_DONE.length+' cleaned sheets (one Excel file)</button>':'')+
+        '</div>';
     }
     out.innerHTML=html;
   }catch(err){ out.innerHTML='<div class="wl-empty">Could not produce the file: '+esc(err.message)+'</div>'; }
 }
 function cleanNextSheet(){
   CURRENT_SHEET=SHEET_QUEUE.shift();
-  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false;
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
   window.__RESHAPED_ID__=null; window.__AI_COLS__=[]; window.__AI_MERGES__={};  // no leak from the previous sheet
   SESSION_ID=null;
   toast('Cleaning sheet: '+CURRENT_SHEET, {kind:'good'});
@@ -2090,8 +2184,10 @@ async function expDL(id,fmt,suffix){
   try{ logEvent('↓','Downloaded '+fmt.toUpperCase()+' file'); }catch(e){}
 }
 function renderExport(){
-  let acc=0,rej=0,outl=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; outl+=makeOutliers(f).length; });
-  $('#expkpis').innerHTML=[['#2f6f57',acc,'columns cleaned & applied'],['#a83a3a',rej,'columns kept as-is'],['#b5761c',outl,'values flagged for follow-up'],['#1d3a53',FIELDS.length,'columns reviewed']]
+  let acc=0,rej=0; FIELDS.forEach(f=>{ if(f.decision==='accept')acc++; else if(f.decision==='reject')rej++; });
+  // real flags from the engine (values it would not guess), not a simulated count
+  const outl=((WORKLIST&&WORKLIST.flagged)||[]).reduce((a,c)=>a+((c.values||[]).length),0);
+  $('#expkpis').innerHTML=[['#2f6f57',acc,'Columns cleaned'],['#a83a3a',rej,'Columns kept as they were'],['#b5761c',outl,'Values to follow up'],['#1d3a53',FIELDS.length,'Columns in the file']]
     .map(x=>'<div class="kpi"><div class="n" style="color:'+x[0]+'">'+x[1]+'</div><div class="l">'+x[2]+'</div></div>').join('');
   FIELDS.forEach(f=>{ if(!(f.name in PERM)) PERM[f.name]='off'; });   // consent-first: default off
   renderPerm();
@@ -2417,18 +2513,23 @@ function downloadSample(){
   toast('Sample downloaded. Now drop it in the box above to run the real flow.');
 }
 
-let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[], CURRENT_SHEET=null, SHEET_QUEUE=[], SHEET_DONE=[], COL_PAGE=0;
+let PENDING_FILE=null, COLREVIEW=[], COL_SAMPLE=[], CURRENT_SHEET=null, SHEET_QUEUE=[], SHEET_DONE=[], SHEET_LIST=[], COL_PAGE=0;
 
 // Phase 1: read the file's STRUCTURE only (no cleaning yet), so the person can
 // see and correct the columns first, for every upload, the same way.
 let COL_ABORT=null;
 function cancelColumnRead(){ if(COL_ABORT){ COL_ABORT.abort(); } }
+function onDropFile(ev){
+  ev.preventDefault(); const z=$('#dropzone'); if(z) z.classList.remove('over');
+  const f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0];
+  if(f) onRealFile({target:{files:[f]}});
+}
 async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
   if(!file) return;
   // fresh start for every upload: drop any prior file's columns, samples, AI state
-  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false;
-  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[]; window.__RESHAPED_ID__=null;
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
+  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[]; SHEET_LIST=[]; window.__RESHAPED_ID__=null;
   try{ SESSION_ID=null; }catch(_){}
   logEvent('\u2191','Uploaded '+file.name);
   PENDING_FILE=file;
@@ -2438,7 +2539,9 @@ async function onRealFile(e){
     try{
       const sf=new FormData(); sf.append('file',file);
       const sr=await (await fetch('/api/sheets',{method:'POST',body:sf})).json();
-      const sheets=(sr.sheets||[]).filter(s=>s.rows>0 || !s.helper);
+      const sheets=(sr.sheets||[]).filter(s=>!s.empty);
+      SHEET_LIST=sheets;
+      if(sheets.length===1){ CURRENT_SHEET=sheets[0].name; }
       if(sheets.length>1){ showSheetPicker(sheets); return; }   // wait for the user's choice
     }catch(_){ /* fall through to normal single-sheet read */ }
   }
@@ -2447,29 +2550,40 @@ async function onRealFile(e){
 // picker: name every sheet, pre-tick the recommended one, let the user multi-select.
 function showSheetPicker(sheets){
   let m=$('#sheetm'); if(!m){ m=document.createElement('div'); m.id='sheetm'; m.className='modal'; document.body.appendChild(m); }
-  const rows=sheets.map((s,i)=>'<label class="sheet-row"><input type="checkbox" data-sheet="'+esc(s.name)+'" '+(s.recommended?'checked':'')+'> '+
-    '<span class="sheet-name">'+esc(s.name)+'</span><span class="sheet-meta">'+s.rows+' rows'+(s.helper?' · helper':'')+(s.recommended?' · recommended':'')+'</span></label>').join('');
-  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>📑 This file has '+sheets.length+' sheets</h2></div>'+
-    '<p class="set-sub">Pick the sheet(s) you want to clean. We\u2019ll do them one at a time.</p>'+
-    '<div class="sheet-list">'+rows+'</div>'+
+  const done=new Set(SHEET_DONE.map(x=>x.sheet));
+  // pre-select: the recommended sheet first time; afterwards the first one not yet cleaned
+  let pick=(sheets.find(x=>x.recommended && !done.has(x.name))||sheets.find(x=>!done.has(x.name))||sheets[0]).name;
+  const rows=sheets.map(x=>{
+    const isDone=done.has(x.name);
+    const meta=x.rows+' row'+(x.rows===1?'':'s')+(x.helper?' \u00b7 looks like a helper sheet':'')+(x.recommended&&!isDone?' \u00b7 suggested':'');
+    const cols=(x.columns_preview||[]).length?'<span class="sheet-cols">'+(x.columns_preview||[]).map(esc).join(', ')+(x.cols>5?', \u2026':'')+'</span>':'';
+    return '<label class="sheet-row'+(isDone?' done':'')+'"><input type="radio" name="sheetpick" value="'+esc(x.name)+'" '+(x.name===pick?'checked':'')+'>'+
+      '<span class="sheet-main"><span class="sheet-name">'+(isDone?'\u2713 ':'')+esc(x.name)+'</span>'+cols+'</span>'+
+      '<span class="sheet-meta">'+(isDone?'cleaned':meta)+'</span></label>'; }).join('');
+  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>'+(done.size?'Clean another sheet':'This file has '+sheets.length+' sheets')+'</h2>'+
+    '<button class="x" onclick="closeSheetPicker()" aria-label="Close">\u2715</button></div>'+
+    '<p class="set-sub">Pick one sheet to clean. When it\u2019s done you can come back for the next one, and download all cleaned sheets together.</p>'+
+    '<div class="sheet-list" role="radiogroup">'+rows+'</div>'+
     '<div class="modal-foot"><button class="btn ghost" onclick="closeSheetPicker()">Cancel</button>'+
-    '<button class="btn" onclick="startSheets()">Clean selected</button></div></div>';
+    '<button class="btn" onclick="startSheets()">Clean this sheet</button></div></div>';
   m.classList.add('on');
 }
 function closeSheetPicker(){ const m=$('#sheetm'); if(m) m.classList.remove('on'); }
 function startSheets(){
-  const picked=[...document.querySelectorAll('#sheetm input[type=checkbox]:checked')].map(x=>x.dataset.sheet);
-  if(!picked.length){ toast('Pick at least one sheet.'); return; }
+  const sel=document.querySelector('#sheetm input[name=sheetpick]:checked');
+  if(!sel){ toast('Pick a sheet first.'); return; }
   closeSheetPicker();
-  SHEET_QUEUE=picked.slice(); SHEET_DONE=[];
-  CURRENT_SHEET=SHEET_QUEUE.shift();
-  toast('Cleaning sheet: '+CURRENT_SHEET+(SHEET_QUEUE.length?(' ('+(SHEET_QUEUE.length)+' more after)'):''), {kind:'good'});
+  CURRENT_SHEET=sel.value; SHEET_QUEUE=[];
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
+  window.__RESHAPED_ID__=null; window.__AI_COLS__=[]; window.__AI_MERGES__={};
+  try{ SESSION_ID=null; }catch(_){}
   profileFile(PENDING_FILE);
 }
+
 async function profileFile(file){
   // Every profile (new file OR next sheet) starts from a clean slate, so state from
   // a previous sheet — reshape, AI results, columns — never leaks into this one.
-  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false;
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
   window.__RESHAPED_ID__=null; window.__AI_COLS__=[]; window.__AI_MERGES__={};
   const ov=$('#overlay'); ov.classList.add('on');
   const prog=makeProgressManual(ov,"Reading the columns…","Understanding <b>"+esc(file.name)+(CURRENT_SHEET?(' · '+esc(CURRENT_SHEET)):'')+"</b> before any cleaning.");
@@ -2485,6 +2599,7 @@ async function profileFile(file){
     const data=await res.json();
     clearInterval(ticker); COL_ABORT=null;
     if(!res.ok || data.error) throw new Error(data.error||('profile '+res.status));
+    window.__INGEST_NOTES__=data.notes||[];
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on');
       // Panel/wide data? offer to reshape to long BEFORE the column review.
@@ -2570,6 +2685,17 @@ function deleteColumn(i){ const c=COLREVIEW[i]; if(!c) return; c.dropped=true;
   try{ logEvent('skip','Removed column \u201c'+c.original+'\u201d'); }catch(e){}
   renderColumnReview(); }
 function restoreColumn(i){ const c=COLREVIEW[i]; if(!c) return; c.dropped=false; renderColumnReview(); }
+let SHOW_SHORT=false, COL_SEEN=new Set();
+function colGo(k){ COL_PAGE=k; renderColumnReview(); scrollColsTop(); }
+function useShortNames(on){
+  // one switch instead of a chip on every row: rename every column to a short,
+  // analysis-ready name (full_name, phone_number), or put the originals back
+  COLREVIEW.forEach(c=>{ if(c.dropped) return;
+    if(on && c.suggestion){ c._orig_name=c.name; c.name=c.suggestion; }
+    else if(!on && c._orig_name!=null){ c.name=c._orig_name; c._orig_name=null; } });
+  logEvent('\u270E', on?'Switched to short column names':'Restored the original column names');
+  renderColumnReview();
+}
 function applySuggestion(i){ COLREVIEW[i].name=COLREVIEW[i].suggestion; COLREVIEW[i].suggestion=''; renderColumnReview(); }
 function setColType(i,v){ const c=COLREVIEW[i]; if(c && c.type!==v){ logEvent('\u270E','Changed type of "'+c.original+'" to '+(TYPE_LABEL[v]||v)+' (you)'); } if(c) c.type=v; }
 
@@ -2599,13 +2725,19 @@ function typeSelect(i,cur){
   return `<select class="typesel" onchange="setColType(${i},this.value)" title="What kind of values this column holds. Change it if we guessed wrong.">${known}${opts}</select>`;
 }
 
+function renderIngestNotes(){
+  const box=$('#ingest-notes'); if(!box) return;
+  const notes=(window.__INGEST_NOTES__||[]).filter(n=>/removed|filled|skipped|flattened|transpos/i.test(n));
+  box.style.display=notes.length?'block':'none';
+  box.innerHTML=notes.length?('While reading the file we: '+notes.map(esc).join('; ')+'. These change the layout, not your values. If something looks missing, check the original file.'):'';
+}
 function renderShapeNotice(){
   const box=$('#shape-notice'); if(!box) return;
   const sh=window.__SHAPE__||{kind:'table'};
   if(sh.kind==='form' || sh.kind==='embedded'){
     box.innerHTML='<div class="hint-bar warn">📄 This looks like a <b>form</b>, not a plain data table'+
       (sh.kind==='embedded'?' (with a small table inside)':'')+'. '+
-      'We\u2019ve read the table part below — the labelled fields (Name, Date, etc.) aren\u2019t rows of data, so review carefully or remove columns that aren\u2019t real data.</div>';
+      'We\u2019ve read the table part below. The labelled fields (Name, Date, etc.) aren\u2019t rows of data, so review carefully or remove columns that aren\u2019t real data.</div>';
     box.style.display='block';
   } else if(sh.kind==='list'){
     box.innerHTML='<div class="hint-bar warn">📄 This sheet looks like a <b>single-column list</b>, not a multi-column table. Clean it as a list, or pick a different sheet.</div>';
@@ -2621,15 +2753,21 @@ function renderAITopBanner(){
     box.innerHTML='<div class="ai-offer">'+
       '<span class="ai-offer-ic">✦</span>'+
       '<span class="ai-offer-tx"><b>'+shaky+' column'+(shaky>1?'s':'')+' look uncertain.</b> AI can double-check '+
-      (shaky>1?'them':'it')+' and tidy any messy values — you approve every change.</span>'+
+      (shaky>1?'them':'it')+' and tidy any messy values. You approve every change.</span>'+
       '<button class="btn sm" onclick="onRunAITick(true); renderColumnReview();">Use AI</button></div>';
   } else { box.style.display='none'; box.innerHTML=''; }
 }
 function scrollColsTop(){ const h=document.querySelector('[data-screen="4"] h1'); if(h) h.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderColumnReview(){
-  renderShapeNotice();
+  renderShapeNotice(); renderIngestNotes();
   renderAITopBanner();
   const abn=COLREVIEW.filter(c=>c.abnormal).length;
+  let tools=$('#col-tools');
+  if(!tools){ tools=document.createElement('div'); tools.id='col-tools'; tools.className='col-tools';
+    const mt=$('#matchtable'); if(mt&&mt.parentNode) mt.parentNode.insertBefore(tools, mt); }
+  const anyShort=COLREVIEW.some(c=>c.suggestion||c._orig_name!=null), shortOn=COLREVIEW.some(c=>c._orig_name!=null);
+  tools.innerHTML = anyShort ? '<label class="col-short"><input type="checkbox" '+(shortOn?'checked':'')+' onchange="useShortNames(this.checked)"> '+
+    'Use short column names for analysis <span class="col-short-eg">(e.g. Full Name becomes full_name)</span></label>' : '';
   // paginate long files so the list stays manageable (keeps real indices intact)
   const PER=12, total=COLREVIEW.length, pages=Math.max(1, Math.ceil(total/PER));
   if(COL_PAGE==null) COL_PAGE=0;
@@ -2639,7 +2777,7 @@ function renderColumnReview(){
     if(i<start || i>=end) return '';   // only render the current page's rows
     let status;
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
-    else if(c.suggestion) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
+    else if(c.suggestion && SHOW_SHORT) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
     else status=``;   // clean names need no badge, quiet by default (only flag what needs attention)
     const src = c.source==='ai' ? `<span class="ai-tag" title="Type suggested by AI, teal means AI helped">✦ AI</span>` : '';
     if(c.dropped){
@@ -2654,16 +2792,26 @@ function renderColumnReview(){
       ${typeSelect(i,c.type)}
       <button class="col-bin" title="Remove this column from the cleaned file" onclick="deleteColumn(${i})">🗑</button></div>`;}).join('');
   $('#matchrows').innerHTML=rows;
-  // pager (only when more than one page)
-  let pager=$('#col-pager');
-  if(!pager){ pager=document.createElement('div'); pager.id='col-pager'; pager.className='col-pager';
-    const mt=$('#matchtable'); if(mt&&mt.parentNode) mt.parentNode.insertBefore(pager, mt.nextSibling); }
-  if(pages>1){
-    pager.style.display='flex';
-    pager.innerHTML='<button class="btn ghost sm" '+(COL_PAGE<=0?'disabled':'')+' onclick="COL_PAGE--;renderColumnReview();scrollColsTop()">\u2190 Prev</button>'+
-      '<span class="col-pageinfo">Columns '+(start+1)+'\u2013'+end+' of '+total+' · page '+(COL_PAGE+1)+'/'+pages+'</span>'+
-      '<button class="btn ghost sm" '+(COL_PAGE>=pages-1?'disabled':'')+' onclick="COL_PAGE++;renderColumnReview();scrollColsTop()">Next \u2192</button>';
-  } else { pager.style.display='none'; pager.innerHTML=''; }
+  // pagers above AND below the list; numbered pages; pages with AI changes marked
+  COL_SEEN.add(COL_PAGE);
+  const aiPages=[...new Set(COLREVIEW.map((c,i)=>c.source==='ai'?Math.floor(i/PER):-1).filter(x=>x>=0))];
+  const pagerHTML = pages>1 ? (
+    '<button class="pg-btn" '+(COL_PAGE<=0?'disabled':'')+' onclick="colGo(0)" title="First page">\u00ab First</button>'+
+    '<button class="pg-btn" '+(COL_PAGE<=0?'disabled':'')+' onclick="colGo(COL_PAGE-1)">\u2039 Prev</button>'+
+    '<span class="pg-nums">'+Array.from({length:pages},(_,k)=>'<button class="pg-num'+(k===COL_PAGE?' on':'')+(aiPages.includes(k)?' ai':'')+'" onclick="colGo('+k+')" aria-label="Page '+(k+1)+(aiPages.includes(k)?', has AI changes':'')+'">'+(k+1)+'</button>').join('')+'</span>'+
+    '<button class="pg-btn" '+(COL_PAGE>=pages-1?'disabled':'')+' onclick="colGo(COL_PAGE+1)">Next \u203a</button>'+
+    '<span class="pg-info">Columns '+(start+1)+'\u2013'+end+' of '+total+'</span>') : '';
+  ['col-pager-top','col-pager'].forEach((id,k)=>{
+    let el=$('#'+id);
+    if(!el){ el=document.createElement('div'); el.id=id; el.className='col-pager';
+      const mt=$('#matchtable'); if(mt&&mt.parentNode) mt.parentNode.insertBefore(el, k===0?mt:mt.nextSibling); }
+    el.style.display=pages>1?'flex':'none'; el.innerHTML=pagerHTML;
+  });
+  const aiBox=$('#ai-pages-note');
+  if(aiBox){ const unseen=aiPages.filter(k=>!COL_SEEN.has(k));
+    aiBox.style.display=aiPages.length?'block':'none';
+    aiBox.innerHTML=aiPages.length?('\u2726 AI changed columns on page'+(aiPages.length>1?'s ':' ')+aiPages.map(k=>'<a onclick="colGo('+k+')">'+(k+1)+'</a>').join(', ')+
+      (unseen.length?'. You haven\u2019t opened '+(unseen.length>1?'pages ':'page ')+unseen.map(k=>k+1).join(', ')+' yet.':'. You\u2019ve seen them all.')):''; }
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
   const miss=$('#missing');
   if(miss){
@@ -2686,7 +2834,7 @@ function renderAIContext(){
     ? `${shaky} column(s) look uncertain, the engine handled the rest on its own.`
     : `The engine is confident about every column.`;
   box.innerHTML = `<label class="run-ai"><input type="checkbox" ${RUN_AI?'checked':''} onchange="onRunAITick(this.checked)">`+
-    `<span>Use AI to help with this file — it checks the tricky <b>columns</b> and cleans messy <b>values</b> (masked samples, you approve)`+
+    `<span>Use AI on this file. It checks the tricky <b>columns</b> and tidies messy <b>values</b>. Only masked samples are sent, and you approve every change.`+
     (configured?``:` (you'll add a key first)`)+`</span></label>`+
     `<div class="run-ai-note">${note} 1864 Prep is local-first and solves most cases on its own; AI is optional.</div>`+
     `<div class="run-ai-status" id="ai-run-status"></div>`;
@@ -2712,9 +2860,13 @@ function openPrivacy(){
 function setEnvPrivacyCopy(){
   const web = !!(window.ENV && ENV.web);
   const rf=$('#rf-privacy'); if(rf) rf.textContent = web ? 'Hosted demo.' : 'Runs on this computer.';
-  const lead=$('#upload-lead'); if(lead) lead.textContent = 'Drop in a messy file. CSV, Excel, JSON or PDF.';
+
   // a small floating card at the far-left bottom — doesn't affect the page flow,
   // and can be dismissed. Shown once per session unless dismissed.
+  // The sidebar line already says where data goes; make it the way into the
+  // details instead of a floating card that covered the bottom bar.
+  if(rf){ rf.style.cursor='pointer'; rf.style.textDecoration='underline dotted'; rf.title='How your data is handled'; rf.onclick=openPrivacy; }
+  return;
   if(sessionStorage.getItem('df_dismissed')) return;
   let card=$('#dataflow-card');
   if(!card){ card=document.createElement('div'); card.id='dataflow-card'; card.className='dataflow-card'; document.body.appendChild(card); }
@@ -2808,18 +2960,20 @@ async function runValueCleanup(){
         // show + log each actual grouping, e.g.  Lagos ← lagos, LAGOS
         Object.keys(r.merges).forEach(canon=>{
           const variants=r.merges[canon]; total++;
-          preview.push('<b>'+esc(colName)+'</b>: “'+esc(canon)+'” ← '+variants.map(v=>'“'+esc(v)+'”').join(', '));
-          try{ logEvent('clean','['+colName+'] grouped '+variants.map(v=>'"'+v+'"').join(', ')+' → "'+canon+'"'); }catch(e){}
+          const key=colName+'\u0001'+canon;
+          preview.push('<label class="tidy-pick"><input type="checkbox" onchange="(window.__AI_MERGES_OK__=window.__AI_MERGES_OK__||{})[this.dataset.k]=this.checked" data-k="'+esc(key)+'"> <b>'+esc(colName)+'</b>: “'+esc(canon)+'” ← '+variants.map(v=>'“'+esc(v)+'”').join(', ')+'</label>');
+
         });
       }
     }catch(e){ if(e&&e.name==='AbortError') return; /* skip this column */ }
   }
   const s2=$('#ai-run-status'); if(s2){
     if(total){
-      s2.innerHTML='<div class="ai-done">✓ grouped '+total+' set(s) of duplicate values (applied when you clean, and listed in the change log &amp; activity log):</div>'+
+      window.__AI_MERGES_OK__={};
+      s2.innerHTML='<div class="ai-done">Found '+total+' set(s) of values that look like the same thing. Tick the ones to merge. Nothing is merged unless you tick it.</div>'+
         '<ul class="tidy-list">'+preview.slice(0,12).map(p=>'<li>'+p+'</li>').join('')+(preview.length>12?'<li>…and '+(preview.length-12)+' more</li>':'')+'</ul>';
     } else {
-      s2.innerHTML='<span class="ai-done">✓ no duplicate values to group</span> — your text columns look clean.';
+      s2.innerHTML='<span class="ai-done">✓ no duplicate values to group</span>. Your text columns look clean.';
     }
   }
 }
@@ -2959,7 +3113,7 @@ function applyVersion(id){
       if(err||!payload) throw new Error(err||'no result');
       const rn=v.rename||{}; if(payload.overview) payload.overview.forEach(c=>{ if(rn[c.column]) c.column=rn[c.column]; });
       buildFieldsFromAPI(payload, file.name);
-      COLREVIEW=(v.columns||[]).map(o=>({original:o,name:(rn[o]||o),abnormal:false,suggestion:'',type:(v.types&&v.types[rn[o]||o])||', '}));
+      COLREVIEW=(v.columns||[]).map(o=>({original:o,name:(rn[o]||o),abnormal:false,suggestion:'',type:(v.types&&v.types[rn[o]||o])||'free_text'}));
       CURRENT_RECIPE={region:v.region,rename:rn,types:v.types,columns:v.columns,appliedVersion:v.name};
       addHistory({when:new Date().toISOString(), file:file.name, cols:(v.columns||[]).length, version:v.name});
       DIST=null; fetchDistribution();
@@ -2990,8 +3144,21 @@ let CLEAN_JOB=null, CLEAN_ABORTED=false, DIST=null;
 function cancelClean(){ if(CLEAN_JOB){ CLEAN_ABORTED=true; fetch('/api/job/'+CLEAN_JOB+'/cancel',{method:'POST'}); toast('Cancelling…'); } }
 
 // Phase 2: clean with the confirmed column names, then go to review.
-async function confirmColumnsAndClean(){
+async function confirmColumnsAndClean(force){
   if(!PENDING_FILE){ toast('Upload a file first'); return; }
+  const PER=12, aiIdx=COLREVIEW.map((c,i)=>c.source==='ai'&&!c.dropped?i:-1).filter(i=>i>=0);
+  const unseen=[...new Set(aiIdx.map(i=>Math.floor(i/PER)))].filter(k=>!COL_SEEN.has(k));
+  if(!force && unseen.length){
+    const names=aiIdx.filter(i=>unseen.includes(Math.floor(i/PER))).map(i=>COLREVIEW[i]);
+    let m=$('#aimiss'); if(!m){ m=document.createElement('div'); m.id='aimiss'; m.className='modal'; document.body.appendChild(m); }
+    m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>AI changed columns you haven\u2019t seen</h2>'+
+      '<button class="x" onclick="$(\'#aimiss\').classList.remove(\'on\')" aria-label="Close">\u2715</button></div>'+
+      '<p class="set-sub">AI suggested a different type for these columns, on page'+(unseen.length>1?'s ':' ')+unseen.map(k=>k+1).join(', ')+'. Check them before cleaning.</p>'+
+      '<ul class="aimiss-list">'+names.map(c=>'<li><b>'+esc(c.original)+'</b>: now <b>'+esc(TYPE_LABEL[c.type]||c.type)+'</b>'+(c.localType?' (engine said '+esc(TYPE_LABEL[c.localType]||c.localType)+')':'')+'</li>').join('')+'</ul>'+
+      '<div class="modal-foot"><button class="btn ghost" onclick="$(\'#aimiss\').classList.remove(\'on\');confirmColumnsAndClean(true)">Continue anyway</button>'+
+      '<button class="btn" onclick="$(\'#aimiss\').classList.remove(\'on\');colGo('+unseen[0]+')">Show me</button></div></div>';
+    m.classList.add('on'); return;
+  }
   const rename={}; COLREVIEW.forEach(c=>{ if(!c.dropped && c.name && c.name!==c.original) rename[c.original]=c.name; });
   const types={}; COLREVIEW.forEach(c=>{ if(c.dropped) return; const key=(c.name&&c.name!==c.original)?c.name:c.original; if(c.type&&c.type!=='-') types[key]=c.type; });
   const drop=COLREVIEW.filter(c=>c.dropped).map(c=>c.original);

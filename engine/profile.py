@@ -198,6 +198,15 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
 
     lower_distinct = {s.lower() for s in distinct}
 
+    hl = str(name).lower()
+    # word-boundary ID hints only: 'num'/'no' inside 'number of children' are counts, not IDs
+    _id_hint = bool(re.search(r"(?:^|[^a-z])(id|nin|bvn|code|ref|acct|account|msisdn|serial|reg|tin|passport)(?:[^a-z]|$)", hl))
+    _not_person = re.search(r"(state|lga|ward|town|village|city|community|facility|school|hospital|clinic|"
+                            r"org|organi[sz]ation|company|business|bank|product|item|drug|project|file|"
+                            r"user ?name|programme|program|market|church|mosque)", hl)
+    _name_hint = bool(re.search(r"(?:^|[^a-z])(name|names|surname|firstname|lastname|fullname)(?:[^a-z]|$)", hl)) and not _not_person
+    _money_hint = bool(re.search(r"(amount|amt|price|fee|cost|salary|income|naira|ngn|balance|paid|payment|stipend|grant)", hl))
+
     # --- ordered inference (most specific first) ---
     if email_rate >= 0.7:
         return ColumnProfile(name, "email", email_rate, "email", evidence=ev)
@@ -229,6 +238,31 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
         if hint:
             ev["excel_date_serials"] = True
             return ColumnProfile(name, "date", 0.85, "date_iso", evidence=ev)
+
+    # An ID header over digit strings is an identifier even when few values are
+    # distinct (e.g. a test file, or many blanks). Treating a NIN as a number
+    # would strip leading zeros and allow arithmetic on it.
+    _pd = [v for v in vals if _digits(v) == v.replace(" ", "")]
+    if _id_hint and _pd and len(_pd) / len(vals) >= 0.8 and letter_share < 0.1:
+        lens = [len(_digits(v)) for v in _pd]
+        mode_len = max(set(lens), key=lens.count)
+        ev["id_header"] = True
+        if mode_len == 11 and re.search(r"nin|bvn", hl):
+            return ColumnProfile(name, "identifier", 0.92, "nin", evidence=ev)
+        return ColumnProfile(name, "identifier", 0.9, "fixed_id", params={"length": mode_len}, evidence=ev)
+
+    # A money header over mostly numeric values (allowing N/NGN/naira symbols,
+    # commas, and a few words like 'fifty thousand' that get flagged) is an amount.
+    def _money_num(v):
+        t = re.sub(r"^\s*(ngn|n|₦)\s*", "", v, flags=re.I)
+        return bool(_NUMERIC.match(re.sub(r"[,$£€₦%\s]", "", t)))
+    if _money_hint:
+        mr = _rate(vals, _money_num)
+        if mr >= 0.5:
+            conv, _c = infer_decimal_convention(vals)
+            ev["money_header"] = True
+            return ColumnProfile(name, "numeric", round(max(mr, 0.8), 2), "numeric",
+                                 params={"decimal": conv}, evidence=ev)
 
     # leading-zero digit strings are codes (IDs, ZIP, account nos), never measures:
     # "007" is not the number 7. Keep them as identifiers so zeros are preserved.
@@ -330,6 +364,15 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
         ev["decimal_convention"] = conv
         return ColumnProfile(name, "numeric", numeric_rate, "numeric",
                              params={"decimal": conv}, evidence=ev)
+
+    # a person-name header over alphabetic values is a name column, even when the
+    # same few people repeat (otherwise it is treated as a category and spellings
+    # in a different word order get merged, e.g. 'ibrahim musa' -> 'Musa Ibrahim').
+    if _name_hint:
+        _ar = _rate(vals, lambda s: s.replace(" ", "").replace("-", "").replace("'", "").replace(".", "").isalpha())
+        if _ar >= 0.8 and avg_tokens <= 5:
+            ev["name_header"] = True
+            return ColumnProfile(name, "name", 0.85, "name", evidence=ev)
 
     # person name: 1-3 alphabetic tokens, high cardinality (checked before
     # categorical so real name columns aren't mistaken for small vocabularies).
@@ -578,6 +621,15 @@ def infer_date_order(values, min_share: float = 0.51) -> tuple[str | None, dict]
         return "DMY", {"dateable": n, "first_gt12": round(d1_gt12, 2)}
     if d2_gt12 >= min_share:
         return "MDY", {"dateable": n, "middle_gt12": round(d2_gt12, 2)}
+    # In real data only about 40% of dates have a day above 12, so a strict
+    # majority almost never triggers. The decisive evidence is one-sidedness:
+    # days above 12 keep appearing in one position and (almost) never in the
+    # other. A stray typo on the other side cannot flip it.
+    n1 = sum(1 for p in parts if p[0] > 12); n2 = sum(1 for p in parts if p[1] > 12)
+    if n1 >= 2 and n2 <= max(0, int(0.05 * n1)):
+        return "DMY", {"dateable": n, "first_gt12": round(d1_gt12, 2), "rule": "one-sided"}
+    if n2 >= 2 and n1 <= max(0, int(0.05 * n2)):
+        return "MDY", {"dateable": n, "middle_gt12": round(d2_gt12, 2), "rule": "one-sided"}
     return None, {"dateable": n, "ambiguous": True,
                   "first_gt12": round(d1_gt12, 2), "middle_gt12": round(d2_gt12, 2)}
 

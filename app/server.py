@@ -133,7 +133,7 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
         try:
             from engine.sheetshape import classify_sheet
             import pandas as _pd
-            raw = _pd.read_excel(path, sheet_name=(sheet or 0), header=None, dtype=str).fillna("").values.tolist() \
+            raw = _pd.read_excel(path, sheet_name=(sheet or getattr(rep, "sheet", None) or 0), header=None, dtype=str).fillna("").values.tolist() \
                 if str(path).lower().endswith((".xlsx", ".xls", ".xlsm")) else None
             if raw is not None:
                 _shape = classify_sheet(raw)
@@ -153,9 +153,13 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
                          "confidence": round(p.confidence, 2)} for p in profs],
             "structure": _struct,
             "shape": _shape,
+            "notes": list(getattr(rep, "notes", []) or []),
         }
     except Exception as e:
-        return {"error": f"Could not read the columns: {e}"}
+        msg = str(e)
+        if "empty" in msg.lower():
+            return {"error": msg}
+        return {"error": f"Couldn't read this file's columns ({msg}). Check it opens in Excel, or try saving it as CSV."}
     finally:
         path.unlink(missing_ok=True)
 
@@ -381,8 +385,6 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                                     "values": [{"row": x["row"], "value": x["value"], "reason": x["reason"]} for x in fl[:50]]})
             yield json.dumps({"t": "progress", "pct": 0.86, "stage": "Checking for duplicate rows"}) + "\n"
             admin_flags = _admin_checks(df, profs)
-            _dup_groups = near_duplicate_rows(df)
-            _dup_total = sum(len(g["rows"]) - 1 for g in _dup_groups)
             dups, _dup_total = _dup_payload(df)
             # similar-value scan across ALL text columns, with real per-column progress
             text_cols = [p for p in profs if p.semantic_type in ("categorical", "name", "free_text", "geo")]
@@ -393,11 +395,24 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                 if 2 <= nun <= 400:
                     from engine.domains import detect_domain
                     _dom = detect_domain(df[p.column].tolist(), p.column)
-                    gs = cluster_similar(df[p.column].tolist(), domain=_dom)[:20]
-                    if gs:
-                        similar.append({"column": p.column,
-                                        "groups": [{"representative": g["representative"], "members": g["members"][:20],
-                                                    "size": g["size"], "confidence": g["confidence"], "score": g["score"]} for g in gs]})
+                    # Look for near-duplicates AFTER cleaning, so case/spacing variants
+                    # the engine already fixed ('AISHA BELLO' vs 'Aisha Bello') are not
+                    # offered again as something to decide.
+                    _vals = (cleaned[p.column] if p.column in cleaned.columns else df[p.column]).tolist()
+                    gs = cluster_similar(_vals, domain=_dom)[:20]
+                    _person = p.semantic_type == "name"
+                    out_g = []
+                    for g in gs:
+                        conf = g["confidence"]
+                        # Two similar names can be two different people. Never pre-tick
+                        # a merge of person names; the user must choose it.
+                        if _person and conf == "high":
+                            conf = "medium"
+                        out_g.append({"representative": g["representative"], "members": g["members"][:20],
+                                      "size": g["size"], "confidence": conf, "score": g["score"],
+                                      "people": _person})
+                    if out_g:
+                        similar.append({"column": p.column, "type": p.semantic_type, "groups": out_g})
                 if k % 2 == 0 or k == M - 1:
                     yield json.dumps({"t": "progress", "pct": 0.88 + 0.10 * (k + 1) / M,
                                       "stage": f"Finding matches ({k+1} of {M})"}) + "\n"
@@ -440,9 +455,21 @@ async def api_tools():
     return {"tools": [{"id": k, "name": v[0], "desc": v[1], "kind": v[2]} for k, v in TOOLS.items()]}
 
 
-_RESULTS: dict = {}
-_SESSIONS: dict = {}
-_RESHAPED: dict = {}   # reshaped (long) dataframes, so cleaning uses the reshaped shape
+class _Recent(dict):
+    """A dict that keeps only the most recent N entries, so a long day of
+    cleaning files doesn't slowly fill the computer's memory."""
+    def __init__(self, cap):
+        super().__init__(); self.cap = cap
+    def __setitem__(self, k, v):
+        if k in self: super().__delitem__(k)
+        super().__setitem__(k, v)
+        while len(self) > self.cap:
+            super().__delitem__(next(iter(self)))
+
+
+_RESULTS: dict = _Recent(60)
+_SESSIONS: dict = _Recent(12)
+_RESHAPED: dict = _Recent(6)   # reshaped (long) dataframes, so cleaning uses the reshaped shape
 
 
 @app.post("/api/export")
@@ -496,6 +523,8 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), a
         col, into, members = mg.get("column"), mg.get("into"), set(mg.get("members", []))
         if col in cleaned.columns and into and members:
             mask = cleaned[col].astype(str).isin(members)
+            if col in df.columns:
+                mask = mask | df[col].astype(str).str.strip().isin({str(m).strip() for m in members}).reindex(cleaned.index, fill_value=False)
             n = int(mask.sum())
             cleaned.loc[mask, col] = into
             audit.append({"column": col, "action": f"merged {len(members)} spellings into '{into}'", "count": n, "by": "you"})
