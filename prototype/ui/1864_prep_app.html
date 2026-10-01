@@ -569,7 +569,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v60</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v61</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1081,19 +1081,15 @@ function obWelcome(){
 }
 function obPrivacy(){
   const web = !!(window.ENV && ENV.web);
-  const where = web
-    ? '<div class="pv-row"><div class="pv-ic">☁️</div><div><b>You\u2019re on the hosted demo (web)</b><span>Your file is sent to our server, cleaned for that run, and <b>not stored</b>. The page also clears when you reload. Best for trying the tool with non-sensitive or sample data. For real, sensitive data, use the free desktop app below.</span></div></div>'
-    : '<div class="pv-row"><div class="pv-ic">💻</div><div><b>You\u2019re on the desktop app</b><span>Everything happens on <b>this computer</b>. Your file is read and cleaned locally and is <b>never uploaded</b> anywhere.</span></div></div>';
+  const box1 = web
+    ? '<div class="pv-row"><div class="pv-ic">☁️</div><div><b>Hosted demo</b><span>Your file is sent to our server for the run and not stored. Use the desktop app for sensitive data.</span></div></div>'
+    : '<div class="pv-row"><div class="pv-ic">💻</div><div><b>Stays on this computer</b><span>Your whole file is read and cleaned locally. Nothing is uploaded.</span></div></div>';
   return '<div class="onb-card pv-card"><p class="eyebrow">Your privacy</p><h1>Where your data goes</h1>'+
-    '<p class="lead">Plain and honest, so you know exactly what happens to a file you open.</p>'+
     '<div class="pv-list">'+
-      where+
-      '<div class="pv-row"><div class="pv-ic">📄</div><div><b>The engine reads your whole file</b><span>To clean every row, the built-in engine needs to read the entire file. It does this '+(web?'on the server for the run':'on your machine')+', using rules only, no AI. This is how ~80% of cleaning happens.</span></div></div>'+
-      '<div class="pv-row"><div class="pv-ic">✦</div><div><b>AI (optional) sees only a tiny masked sample</b><span>If you switch AI on, it never receives your whole file, only the column names and a few masked example values. Sensitive-looking columns are masked first, and you approve every change.</span></div></div>'+
-      '<div class="pv-row"><div class="pv-ic">🔑</div><div><b>Keys stay with you</b><span>Any AI key you add is kept on '+(web?'your browser session':'your computer')+', used only at the moment of a call, and is never stored or sent to us.</span></div></div>'+
-      '<div class="pv-row"><div class="pv-ic">✓</div><div><b>Nothing changes without your say-so</b><span>Every proposed change is shown for you to accept or reject, and a full activity log records what was done, by you, the engine, or AI.</span></div></div>'+
+      box1+
+      '<div class="pv-row"><div class="pv-ic">✦</div><div><b>AI sees only a masked sample</b><span>If you turn AI on, it gets column names and a few masked values, never the whole file. You approve every change.</span></div></div>'+
+      '<div class="pv-row"><div class="pv-ic">🔑</div><div><b>Your key stays with you</b><span>Any AI key is kept on your device, used only for the call, never stored or sent to us.</span></div></div>'+
     '</div>'+
-    (web?'<p class="pv-foot">Want the fully-private version where nothing leaves your computer? Ask us for the free desktop app.</p>':'')+
     '<div class="onb-actions" style="justify-content:space-between"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button><button class="btn" onclick="onbNext()">Got it \u2192</button></div></div>';
 }
 function obBasics(){
