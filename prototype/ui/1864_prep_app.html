@@ -589,6 +589,17 @@
 .cn-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}.cn-actions{display:flex;gap:6px}
 .cn-need{margin-top:6px;font-size:12.5px;color:#7a5a14}
 .tidy-pick{display:block;cursor:pointer;padding:3px 0}
+/* waiting animation: 8 dots rolling around a ring */
+.dots-ring{position:relative;width:46px;height:46px;margin:2px auto 12px}
+.dots-ring i{position:absolute;top:50%;left:50%;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:var(--accent,#C99A4E);
+  transform:rotate(calc(var(--i)*45deg)) translateY(-18px);animation:dotfade 1s linear infinite;animation-delay:calc(var(--i)*.125s - 1s)}
+@keyframes dotfade{0%{opacity:1}100%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){.dots-ring i{animation:none;opacity:.6}}
+.wait-box{text-align:center}.wait-box h3{margin:0 0 6px}
+.up-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.priv-card{display:flex;align-items:flex-start;gap:10px;background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--ink-soft);max-width:260px}
+.priv-card b{color:var(--ink)}.priv-ic{font-size:16px;line-height:1.3}
+.priv-more{align-self:flex-end;margin-left:6px;font-size:12px;color:var(--navy);text-decoration:underline;cursor:pointer;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -608,7 +619,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v68</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v70</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -636,7 +647,14 @@
     
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
-      <p class="eyebrow">Upload</p><h1>Upload your file</h1>
+      <div class="up-head">
+        <div><p class="eyebrow">Upload</p><h1>Upload your file</h1></div>
+        <div class="priv-card" id="priv-card" role="note">
+          <span class="priv-ic" aria-hidden="true">🔒</span>
+          <span class="priv-tx" id="priv-tx"><b>Private</b><br>Everything stays on this computer.</span>
+          <a class="priv-more" onclick="openPrivacy()">Details</a>
+        </div>
+      </div>
       <input type="file" id="realfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.json,.pdf" style="display:none" onchange="onRealFile(event)">
       <div class="drop drop-hero" id="dropzone" role="button" tabindex="0" onclick="document.getElementById('realfile').click()"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('realfile').click()}"
@@ -654,7 +672,7 @@
         <p class="drop-sub">CSV, Excel, JSON or PDF. Messy is fine. That’s what this is for.</p>
         <span class="btn drop-btn">Choose a file</span>
       </div>
-      <p class="lead" style="margin-top:12px;font-size:13px">No file handy? <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="downloadSample()">Download a sample file</a>, then upload it above to see the real flow.</p>
+
     </section>
 
     <!-- 4 match names -->
@@ -2438,8 +2456,16 @@ async function runTool(preNote){
   }catch(err){ prog.fail(); out.innerHTML='<div class="wl-empty">Could not run: '+esc(err.message)+'</div>'; }
 }
 function tkDownload(fmt){ if(!TK_RESULT) return; window.open('/api/tool/download/'+TK_RESULT.result_id+'?fmt='+fmt,'_blank'); }
+const DOTS_HTML='<div class="dots-ring" aria-hidden="true">'+Array.from({length:8},(_,i)=>'<i style="--i:'+i+'"></i>').join('')+'</div>';
+function showWait(title, sub){
+  const ov=$('#overlay'); if(!ov) return;
+  ov.innerHTML='<div class="cleanbox wait-box" role="status" aria-live="polite">'+DOTS_HTML+
+    '<h3>'+title+'</h3><p>'+(sub||'')+'</p></div>';
+  ov.classList.add('on');
+}
+function hideWait(){ const ov=$('#overlay'); if(ov && ov.querySelector('.wait-box')){ ov.classList.remove('on'); ov.innerHTML=''; } }
 function makeProgressManual(el, title, sub){
-  el.innerHTML=`<div class="cleanbox">
+  el.innerHTML=`<div class="cleanbox">${DOTS_HTML}
     <h3>${title}</h3><p>${sub||''}</p>
     <div class="progress"><i id="pgbar"></i></div>
     <div class="prog-meta"><span id="pgpct">0%</span><span id="pgeta"></span></div>
@@ -2534,6 +2560,7 @@ async function onRealFile(e){
   logEvent('\u2191','Uploaded '+file.name);
   PENDING_FILE=file;
   try{ e.target.value=''; }catch(_){}   // allow re-selecting the same file later
+  showWait('Opening your file\u2026', 'Reading <b>'+esc(file.name)+'</b>. This takes a few seconds for big files.');
   // Multi-sheet workbook? let the user pick which sheet(s) to clean before anything else.
   if(/\.(xlsx|xls|xlsm)$/i.test(file.name)){
     try{
@@ -2542,7 +2569,7 @@ async function onRealFile(e){
       const sheets=(sr.sheets||[]).filter(s=>!s.empty);
       SHEET_LIST=sheets;
       if(sheets.length===1){ CURRENT_SHEET=sheets[0].name; }
-      if(sheets.length>1){ showSheetPicker(sheets); return; }   // wait for the user's choice
+      if(sheets.length>1){ hideWait(); showSheetPicker(sheets); return; }   // wait for the user's choice
     }catch(_){ /* fall through to normal single-sheet read */ }
   }
   profileFile(file);
@@ -2865,6 +2892,8 @@ function setEnvPrivacyCopy(){
   // and can be dismissed. Shown once per session unless dismissed.
   // The sidebar line already says where data goes; make it the way into the
   // details instead of a floating card that covered the bottom bar.
+  const pt=$('#priv-tx'); if(pt) pt.innerHTML = web ? '<b>Hosted demo</b><br>Processed on our server, not stored.' : '<b>Private</b><br>Everything stays on this computer.';
+  const pc=$('#priv-card .priv-ic'); if(pc) pc.textContent = web ? '\u2601\uFE0F' : '\uD83D\uDD12';
   if(rf){ rf.style.cursor='pointer'; rf.style.textDecoration='underline dotted'; rf.title='How your data is handled'; rf.onclick=openPrivacy; }
   return;
   if(sessionStorage.getItem('df_dismissed')) return;
