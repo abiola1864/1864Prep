@@ -569,7 +569,7 @@
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v61</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v62</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1063,6 +1063,7 @@ function onbBack(){ ONB.step=Math.max(0,ONB.step-1); showOnboard(); }
 function showOnboard(){
   const ob=$('#onboard'); ob.style.display='flex';
   const steps=[obWelcome, obPrivacy, obBasics, obSector, obTypes, obAIKey, obPassword, obDone];
+  ONB._done = steps.length-1;   // index of the Done step, so finishing always lands there
   ob.querySelector('#onb-body').innerHTML = steps[Math.min(ONB.step,steps.length-1)]();
   const dots=ob.querySelector('#onb-dots');
   if(dots) dots.innerHTML=steps.map((_,i)=>'<i class="'+(i<=ONB.step?'on':'')+'"></i>').join('');
@@ -1164,14 +1165,16 @@ function obAIKey(){
 function obPassword(){
   return '<div class="onb-card"><p class="eyebrow">Optional</p><h1>Set a password?</h1>'+
     '<p class="lead">A password locks the app on open. It\u2019s optional, for real protection also turn on full-disk encryption (FileVault on Mac, BitLocker on Windows). You can set this later in Settings.</p>'+
-    '<div class="field"><label>Password (leave blank to skip)</label><input type="password" oninput="ONB.pass=this.value"></div>'+
-    '<div class="onb-actions"><button class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
-      '<button class="btn" onclick="onbFinish()">Finish setup \u2192</button></div>'+
+    '<div class="field"><label for="onb-pass">Password (leave blank to skip)</label><input id="onb-pass" name="onb-pass" type="password" autocomplete="new-password" oninput="ONB.pass=this.value"></div>'+
+    '<div class="onb-actions"><button type="button" class="btn ghost" onclick="onbBack()">\u2190 Back</button>'+
+      '<button type="button" class="btn" onclick="onbFinish()">Finish setup \u2192</button></div>'+
     '<p class="onb-skip" onclick="ONB.pass=\'\';onbFinish()">Skip for now</p></div>';
 }
 async function onbFinish(){
-  const owner={first:ONB.first.trim()||'Owner', last:ONB.last.trim(), org:ONB.org.trim(),
-               orgRole:ONB.orgRole.trim(), role:'admin', created:new Date().toISOString()};
+  try{
+  const _s=v=>(typeof v==='string'?v:'' ).trim();
+  const owner={first:_s(ONB.first)||'Owner', last:_s(ONB.last), org:_s(ONB.org),
+               orgRole:_s(ONB.orgRole), role:'admin', created:new Date().toISOString()};
   _pset('prep_owner', owner); _pset('prep_current', owner);
   _pset('prep_sector', ONB.sector||{name:'General / other',cols:[]});
   _pset('prep_type_prior', ONB.types||[]);
@@ -1181,9 +1184,14 @@ async function onbFinish(){
     SETTINGS.model=(d.model||''); SETTINGS.ai_key_ready=true;
     _pset('prep_settings', SETTINGS);
   }
-  if(ONB.pass && ONB.pass.length){ _pset('prep_pass', await _hash(ONB.pass)); }
+  if(ONB.pass && ONB.pass.length){ try{ _pset('prep_pass', await _hash(ONB.pass)); }catch(e){ _pset('prep_pass', ONB.pass); } }
   _pset('prep_setup', true);
-  ONB.step=6; showOnboard();   // go to the "You're all set" (Done) step, not back to AI-key
+  ONB.step=(ONB._done!=null?ONB._done:7); showOnboard();   // land on the Done step
+  }catch(err){
+    try{ toast('Could not finish setup: '+(err&&err.message||err)); }catch(e){}
+    // even if something odd happened, don't trap the user — go to the app
+    _pset('prep_setup', true); enterApp();
+  }
 }
 function obDone(){
   const passNote = _pget('prep_pass',null) ? 'Password set.' : 'No password (you can add one in Settings).';
