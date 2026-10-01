@@ -47,7 +47,7 @@ def _clean_vals(series: pd.Series) -> list[str]:
         if v is None or (isinstance(v, float) and pd.isna(v)):
             continue
         s = str(v).strip()
-        if s == "" or s.lower() in {"na", "n/a", "#n/a", "nan", "null", "none", "[null]", "[na]", "nil", "-", "--"}:
+        if s == "" or s.lower() in {"na", "n/a", "#n/a", "nan", "null", "none", "[null]", "[na]", "nil", "-", "--", "..", "...", ":", "n.a."}:
             continue
         out.append(s)
     return out

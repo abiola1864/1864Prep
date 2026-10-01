@@ -33,9 +33,8 @@ class AutoCategoricalTransform(Transform):
         out = []
         for i, val in enumerate(series.tolist()):
             if val is None or (isinstance(val, float) and pd.isna(val)) or str(val).strip() == "":
-                out.append("")
-                res.n_flagged += 1
-                res.flags.append(Change(i, val, "", True, "empty categorical"))
+                out.append("" if val is None or (isinstance(val, float) and pd.isna(val)) else val)
+                res.n_blank += 1          # blank is missing data, not a problem to fix
                 continue
             canon = vocab.mapping.get(str(val).strip(), str(val).strip())
             out.append(canon)

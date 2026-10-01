@@ -589,7 +589,13 @@ def _read_one_sheet(path: Path, sheet: str, grid: list[list[str]], sheets: list[
         body_rows = kept
     body = [(list(map(str, r)) + [""] * width)[:width] for r in body_rows]
     df = pd.DataFrame(body, columns=_dedupe_headers(header))
-    df = _drop_empty_columns(df, rep_notes := [])
+    rep_notes = []
+    # same layout repairs as CSV: a country/region written once and left blank
+    # for the rows under it ('Australia', '', '') is filled down, so those rows
+    # are never mistaken for repeats of another country's rows
+    df = _pair_year_value_columns(df, rep_notes)
+    df = _fill_group_labels(df, rep_notes)
+    df = _drop_empty_columns(df, rep_notes)
     if dividers:
         rep_notes.append(f"removed {dividers} section-divider/label row(s) from the data")
     orient = detect_orientation(raw[data_start:data_start + 200])

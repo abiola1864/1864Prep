@@ -112,7 +112,12 @@ def induce_vocabulary(values, threshold: float = 0.86) -> InducedVocab:
             if all(c.islower() for c in letters): return 0
             return 2
         rep = sorted(members, key=lambda m: (_case_rank(m), counts[m], -len(m)), reverse=True)[0]
-        label = _titlecase(rep)
+        if len(members) == 1:
+            label = _WS.sub(" ", rep.strip())        # one spelling: leave it alone ('All persons' stays)
+        elif _case_rank(rep) == 2:
+            label = _WS.sub(" ", rep.strip())        # a well-cased spelling exists: use it as written
+        else:
+            label = _titlecase(rep)                  # only SHOUTED / lower-case variants: tidy once
         clusters[label] = sorted(members, key=lambda m: counts[m], reverse=True)
         for m in members:
             mapping[m] = label

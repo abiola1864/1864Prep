@@ -26,6 +26,16 @@ _UNI_SPACE = {ord(c): " " for c in "\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u20
               "\u2006\u2007\u2008\u2009\u200a\u202f\u205f\u3000"}
 
 
+# Marks that mean "no data" in official exports (OECD '..', Eurostat ':', 'n/a').
+# They are kept exactly as they are and never counted as problems to fix.
+MISSING_MARKS = {"..", "...", ":", "-", "--", "na", "n/a", "n.a.", "#n/a", "nan", "null", "none", "nil", "[na]", "[null]"}
+
+
+def is_missing_mark(v) -> bool:
+    s = "" if v is None else str(v).strip().lower()
+    return s == "" or s in MISSING_MARKS
+
+
 def _clean_str(value: Any) -> str:
     """Shared helper: None/NaN -> ''; strip zero-width chars, turn non-breaking
     and other unicode spaces into normal spaces, then trim and collapse."""
@@ -107,6 +117,10 @@ class Transform:
         )
         new_values = []
         for i, val in enumerate(series.tolist()):
+            if self.name != "text_clean" and is_missing_mark(val) and str(val).strip() != "":
+                new_values.append(val)          # '..' stays '..': missing, not an error
+                res.n_blank += 1
+                continue
             new_val, flagged, reason = self.apply_value(val)
             new_values.append(new_val)
 

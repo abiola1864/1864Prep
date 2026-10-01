@@ -102,10 +102,18 @@ def near_duplicate_rows(df: pd.DataFrame, subset: list[str] | None = None,
     """
     cols = subset or list(df.columns)
     buckets: dict[tuple, list[int]] = defaultdict(list)
+    _c0 = df[cols[0]].map(_norm_cell) if cols else None
+    sparse_label = bool(cols) and 0 < (_c0 != "").sum() < len(df) and \
+        not pd.to_numeric(df[cols[0]].replace("", None), errors="coerce").notna().any()
     for i in range(len(df)):
         row = df[cols].iloc[i]
         norm = tuple(_norm_cell(row[c]) for c in cols)
         if not any(norm):                 # entirely empty row: not a meaningful duplicate
+            continue
+        # A blank first-column label in a file where that column is a sparse
+        # group label means "same as the row above" (e.g. a country written once
+        # over 'Men' / 'Women' rows). Such rows are not repeats of other groups.
+        if sparse_label and norm[0] == "":
             continue
         buckets[norm].append(i)
     groups = [{"rows": idxs, "kind": "exact", "similarity": 1.0}

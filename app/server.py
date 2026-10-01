@@ -97,7 +97,7 @@ def _dup_payload(df):
     def prev(i):
         return " \u00b7 ".join(str(v) for v in df.iloc[i].tolist() if str(v).strip())[:90]
     out = []
-    for g in groups[:50]:
+    for g in groups[:1000]:
         out.append({"rows": g["rows"], "kind": g["kind"], "similarity": g["similarity"],
                     "keep_row": g["rows"][0], "remove_rows": g["rows"][1:],
                     "preview": prev(g["rows"][0]),
@@ -141,7 +141,11 @@ async def api_profile(file: UploadFile = File(...), region: str = Form(None), ty
             pass
         if getattr(rep, "is_form", False):
             _struct = {"kind": "form"}
+        import uuid as _uuid_p
+        _pid = _uuid_p.uuid4().hex[:12]
+        _PREVIEWS[_pid] = df
         return {
+            "preview_id": _pid,
             "ingest": rep.summary(),
             "is_form": bool(getattr(rep, "is_form", False)),
                 "skipped_rows": rep.skipped_rows, "header_row": rep.header_row,
@@ -220,7 +224,7 @@ async def api_sheets(file: UploadFile = File(...)):
 @app.post("/api/reshape_long")
 async def api_reshape_long(file: UploadFile = File(...), region: str = Form(None),
                           id_cols: str = Form("[]"), value_cols: str = Form("[]"),
-                          axis_name: str = Form("year"), value_name: str = Form("value")):
+                          axis_name: str = Form("year"), value_name: str = Form("value"), sheet: str = Form(None)):
     """Reshape an uploaded wide/panel file to long, then re-profile the result so
     the columns review shows the tidy long columns."""
     if region:
@@ -229,12 +233,13 @@ async def api_reshape_long(file: UploadFile = File(...), region: str = Form(None
     import json as _json
     try:
         ids = _json.loads(id_cols); vals = _json.loads(value_cols)
-        df, rep = read_any(path)
+        df, rep = read_any(path, sheet=sheet)      # the SAME sheet the person picked
         from engine.reshape import to_long
         long = to_long(df, ids, vals, axis_name=axis_name, value_name=value_name)
         import uuid as _uuid
         reshaped_id = _uuid.uuid4().hex[:12]
         _RESHAPED[reshaped_id] = long
+        _RESHAPE_META[reshaped_id] = {"id_cols": ids, "axis_name": axis_name, "value_name": value_name}
         _ref = _regions.load_reference()
         profs = profile_dataframe(long, _ref["gazetteers"], _ref["place_index"], use_ml=False, use_nlp=False)
         from engine.headers import propose_headers, abnormal_count
@@ -417,7 +422,8 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     yield json.dumps({"t": "progress", "pct": 0.88 + 0.10 * (k + 1) / M,
                                       "stage": f"Finding matches ({k+1} of {M})"}) + "\n"
             sid = _uuid.uuid4().hex[:12]
-            _SESSIONS[sid] = {"df": df, "types": types, "plan": plan, "cleaned": cleaned}
+            _SESSIONS[sid] = {"df": df, "types": types, "plan": plan, "cleaned": cleaned,
+                              "reshape": _RESHAPE_META.get(reshaped_id) if reshaped_id else None}
             from engine.headers import propose_headers, abnormal_count
             from engine.domains import detect_domain as _dd
             _doms_s = [_dd(df[c].tolist(), str(c)) for c in cols]
@@ -469,6 +475,8 @@ class _Recent(dict):
 
 _RESULTS: dict = _Recent(60)
 _SESSIONS: dict = _Recent(12)
+_RESHAPE_META: dict = _Recent(12)
+_PREVIEWS: dict = _Recent(6)    # the file as read, so the side panel can show every row before cleaning
 _RESHAPED: dict = _Recent(6)   # reshaped (long) dataframes, so cleaning uses the reshaped shape
 
 
@@ -539,7 +547,15 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), a
                 audit.append({"column": col, "action": f"kept the original value in {len(idx)} row(s), your choice",
                               "count": len(idx), "by": "you"})
 
-    # 4) remove duplicate rows
+    # 4) remove duplicate rows: exactly the rows the person ticked, or (older
+    #    clients) every repeat after the first of each set
+    explicit = dec.get("remove_rows")
+    if explicit:
+        drop = sorted({int(r) for r in explicit if 0 <= int(r) < len(cleaned)})
+        if drop:
+            cleaned = cleaned.drop(index=cleaned.index[drop]).reset_index(drop=True)
+            audit.append({"column": "(rows)", "action": "removed repeated rows you chose", "count": len(drop), "by": "you"})
+        remove_dupes = False
     if remove_dupes:
         groups = near_duplicate_rows(df)
         drop = set()
@@ -551,8 +567,22 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), a
 
     rid = uuid.uuid4().hex[:12]
     _RESULTS[rid] = {"df": cleaned, "title": "Cleaned data"}
+    wide_id = None
+    meta = sess.get("reshape")
+    if meta:
+        try:
+            ids = [c for c in meta["id_cols"] if c in cleaned.columns]
+            ax, val = meta["axis_name"], meta["value_name"]
+            if ax in cleaned.columns and val in cleaned.columns:
+                w = cleaned.pivot_table(index=ids, columns=ax, values=val, aggfunc="first", sort=False).reset_index()
+                w.columns = [str(c) for c in w.columns]
+                wide_id = rid + "_wide"
+                _RESULTS[wide_id] = {"df": w, "title": "Cleaned data (wide)"}
+        except Exception:
+            wide_id = None
     _RESULTS[rid + "_audit"] = {"df": __import__("pandas").DataFrame(audit), "title": "Change log"}
-    return {"result_id": rid, "audit_id": rid + "_audit", "rows_out": len(cleaned),
+    return {"result_id": rid, "audit_id": rid + "_audit", "wide_id": wide_id,
+            "shape": ("long" if meta else None), "rows_out": len(cleaned),
             "cols_out": len(cleaned.columns), "audit": audit[:200],
             "changes_total": sum(int(a["count"]) for a in audit if str(a["count"]).isdigit())}
 
@@ -562,6 +592,19 @@ def _cell(v):
     if v is None or (isinstance(v, float) and _pd.isna(v)):
         return ""
     return str(v)
+
+
+@app.post("/api/preview/rows")
+async def preview_rows(payload: dict):
+    """Every row of the file as read (or as reshaped), before cleaning, paged."""
+    rid = payload.get("reshaped_id")
+    df = _RESHAPED.get(rid) if rid else _PREVIEWS.get(payload.get("preview_id") or "")
+    if df is None:
+        return JSONResponse(status_code=404, content={"error": "Open the file again to see its rows."})
+    off = max(0, int(payload.get("offset", 0) or 0)); lim = max(1, min(500, int(payload.get("limit", 200) or 200)))
+    cols = list(df.columns)
+    rows = [{"row": i, "before": {c: _cell(df[c].iloc[i]) for c in cols}} for i in range(off, min(len(df), off + lim))]
+    return {"columns": [str(c) for c in cols], "total": len(df), "offset": off, "rows": rows}
 
 
 @app.post("/api/session/rows")
@@ -796,7 +839,7 @@ async def ai_review(payload: dict):
         for k, v in (row or {}).items():
             mr[k] = _mask(str(v)) if looks_sensitive(str(k)) else v
         masked.append(mr)
-    return review(headers, masked, provider=payload.get("provider", "ollama"),
+    return review(headers, masked, context=str(payload.get("context", ""))[:300], provider=payload.get("provider", "ollama"),
                   url=payload.get("url", ""), model=payload.get("model", ""), api_key=payload.get("api_key", ""))
 
 

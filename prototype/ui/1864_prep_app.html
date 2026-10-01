@@ -634,6 +634,16 @@ body.dp-open .main{margin-right:var(--dpw)}
 .dp-focus{background:#f3f7f8}.dp-table th.dp-focus{background:#e3eef1;color:var(--ink)}
 .dp-chg{background:#fdf3dc !important;color:#5c3f0a;font-weight:600}.dp-done{color:#2f6f57}.dp-blank{color:#d5cfc0}
 .dp-pages{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:8px;font-size:12.5px;color:var(--ink-soft)}
+/* v73 */
+.shape-pick{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;background:var(--wash);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:10px 0;font-size:13.5px}
+.shape-pick>span{color:var(--ink-soft);width:100%}.shape-pick label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.dup-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 10px}.dup-count{margin-left:auto;font-size:13px;color:var(--ink-soft)}
+.dup-row{display:flex;gap:10px;align-items:center;cursor:pointer}.dup-row input{flex:0 0 auto}.dup-more{margin-top:8px}
+.big[disabled]{opacity:.45;cursor:not-allowed}
+.cn-pick{margin-left:8px;font-size:12.5px;cursor:pointer;text-decoration:underline;color:var(--navy)}
+.dp-total{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}.dp-head .x{margin-left:8px}
+.dp-more,.dp-end{display:flex;gap:10px;align-items:center;justify-content:center;padding:12px;font-size:12.5px;color:var(--ink-soft)}
+.dp-more .dots-ring{width:22px;height:22px;margin:0}.dp-more .dots-ring i{width:4px;height:4px;margin:-2px 0 0 -2px;transform:rotate(calc(var(--i)*45deg)) translateY(-8px)}
 </style>
 </head>
 <body>
@@ -653,7 +663,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v71</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v73</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -798,7 +808,7 @@ body.dp-open .main{margin-right:var(--dpw)}
 
     <div class="gate" id="gate" style="display:none !important">
       <span class="msg" id="gatemsg"></span><span class="sp"></span>
-      <button class="btn ghost sm" onclick="acceptRemaining()">Accept all remaining</button>
+      <button class="btn ghost sm" onclick="acceptRemaining()" title="Accepts the column changes you haven't decided. Merges and repeated rows still need you.">Accept remaining changes</button>
       <button class="btn" id="finish" disabled onclick="go(7)">Approve &amp; export</button>
     </div>
 
@@ -1679,12 +1689,16 @@ function showConnect(){
 }
 function cancelConnect(){ USE_AI=false; $('#aiswitch').checked=false; toggleAI(false); AI_CONNECTED=false; runClean(); }
 function confirmConnect(kind){ AI_CONNECTED=true; toast(kind==='local'?'Local model connected':'Cloud model connected'); runClean(); }
+// "AI assisted" only when the person ticked "Use AI" for THIS file and it is set up,
+// not merely because AI is switched on in AI setup.
+function aiUsedThisFile(){ return !!(RUN_AI && typeof aiReady==='function' && aiReady()); }
 function runClean(){
   const ov=$('#overlay');ov.classList.add('on');
-  const title=USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine';
-  const sub=USE_AI?'The engine cleans locally; the AI model helps only with the tricky columns.':'Standardising values with built-in rules. Your file stays on this computer.';
+  const _ai=aiUsedThisFile();
+  const title=_ai?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine';
+  const sub=_ai?'The engine cleans locally; the AI model helps only with the tricky columns.':'Standardising values with built-in rules. Your file stays on this computer.';
   let stages=['Reading & aligning columns','Applying format rules (IDs, dates, phones)','Matching names & places (fuzzy + phonetic)'];
-  if(USE_AI) stages.push('AI: understanding unusual columns & places');
+  if(_ai) stages.push('AI: understanding unusual columns & places');
   stages=stages.concat(['Discovering category sets','Detecting outliers & flagging what needs you']);
   ov.innerHTML=`<div class="cleanbox"><div class="spin"></div><h3>${title}</h3><p>${sub}</p>
     <div class="cbar"><i id="cfill"></i></div>
@@ -1800,11 +1814,13 @@ function cosmeticDetail(){
       '<div class="cn-eg"><span class="cn-before">'+esc(String(r.before==null?'':r.before))+'</span>'+
       '<span class="cn-arrow">→</span><span class="cn-after">'+esc(String(r.after==null?'':r.after))+'</span></div>').join('');
     const more=(f.rows||[]).length>3 ? '<div class="cn-more">+'+((f.rows||[]).length-3)+' more</div>' : '';
-    return '<div class="cn-col"><div class="cn-colname">'+esc(labelOf(f.name))+' <span class="cn-n">'+f.nChanged+' change'+(f.nChanged===1?'':'s')+'</span></div>'+rows+more+'</div>';
+    const kept=(KEEP_ROWS[f.name]||new Set()).size;
+    return '<div class="cn-col"><div class="cn-colname">'+esc(labelOf(f.name))+' <span class="cn-n">'+f.nChanged+' change'+(f.nChanged===1?'':'s')+(kept?', '+kept+' kept':'')+'</span>'+
+      (SESSION_ID?' <a class="link cn-pick" onclick="openRowPicker(0,\''+esc(f.name).replace(/'/g,"\\'")+'\')">Choose rows</a>':'')+'</div>'+rows+more+'</div>';
   }).join('')+'<div class="cn-foot">Every change is also in the log you download at the end.</div></div>';
 }
 // ---- data panel ----
-let DP={open:false, off:0, view:'cleaned', data:null, key:''};
+let DP={open:false, off:0, view:'cleaned', data:null, key:'', rows:[]};
 try{ DP.open = sessionStorage.getItem('prep_dp')==='1'; }catch(e){}
 function dpHere(){ return cur===4||cur===5||cur===7; }
 function toggleDataPanel(){ setDataPanel(!DP.open); }
@@ -1820,47 +1836,58 @@ function applyDataPanel(){
   if(p) p.setAttribute('aria-hidden', !show);
   if(show) renderDataPanel();
 }
+async function dpFetch(off){
+  const before = (cur===4 || !SESSION_ID);
+  const url = before ? '/api/preview/rows' : '/api/session/rows';
+  const body = before ? {preview_id:window.__PREVIEW_ID__, reshaped_id:window.__RESHAPED_ID__||null, offset:off, limit:200}
+                      : {session_id:SESSION_ID, offset:off, limit:200};
+  const r=await (await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(r.error) throw new Error(r.error);
+  return {before, ...r};
+}
 async function renderDataPanel(){
   const p=$('#datapanel'); if(!p || !DP.open || !dpHere()) return;
-  const focus = (cur===5 && typeof curField==='function' && curField()) ? curField().name : null;
-  let cols, rows, total, cleaned=false;
-  if(cur===4 || !SESSION_ID){
-    cols=COLREVIEW.filter(c=>!c.dropped).map(c=>({key:c.original,label:c.name||c.original}));
-    rows=(COL_SAMPLE||[]).map((r,i)=>({row:i, before:r, after:r})); total=rows.length;
-  } else {
-    cleaned=true;
-    const key=SESSION_ID+':'+DP.off;
-    if(DP.key!==key){
-      p.innerHTML='<div class="dp-head"><b>Your data</b><button class="x" onclick="setDataPanel(false)" aria-label="Close">\u2715</button></div><div class="dp-loading">'+DOTS_HTML+'</div>';
-      try{ const r=await (await fetch('/api/session/rows',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SESSION_ID,offset:DP.off,limit:50})})).json();
-        if(r.error) throw new Error(r.error); DP.data=r; DP.key=key; }
-      catch(e){ p.innerHTML='<div class="dp-head"><b>Your data</b><button class="x" onclick="setDataPanel(false)">\u2715</button></div><p class="dp-note">'+esc(e.message||'Could not load the data.')+'</p>'; return; }
-    }
-    cols=DP.data.columns.map(c=>({key:c,label:c})); rows=DP.data.rows; total=DP.data.total;
+  const before=(cur===4 || !SESSION_ID);
+  const key=(before?('P:'+(window.__RESHAPED_ID__||window.__PREVIEW_ID__)):('S:'+SESSION_ID));
+  if(DP.key!==key){
+    p.innerHTML='<div class="dp-head"><b>Your data</b><button class="x" onclick="setDataPanel(false)" aria-label="Close">\u2715</button></div><div class="dp-loading">'+DOTS_HTML+'<p>Loading your data\u2026</p></div>';
+    try{ const r=await dpFetch(0); DP.data=r; DP.rows=r.rows; DP.key=key; }
+    catch(e){ p.innerHTML='<div class="dp-head"><b>Your data</b><button class="x" onclick="setDataPanel(false)">\u2715</button></div><p class="dp-note">'+esc(e.message||'Could not load the data.')+'</p>'; return; }
   }
-  const showAfter = cleaned && DP.view==='cleaned';
-  const head='<tr><th class="dp-n">#</th>'+cols.map(c=>'<th class="'+(c.key===focus?'dp-focus':'')+'">'+esc(labelOf?labelOf(c.label):c.label)+'</th>').join('')+'</tr>';
-  const body=rows.map(r=>'<tr><td class="dp-n">'+(r.row+1)+'</td>'+cols.map(c=>{
-      const b=(r.before||{})[c.key]==null?'':String(r.before[c.key]); let a=(r.after||{})[c.key]==null?'':String(r.after[c.key]);
-      // show the file as it stands: accepted columns cleaned, the column being
-      // decided shown as proposed, everything else as uploaded
+  const focus = (cur===5 && typeof curField==='function' && curField()) ? curField().name : null;
+  const cols=DP.data.columns.map(c=>({key:c,label:(before&&cur===4)?((COLREVIEW.find(x=>x.original===c)||{}).name||c):c}));
+  const cleaned=!before, showAfter=cleaned && DP.view==='cleaned';
+  const rowsHTML=(rows)=>rows.map(r=>'<tr><td class="dp-n">'+(r.row+1)+'</td>'+cols.map(c=>{
+      const b=(r.before||{})[c.key]==null?'':String(r.before[c.key]); let a=(r.after||{})[c.key]==null?b:String(r.after[c.key]);
       const f=FIELDS.find(x=>x.name===c.key);
       const accepted=f&&f.decision==='accept', proposing=(c.key===focus)&&!(f&&f.decision==='reject');
       const kept=KEEP_ROWS[c.key]&&KEEP_ROWS[c.key].has(r.row);
-      if(!(accepted||proposing) || kept || cur===4) a=b;
-      const chg=cleaned && a!==b;
-      const v=showAfter?a:b;
+      if(!cleaned || !(accepted||proposing) || kept) a=b;
+      const chg=cleaned && a!==b, v=showAfter?a:b;
       const cls=(c.key===focus?'dp-focus ':'')+(chg&&showAfter?(proposing&&!accepted?'dp-chg':'dp-done'):'');
       return '<td class="'+cls+'"'+(chg&&showAfter?' title="Was: '+esc(b||'(blank)')+'"':'')+'>'+(esc(v)||'<span class="dp-blank">\u00b7</span>')+'</td>'; }).join('')+'</tr>').join('');
-  const pages=cleaned?Math.ceil(total/50):1, pg=Math.floor(DP.off/50);
+  const head='<tr><th class="dp-n">#</th>'+cols.map(c=>'<th class="'+(c.key===focus?'dp-focus':'')+'">'+esc(c.label)+'</th>').join('')+'</tr>';
+  const total=DP.data.total, have=DP.rows.length;
+  const note = cleaned ? (showAfter?((focus?'Highlighted: what would change in '+esc(labelOf(focus))+'. ':'')+'Columns you accepted show their cleaned values. Hover a changed cell to see what it was. Nothing is saved until you export.'):'Your file exactly as it was uploaded.')
+                       : (window.__RESHAPED_ID__?'Your data after reshaping to long, before any cleaning.':'Your file as read, before any cleaning.');
+  const sc = p.querySelector('.dp-wrap'); const keepTop=sc?sc.scrollTop:0, keepLeft=sc?sc.scrollLeft:0;
   p.innerHTML='<div class="dp-head"><b>Your data</b>'+
       (cleaned?'<span class="dp-seg"><button class="'+(DP.view==='cleaned'?'on':'')+'" onclick="DP.view=\'cleaned\';renderDataPanel()">Cleaned</button><button class="'+(DP.view==='original'?'on':'')+'" onclick="DP.view=\'original\';renderDataPanel()">Original</button></span>':'')+
-      '<button class="x" onclick="setDataPanel(false)" aria-label="Close">\u2715</button></div>'+
-    '<p class="dp-note">'+(cleaned?(showAfter?((focus?'Highlighted: what would change in '+esc(labelOf(focus))+'. ':'')+'Columns you accepted show their cleaned values. Hover a changed cell to see what it was. Nothing is saved until you export.'):'Your file exactly as it was uploaded.'):'A preview of the first rows, before any cleaning.')+'</p>'+
-    '<div class="dp-wrap"><table class="dp-table"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'+
-    (pages>1?'<div class="dp-pages"><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="DP.off=0;renderDataPanel()">\u00ab</button><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="DP.off-=50;renderDataPanel()">\u2039</button>'+
-      '<span>Rows '+(DP.off+1)+'\u2013'+Math.min(total,DP.off+50)+' of '+total+'</span><button class="btn ghost sm" '+(pg>=pages-1?'disabled':'')+' onclick="DP.off+=50;renderDataPanel()">\u203a</button></div>':'');
-  if(focus){ const th=p.querySelector('th.dp-focus'); const w=p.querySelector('.dp-wrap'); if(th&&w) w.scrollLeft=Math.max(0, th.offsetLeft-80); }
+      '<span class="dp-total">'+total.toLocaleString()+' rows</span><button class="x" onclick="setDataPanel(false)" aria-label="Close">\u2715</button></div>'+
+    '<p class="dp-note">'+note+'</p>'+
+    '<div class="dp-wrap" onscroll="dpScroll(this)"><table class="dp-table"><thead>'+head+'</thead><tbody>'+rowsHTML(DP.rows)+'</tbody></table>'+
+      (have<total?'<div class="dp-more">'+DOTS_HTML+'<span>Scroll to load more rows ('+have.toLocaleString()+' of '+total.toLocaleString()+')</span></div>':'<div class="dp-end">All '+total.toLocaleString()+' rows shown</div>')+'</div>';
+  const w=p.querySelector('.dp-wrap');
+  if(w){ w.scrollTop=keepTop; w.scrollLeft=keepLeft;
+    if(focus && !keepLeft){ const th=p.querySelector('th.dp-focus'); if(th) w.scrollLeft=Math.max(0, th.offsetLeft-80); } }
+}
+let DP_LOADING=false;
+async function dpScroll(w){
+  if(DP_LOADING || !DP.data || DP.rows.length>=DP.data.total) return;
+  if(w.scrollTop+w.clientHeight < w.scrollHeight-300) return;
+  DP_LOADING=true;
+  try{ const r=await dpFetch(DP.rows.length); DP.rows=DP.rows.concat(r.rows); await renderDataPanel(); }
+  catch(e){} finally{ DP_LOADING=false; }
 }
 function renderReview(){
   if(!CARDS.length) buildCards();
@@ -1970,12 +1997,14 @@ function cycleChip(gi,mi){ const c=CARDS[idx]; const L=c.assign[gi][mi]; const n
   c.assign[gi][mi]=nx; if(!(nx in c.gnames[gi])||!c.gnames[gi][nx]) c.gnames[gi][nx]=''; renderReview(); }
 function setGName(gi,L,v){ CARDS[idx].gnames[gi][L]=v; }
 function commitColumn(){ const c=CARDS[idx], f=c.field;
+  // saving a column again (after Back) replaces its merges instead of adding them twice
+  WL_MERGES=(WL_MERGES||[]).filter(m=>!(m.column===f.name && m.src==='card'));
   f.decision = (f.nChanged>0 && !c.applyClean) ? 'reject' : 'accept';
   let merged=0;
   c.groups.forEach((g,gi)=>{ if(!c.gmerge[gi]) return; const byL={};
     g.members.forEach((m,mi)=>{ const L=c.assign[gi][mi]; (byL[L]=byL[L]||[]).push(m); });
     Object.keys(byL).forEach(L=>{ const members=byL[L]; if(members.length>=2){
-      const into=(c.gnames[gi][L]||members[0]); WL_MERGES.push({column:f.name,into,members}); merged++; }});
+      const into=(c.gnames[gi][L]||members[0]); WL_MERGES.push({column:f.name,into,members,src:'card'}); merged++; }});
   });
   c.decision='done'; if(merged) toast('Recorded '+merged+' merge'+(merged>1?'s':'')+' for this column'); advanceCard();
 }
@@ -2041,24 +2070,31 @@ function cardBanner(c){
 }
 function bannerKeep(){ toast('Noted. Re-upload the file with the caption rows removed, or tell us the header row, full restore is coming.'); cardDecide('skip'); }
 function cardDupes(c){
-  const groups=c.groups||[]; const shown=groups.length;
-  let list='';
-  if(shown){
-    list='<div class="dup-list">'+groups.slice(0,50).map(g=>{
-      const rows=(g.row_previews||[]).map((rp,i)=>'<div class="dup-row '+(i===0?'keep':'drop')+'"><span class="dup-tag">'+(i===0?'keep':'remove')+'</span><span class="dup-rn">row '+(rp.row+1)+'</span><span class="dup-vals">'+esc(rp.text||'')+'</span></div>').join('');
-      return '<div class="dup-grp">'+rows+'</div>';
-    }).join('')+'</div>';
-  }
+  const groups=c.groups||[];
+  if(!c.picks){ c.picks={}; groups.forEach(g=>(g.rows||[]).forEach((r,i)=>{ if(i>0) c.picks[r]=true; })); }   // default: keep the first of each set
+  c.show=c.show||20;
+  const nRemove=Object.values(c.picks).filter(Boolean).length;
+  const list='<div class="dup-list">'+groups.slice(0,c.show).map((g,gi)=>{
+    const rows=(g.row_previews||[]).map(rp=>{ const rm=!!c.picks[rp.row];
+      return '<label class="dup-row '+(rm?'drop':'keep')+'"><input type="checkbox" '+(rm?'checked':'')+' onchange="dupPick('+rp.row+',this.checked)" aria-label="Remove row '+(rp.row+1)+'">'+
+        '<span class="dup-tag">'+(rm?'remove':'keep')+'</span><span class="dup-rn">row '+(rp.row+1)+'</span><span class="dup-vals">'+esc(rp.text||'')+'</span></label>'; }).join('');
+    return '<div class="dup-grp">'+rows+'</div>'; }).join('')+'</div>'+
+    (groups.length>c.show?'<button class="btn ghost sm dup-more" onclick="CARDS[idx].show+=40;renderReview()">Show more sets ('+(groups.length-c.show)+' more)</button>':'');
   return '<div class="card rcard">'+
     '<div class="rc-name">Repeated rows</div>'+
-    '<div class="rc-sub">Found <b>'+c.count+'</b> row'+(c.count>1?'s':'')+' that repeat another row'+
-      (c.count>shown && shown? ', showing the first '+shown+' set'+(shown>1?'s':''):'')+'. "Remove" keeps the first of each set.</div>'+
+    '<div class="rc-sub">Found <b>'+groups.length+'</b> set'+(groups.length===1?'':'s')+' of rows that are exact copies of each other. '+
+      'Ticked rows will be removed. The first of each set is kept unless you change it.</div>'+
+    '<div class="dup-tools"><button class="btn ghost sm" onclick="dupAll(true)">Keep first of each, remove the rest</button><button class="btn ghost sm" onclick="dupAll(false)">Untick all</button>'+
+      '<span class="dup-count"><b>'+nRemove+'</b> row'+(nRemove===1?'':'s')+' ticked to remove</span></div>'+
     list+
     '<div class="rc-decide">'+
-      '<button class="big ok" onclick="cardDupesYes()"><b>Remove repeats</b><span>keep one of each</span></button>'+
-      '<button class="big no" onclick="cardDecide(\'skip\')"><b>Keep everything</b><span>change nothing</span></button>'+
+      '<button class="big ok" onclick="cardDupesYes()" '+(nRemove?'':'disabled')+'><b>Remove '+nRemove+' ticked row'+(nRemove===1?'':'s')+'</b><span>everything else stays</span></button>'+
+      '<button class="big no" onclick="DUP_REMOVE=[];cardDecide(\'skip\')"><b>Keep everything</b><span>remove nothing</span></button>'+
     '</div></div>';
 }
+function dupPick(row,on){ const c=CARDS[idx]; c.picks[row]=on; renderReview(); }
+function dupAll(on){ const c=CARDS[idx]; c.picks={}; (c.groups||[]).forEach(g=>(g.rows||[]).forEach((r,i)=>{ if(on&&i>0) c.picks[r]=true; })); renderReview(); }
+let DUP_REMOVE=[];
 function cardDone(){
   return '<div class="card rcard rc-doneCard">'+
     '<div class="rc-name">All done 🎉</div>'+
@@ -2075,8 +2111,8 @@ function rowPickLine(f){
   const txt=kept? ('Applying to <b>'+(n-kept)+'</b> of '+n+' rows. '+kept+' kept as '+(kept>1?'they were':'it was')+'.') : ('Applies to all <b>'+n+'</b> changed rows.');
   return '<div class="rp-line"><span>'+txt+'</span> <a class="link" onclick="openRowPicker()">Choose rows</a></div>';
 }
-async function openRowPicker(off){
-  const f=curField(); if(!f||!SESSION_ID) return;
+async function openRowPicker(off, colName){
+  const f=colName?FIELDS.find(x=>x.name===colName):(RP.col&&off!=null&&!colName?FIELDS.find(x=>x.name===RP.col):curField()); if(!f||!SESSION_ID) return;
   RP.col=f.name; RP.off=off||0;
   let m=$('#rowpick'); if(!m){ m=document.createElement('div'); m.id='rowpick'; m.className='modal'; document.body.appendChild(m); }
   m.innerHTML='<div class="modal-card rp-card"><div class="rp-loading">'+DOTS_HTML+'<p>Loading the rows\u2026</p></div></div>'; m.classList.add('on');
@@ -2105,7 +2141,7 @@ function renderRowPicker(){
     '<div class="rp-tools"><input class="rp-search" placeholder="Search these rows" value="'+esc(RP.q||'')+'" oninput="RP.q=this.value;renderRowPicker();this.focus();this.setSelectionRange(this.value.length,this.value.length)">'+
       '<button class="btn ghost sm" onclick="rpAll(true)">Tick all shown</button><button class="btn ghost sm" onclick="rpAll(false)">Untick all shown</button></div>'+
     '<div class="rp-wrap"><table class="rp-table"><thead>'+head+'</thead><tbody>'+(body||'<tr><td colspan="9" class="rp-empty">No rows match.</td></tr>')+'</tbody></table></div>'+
-    (pages>1?'<div class="rp-pages"><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="openRowPicker('+(RP.off-200)+')">\u2039 Previous 200</button><span>Rows '+(RP.off+1)+'\u2013'+Math.min(RP.total,RP.off+200)+' of '+RP.total+' changed</span><button class="btn ghost sm" '+(pg>=pages-1?'disabled':'')+' onclick="openRowPicker('+(RP.off+200)+')">Next 200 \u203a</button></div>':'')+
+    (pages>1?'<div class="rp-pages"><button class="btn ghost sm" '+(pg<=0?'disabled':'')+' onclick="openRowPicker('+(RP.off-200)+',RP.col)">\u2039 Previous 200</button><span>Rows '+(RP.off+1)+'\u2013'+Math.min(RP.total,RP.off+200)+' of '+RP.total+' changed</span><button class="btn ghost sm" '+(pg>=pages-1?'disabled':'')+' onclick="openRowPicker('+(RP.off+200)+',RP.col)">Next 200 \u203a</button></div>':'')+
     '<div class="modal-foot"><span class="rp-sum">'+(RP.total-kept)+' of '+RP.total+' rows will change</span><button class="btn" onclick="closeRowPicker()">Done</button></div></div>';
   m.classList.add('on');
 }
@@ -2114,12 +2150,16 @@ function rpAll(on){ const k=KEEP_ROWS[RP.col]; const q=(RP.q||'').toLowerCase();
   RP.rows.filter(r=>!q||String(r.before).toLowerCase().includes(q)||String(r.after).toLowerCase().includes(q)).forEach(r=>{ if(on) k.delete(r.row); else k.add(r.row); }); renderRowPicker(); }
 function closeRowPicker(){ const m=$('#rowpick'); if(m) m.classList.remove('on');
   const k=KEEP_ROWS[RP.col]; if(k&&k.size) logEvent('\u270E','Chose rows for '+RP.col+': '+k.size+' left as they were');
-  renderReview(); }
+  renderReview(); updateGate(); }
 function cardDecide(d){ const c=CARDS[idx]; c.decision=d;
   if(c.kind==='column') c.field.decision=(d==='accept')?'accept':'reject';
   advanceCard();
 }
-function cardDupesYes(){ const c=CARDS[idx]; c.decision='remove'; WL_REMOVE_DUPES=true; toast('Will remove duplicate rows'); advanceCard(); }
+function cardDupesYes(){ const c=CARDS[idx];
+  DUP_REMOVE=Object.keys(c.picks||{}).filter(k=>c.picks[k]).map(Number);
+  c.decision='remove'; WL_REMOVE_DUPES=false;
+  logEvent('\u2702','Chose to remove '+DUP_REMOVE.length+' repeated row(s)');
+  toast('Will remove '+DUP_REMOVE.length+' row'+(DUP_REMOVE.length===1?'':'s')+' when you export'); advanceCard(); }
 function renderChanges(q){
   const f=curField(); if(!f)return; const box=document.getElementById('chglist'); if(!box) return;
   const rows=f.rows||[]; const ql=(q||'').toLowerCase();
@@ -2148,13 +2188,23 @@ function setDecision(d){ cardDecide(d); }
 function rvBack(){ if(idx>0){ idx--; renderReview(); } }
 function toggleType(){ const el=$('#typepick'); el.style.display=el.style.display==='none'?'block':'none'; }
 function setType(v){ const f=curField(); if(!f)return; f.type=v; f.method=(TYPEMETA[v]||['format',0.9])[0]; f.rows=null; f.outliers=null; renderReview(); }
-function acceptRemaining(){ FIELDS.forEach(f=>{ if(!f.decision) f.decision='accept'; }); renderReview(); toast('Accepted all remaining columns'); }
+function acceptRemaining(){
+  // accepts the column changes you haven't decided on. It never merges values or
+  // removes rows: those stay your call, so the review jumps to them.
+  let n=0; FIELDS.forEach(f=>{ if(!f.decision){ f.decision='accept'; n++; } });
+  CARDS.forEach(c=>{ if(c.kind==='column' && !c.decision && c.field.decision==='accept' && !(c.groups||[]).length) c.decision='accept'; });
+  if(n) logEvent('\u2713','Accepted the remaining '+n+' column change(s)');
+  const next=CARDS.findIndex(c=>(c.kind==='dupes'&&!c.decision)||(c.kind==='column'&&(c.groups||[]).length&&c.decision!=='done')||(c.kind==='admin'&&(c.items||[]).some(it=>!it.decision)));
+  idx = next>=0 ? next : CARDS.length-1;
+  renderReview(); updateGate();
+  toast(n?('Accepted '+n+' column change'+(n>1?'s':'')+'.'+(next>=0?' One more choice needs you.':'')):'Nothing left to accept.', {kind:'good'});
+}
 function updateGate(){
   // count the same thing the header counts: review steps, not every column in the file
   const steps=(CARDS||[]).filter(c=>c.kind!=='done'), N=steps.length+(((COSMETIC_FIELDS||[]).length)?1:0);
-  const left=steps.filter(c=>c.kind==='column' ? !c.field.decision : (c.kind==='admin' ? (c.items||[]).some(it=>!it.decision) : false)).length
+  const left=steps.filter(c=>c.kind==='column' ? !c.field.decision : (c.kind==='admin' ? (c.items||[]).some(it=>!it.decision) : (c.kind==='dupes' ? !c.decision : false))).length
     + ((COSMETIC_FIELDS||[]).some(f=>!f.decision)?1:0);
-  $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' step'+(N>1?'s':'')+' still to review' : (N? 'All '+N+' steps reviewed.' : 'Nothing needs your decision.');
+  $('#gatemsg').innerHTML = left>0 ? '<b>'+left+'</b> of '+N+' step'+(N>1?'s':'')+' still to review' : (N? (N===1?'The 1 step is reviewed.':'All '+N+' steps reviewed.') : 'Nothing needs your decision.');
   $('#finish').disabled = left>0; }
 
 function wlSet(key,choice){ WLDECISIONS[key]=choice; if(key.indexOf('dup:')===0 && /remove/.test(choice)) WL_REMOVE_DUPES=true; renderWorklist(); toast('Choice recorded'); }
@@ -2246,6 +2296,7 @@ async function doExport(){
     setall: WL_SETALL,
     merges: WL_MERGES,
     remove_duplicates: WL_REMOVE_DUPES,
+    remove_rows: (CARDS.some(c=>c.kind==='dupes'&&c.decision==='remove') ? DUP_REMOVE : []),
     keep_rows: Object.fromEntries(Object.entries(KEEP_ROWS).filter(([k,v])=>v&&v.size&&FIELDS.some(f=>f.name===k&&f.decision==='accept')).map(([k,v])=>[k,[...v]]))
   };
   makeProgress(out, 2600, ["Applying your decisions…","Cleaning values…","Writing the file…","Building the change log…"], "Producing your cleaned file…","");
@@ -2261,16 +2312,23 @@ async function doExport(){
     }
     const fd=new FormData(); fd.append('session_id',SESSION_ID); fd.append('decisions',JSON.stringify(decisions));
     fd.append('ai_cols', JSON.stringify(window.__AI_COLS__||[]));
+    EXP_SHAPE='long';
     const res=await fetch('/api/export',{method:'POST',body:fd});
     const d=await res.json();
     if(!res.ok||d.error) throw new Error(d.error||('server '+res.status));
     try{ logEvent('clean', d.changes_total+' change(s) applied across '+d.cols_out+' columns'); }catch(e){}
     logEvent('\u2713','Cleaned data  '+d.changes_total+' change(s) applied across '+d.cols_out+' columns');
     let html='<div class="tk-summary"><b>'+d.rows_out+'</b> rows · <b>'+d.cols_out+'</b> columns · <b>'+d.changes_total+'</b> changes applied</div>';
+    window.__EXP__={long:d.result_id, wide:d.wide_id||null};
+    if(d.wide_id){
+      html+='<div class="shape-pick" role="radiogroup" aria-label="Shape of the cleaned file"><span>Download the cleaned data as</span>'+
+        '<label><input type="radio" name="expshape" value="long" checked onchange="setExpShape(this.value)"> <b>Long</b> (one row per '+esc((window.__RESHAPE_AXIS__||'year').toLowerCase())+')</label>'+
+        '<label><input type="radio" name="expshape" value="wide" onchange="setExpShape(this.value)"> <b>Wide</b> (one column per '+esc((window.__RESHAPE_AXIS__||'year').toLowerCase())+', like the original)</label></div>';
+    }
     html+='<div class="dl-card"><div class="dl-row"><span class="dl-lab">Cleaned data</span>'+
-      '<span class="dl-btns"><button class="btn sm" onclick="expDL(\''+d.result_id+'\',\'xlsx\')">Excel</button>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'csv\')">CSV</button>'+
-      '<button class="btn sm ghost" onclick="expDL(\''+d.result_id+'\',\'docx\')">Word</button></span></div>'+
+      '<span class="dl-btns"><button class="btn sm" onclick="expDL(expShapeId(),\'xlsx\')">Excel</button>'+
+      '<button class="btn sm ghost" onclick="expDL(expShapeId(),\'csv\')">CSV</button>'+
+      '<button class="btn sm ghost" onclick="expDL(expShapeId(),\'docx\')">Word</button></span></div>'+
       '<div class="dl-row"><span class="dl-lab">Change log</span>'+
       '<span class="dl-btns"><button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'xlsx\',\'changelog\')">Excel</button>'+
       '<button class="btn sm ghost" onclick="expDL(\''+d.audit_id+'\',\'docx\',\'changelog\')">Word</button></span></div>'+
@@ -2322,6 +2380,9 @@ async function downloadCodebook(fmt){
     else toast('Could not build codebook'+(r.error?': '+r.error:''));
   }catch(e){ toast('Codebook failed: '+e.message); }
 }
+let EXP_SHAPE='long';
+function setExpShape(v){ EXP_SHAPE=v; toast(v==='wide'?'Downloads will be wide: one column per period.':'Downloads will be long: one row per period.',{duration:3000}); }
+function expShapeId(){ const e=window.__EXP__||{}; return (EXP_SHAPE==='wide'&&e.wide)?e.wide:e.long; }
 async function expDL(id,fmt,suffix){
   // Desktop can't trigger a browser download, so save straight to Downloads and
   // tell the user where. In the browser/Render, use the normal download.
@@ -2776,7 +2837,7 @@ async function profileFile(file){
     const data=await res.json();
     clearInterval(ticker); COL_ABORT=null;
     if(!res.ok || data.error) throw new Error(data.error||('profile '+res.status));
-    window.__INGEST_NOTES__=data.notes||[];
+    window.__INGEST_NOTES__=data.notes||[]; try{ DP.key=''; }catch(e){} window.__PREVIEW_ID__=data.preview_id||null; window.__STRUCT_KIND__=(data.structure&&data.structure.kind)||'';
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on');
       // Panel/wide data? offer to reshape to long BEFORE the column review.
@@ -2807,6 +2868,7 @@ function offerReshape(data, file){
 function closeReshape(){ const m=$('#reshapem'); if(m) m.classList.remove('on'); }
 async function doReshape(){
   const data=window.__PROFILE__, file=window.__FILE__, s=data.structure;
+  window.__RESHAPE_AXIS__=(s&&s.axis_name)||'year';
   closeReshape();
   const ov=$('#overlay'); ov.classList.add('on');
   const prog=makeProgressManual(ov,"Reshaping to long…","Turning "+s.n_periods+" "+esc(s.axis_name)+" columns into rows.");
@@ -2815,6 +2877,7 @@ async function doReshape(){
     const fd=new FormData(); fd.append('file',file); fd.append('region',SETTINGS.region||'generic');
     fd.append('id_cols',JSON.stringify(s.id_cols)); fd.append('value_cols',JSON.stringify(s.value_cols));
     fd.append('axis_name',s.axis_name); fd.append('value_name','value');
+    if(CURRENT_SHEET) fd.append('sheet', CURRENT_SHEET);
     const r=await (await fetch('/api/reshape_long',{method:'POST',body:fd})).json();
     prog.finish();
     setTimeout(()=>{ ov.classList.remove('on');
@@ -3158,6 +3221,12 @@ async function runValueCleanup(){
 }
 // ONE whole-file pass (local-only). Sends header + a compact sample once, applies
 // per-column suggestions as annotations the user can keep or change.
+function aiFileContext(){
+  const k=window.__STRUCT_KIND__||'';
+  if(window.__RESHAPED_ID__) return 'This is panel data already reshaped to long format: one row per entity and period.';
+  if(k==='panel_wide') return 'This is wide panel data: entity columns, then one column per period (for example one per year).';
+  return '';
+}
 async function runWholeFileReview(){
   const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
   const headers=COLREVIEW.map(c=>c.original);
@@ -3166,7 +3235,7 @@ async function runWholeFileReview(){
   aiWorking('<span class="spin"></span> checking columns with '+where+' (only a masked sample is sent)\u2026');
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},signal:(AI_ABORT&&AI_ABORT.signal),
-      body:JSON.stringify({headers, sample, provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
+      body:JSON.stringify({headers, sample, context:aiFileContext(), provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
     if(!r.ok){
       const emsg=String(r.error||'');
       // a key/auth problem -> reopen AI setup so the user can fix the key right away
@@ -3342,7 +3411,7 @@ async function confirmColumnsAndClean(force){
   const types={}; COLREVIEW.forEach(c=>{ if(c.dropped) return; const key=(c.name&&c.name!==c.original)?c.name:c.original; if(c.type&&c.type!=='-') types[key]=c.type; });
   const drop=COLREVIEW.filter(c=>c.dropped).map(c=>c.original);
   const ov=$('#overlay'); ov.classList.add('on'); CLEAN_JOB=null; CLEAN_ABORTED=false;
-  const prog=makeProgressManual(ov,(USE_AI?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine'),
+  const prog=makeProgressManual(ov,(aiUsedThisFile()?'Cleaning your data, AI assisted':'Cleaning your data, built-in engine'),
     "Applying only what you approve. Your file stays on this computer.");
   try{
     const fd=new FormData(); fd.append('file',PENDING_FILE); fd.append('region',SETTINGS.region||'generic');
@@ -3432,7 +3501,7 @@ function buildFieldsFromAPI(data, filename){
             rows:rows,outliers:[],decision:null,_real:true};
   });
   idx=0;
-  WORKLIST=data.worklist||null; WLDECISIONS={}; KEEP_ROWS={}; DP.key=''; DP.off=0;
+  WORKLIST=data.worklist||null; WLDECISIONS={}; KEEP_ROWS={}; DP.key=''; DP.off=0; DUP_REMOVE=[];
   CARDS=[];
   SESSION_ID=data.session_id||null; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
   SKIPPED=(data.skipped_rows||[]); HEADER_ROW=data.header_row||null;

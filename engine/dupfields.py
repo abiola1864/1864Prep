@@ -19,19 +19,27 @@ def _norm_header(h: str) -> str:
     return _WS.sub(" ", h).strip()
 
 
-def _value_overlap(a, b) -> float:
+_MISS = {"", "..", "...", ":", "-", "--", "na", "n/a", "n.a.", "nan", "null", "none"}
+_SEQ = re.compile(r"^((19|20)\d{2}([-_/ ]?(q[1-4]|m?\d{1,2}))?|q[1-4]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)$", re.I)
+
+
+def _value_overlap(a, b, min_real: int = 5) -> float:
     va = a.astype(str).str.strip()
     vb = b.astype(str).str.strip()
-    both = (va != "") & (vb != "")
-    if not both.any():
+    ok = ~va.str.lower().isin(_MISS) & ~vb.str.lower().isin(_MISS)
+    if ok.sum() < min_real:              # two columns of '..' prove nothing
         return 0.0
-    return float((va[both] == vb[both]).mean())
+    return float((va[ok] == vb[ok]).mean())
 
 
 def find_duplicate_fields(df, overlap: float = 0.75, min_fill: int = 5):
     """Return groups of columns that hold the same field.
     Each group: {"columns": [...], "keep": <suggested column>, "overlap": mean}."""
-    cols = [c for c in df.columns if df[c].astype(str).str.strip().ne("").sum() >= min_fill]
+    # period columns (1960, 1961, 2020Q1, Jan ...) are different time points by
+    # definition, even when they hold the same (or no) values
+    cols = [c for c in df.columns
+            if not _SEQ.match(str(c).strip())
+            and (~df[c].astype(str).str.strip().str.lower().isin(_MISS)).sum() >= min_fill]
     n = len(cols)
     # union-find over columns linked by high value overlap
     parent = {c: c for c in cols}

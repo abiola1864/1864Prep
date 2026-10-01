@@ -203,7 +203,7 @@ def parse_review(text: str) -> dict:
     return {"columns": cols, "note": note}
 
 
-def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30.0, api_key="") -> dict:
+def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30.0, api_key="", context="") -> dict:
     """ONE whole-file pass. Works on local or cloud; only a masked header + small
     sample is sent. The caller decides whether leaving the device is acceptable."""
     loc=classify_endpoint(provider, url, model)
@@ -214,7 +214,10 @@ def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30
             "column's best data type. Types: date, datetime, numeric, identifier, boolean, gender, "
             "email, phone, geo, currency, categorical, name, free_text. Reply ONLY with JSON: "
             "{\"columns\":[{\"name\":\"...\",\"type\":\"...\",\"reason\":\"...\"}],\"note\":\"...\"}.\n"
-            "Header: "+hdr+"\nSample rows: "+sample)
+            "Header: "+hdr+"\nSample rows: "+sample
+            +("\nAbout this file: "+context if context else "")
+            +"\nColumns named by year, month or quarter are separate time periods, never duplicates. "
+             "Values like '..' or 'n/a' mean missing data. Only suggest types; never suggest removing a column.")
     # pass the key through: without it every cloud review was sent unauthenticated
     # (401 -> "key wasn't accepted") even though the connection test had passed
     res=ask(prompt, provider=provider, url=url, model=model, timeout=timeout, api_key=api_key)
