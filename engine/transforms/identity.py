@@ -48,6 +48,11 @@ class FixedLengthIdTransform(Transform):
 
     def apply_value(self, value: Any) -> tuple[Any, bool, str]:
         length = int(self.params.get("length", 0))
+        raw = "" if value is None else str(value).strip()
+        # A code with letters in it (R100, KD/0042, ABC123) is kept exactly as
+        # written: stripping the letters would turn R100 and K100 into the same ID.
+        if any(ch.isalpha() for ch in raw):
+            return raw, False, ""
         digits = _digits_only(value)
         if digits == "":
             return "", True, "empty id"

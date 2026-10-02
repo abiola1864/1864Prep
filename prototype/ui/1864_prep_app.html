@@ -678,7 +678,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v78</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v79</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2789,13 +2789,42 @@ function onDropFile(ev){
   const f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0];
   if(f) onRealFile({target:{files:[f]}});
 }
+// Is there unfinished work on the current file? (columns checked or a review
+// started, and the cleaned file not yet made)
+function workInProgress(){
+  const exported = !!(window.__EXP__ && window.__EXP__.long);
+  return !exported && !!(PENDING_FILE && (COLREVIEW.length || SESSION_ID));
+}
+// Everything belonging to the previous file is cleared, so no step can show it.
+function resetForNewFile(){
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
+  AI_STATE='idle'; AI_RES={}; window.__AI_COLS__=[]; window.__AI_MERGES__={};
+  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[]; SHEET_LIST=[]; window.__RESHAPED_ID__=null; window.__PREVIEW_ID__=null;
+  SESSION_ID=null; FIELDS=[]; CARDS=[]; idx=0; WORKLIST=null; WLDECISIONS={}; WL_MERGES=[]; WL_SETALL={}; WL_REMOVE_DUPES=false;
+  COSMETIC_COUNT=0; COSMETIC_FIELDS=[]; COSMETIC_OPEN=false; KEEP_ROWS={}; DUP_REMOVE=[];
+  window.__EXP__=null; EXP_SHAPE='long';
+  try{ DP.key=''; DP.rows=[]; DP.data=null; }catch(_){}
+  const eo=$('#expout'); if(eo) eo.innerHTML='';
+  reached=3;                       // Columns, Review and Export unlock again only for the new file
+  try{ go(cur===3?3:cur); }catch(_){}
+}
+function confirmNewFile(file){
+  let m=$('#newfilem'); if(!m){ m=document.createElement('div'); m.id='newfilem'; m.className='modal'; document.body.appendChild(m); }
+  window.__NEXT_FILE__=file;
+  const old=(window.__ORIG_NAME__||(PENDING_FILE&&PENDING_FILE.name)||'your current file');
+  m.innerHTML='<div class="modal-card aim"><div class="modal-head"><h2>Start with a new file?</h2>'+
+    '<button class="x" onclick="$(\'#newfilem\').classList.remove(\'on\')" aria-label="Close">\u2715</button></div>'+
+    '<p class="set-sub">Your review of <b>'+esc(old)+'</b> isn\u2019t finished. Nothing from it has been saved, and it will be cleared.</p>'+
+    '<div class="modal-foot"><button class="btn ghost" onclick="$(\'#newfilem\').classList.remove(\'on\')">Keep working</button>'+
+    '<button class="btn" onclick="$(\'#newfilem\').classList.remove(\'on\');onRealFile({target:{files:[window.__NEXT_FILE__]},confirmed:true})">Open '+esc(file.name)+'</button></div></div>';
+  m.classList.add('on');
+}
 async function onRealFile(e){
   const file = e.target.files && e.target.files[0];
+  try{ if(e.target && 'value' in e.target) e.target.value=''; }catch(_){}
   if(!file) return;
-  // fresh start for every upload: drop any prior file's columns, samples, AI state
-  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_EVALUATED=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
-  CURRENT_SHEET=null; SHEET_QUEUE=[]; SHEET_DONE=[]; SHEET_LIST=[]; window.__RESHAPED_ID__=null;
-  try{ SESSION_ID=null; }catch(_){}
+  if(!e.confirmed && workInProgress()){ confirmNewFile(file); return; }
+  resetForNewFile();
   logEvent('\u2191','Uploaded '+file.name);
   PENDING_FILE=file;
   try{ e.target.value=''; }catch(_){}   // allow re-selecting the same file later
