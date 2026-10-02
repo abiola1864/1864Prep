@@ -658,6 +658,7 @@ body.dp-open .main{margin-right:var(--dpw)}
 .aib-go{white-space:nowrap}
 .ai-why{color:var(--ink-soft)}
 .mrow.ai-row{box-shadow:inset 3px 0 0 var(--teal) !important;background:#f4f9fa}
+.boot-wait{text-align:center;margin-top:18vh;color:var(--ink-soft)}.boot-wait .dots-ring{margin:0 auto 14px}
 </style>
 </head>
 <body>
@@ -677,7 +678,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v76</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v77</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -686,23 +687,14 @@ body.dp-open .main{margin-right:var(--dpw)}
   </nav>
 
   <div class="main">
-    <!-- 0 sign in -->
+    <!-- 0 opening: shown only for the moment before the app knows where to go -->
     <section class="screen on" data-screen="0">
-      <div class="center"><h1>Sign in to 1864 Prep</h1>
-        <p class="lead" style="text-align:center;margin:6px auto 16px">Prepare any agency's records for the Open Network.</p>
-        <div class="field"><label>Work email</label><input value="data.officer@agency.gov.ng"></div>
-        <div class="field"><label>Password</label><input type="password" value="••••••••••"></div>
-        <button class="btn" style="width:100%;margin-top:6px" onclick="signInFriendly()">Sign in</button></div>
+      <div class="center boot-wait" role="status" aria-live="polite">
+        <div class="dots-ring" aria-hidden="true"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><i style="--i:7"></i></div>
+        <p>Opening 1864 Prep…</p>
+      </div>
     </section>
 
-    <!-- 1 sector -->
-    <section class="screen" data-screen="1">
-      <p class="eyebrow">Your data</p><h1>What kind of data is this?</h1>
-      <p class="lead">Each sector has its own columns. Pick one and we'll show the fields it usually has, so you can tell us which apply to your data.</p>
-      <div class="sectors" id="sectors"></div>
-    </section>
-
-    
     <!-- 3 upload -->
     <section class="screen" data-screen="3">
       <div class="up-head">
@@ -1232,7 +1224,7 @@ function enterApp(){
 }
 function renderIdentity(){
   const el=$('#identity'); if(!el) return; const u=currentUser();
-  if(!u){ el.innerHTML=''; return; }
+  if(!u || !((u.first||'')+(u.last||'')).trim()){ el.innerHTML=''; return; }
   el.innerHTML='<div class="who"><b>'+esc((u.first||'')+' '+(u.last||'')).trim()+'</b> <span class="role '+(u.role||'member')+'">'+
     ((u.role==='admin')?'Administrator':'Member')+'</span></div>';
 }
@@ -1241,7 +1233,12 @@ function onbNext(){ ONB.step++; showOnboard(); }
 function onbBack(){ ONB.step=Math.max(0,ONB.step-1); showOnboard(); }
 function showOnboard(){
   const ob=$('#onboard'); ob.style.display='flex';
-  const steps=[obWelcome, obPrivacy, obBasics, obSector, obAIKey, obPassword, obDone];
+  // The hosted demo forgets everything on reload, so asking for a name or a
+  // password there adds nothing and collects personal details for no reason.
+  // Only the local app (possibly shared by several people) asks for them.
+  const steps = (window.ENV && ENV.web)
+    ? [obWelcome, obPrivacy, obSector, obAIKey, obDone]
+    : [obWelcome, obPrivacy, obBasics, obSector, obAIKey, obPassword, obDone];
   ONB._done = steps.length-1;   // index of the Done step, so finishing always lands there
   ob.querySelector('#onb-body').innerHTML = steps[Math.min(ONB.step,steps.length-1)]();
   const dots=ob.querySelector('#onb-dots');
@@ -1363,7 +1360,7 @@ function obPassword(){
 async function onbFinish(){
   try{
   const _s=v=>(typeof v==='string'?v:'' ).trim();
-  const owner={first:_s(ONB.first)||'Owner', last:_s(ONB.last), org:_s(ONB.org),
+  const owner={first:_s(ONB.first)||((window.ENV&&ENV.web)?'':'Owner'), last:_s(ONB.last), org:_s(ONB.org),
                orgRole:_s(ONB.orgRole), role:'admin', created:new Date().toISOString()};
   _pset('prep_owner', owner); _pset('prep_current', owner);
   _pset('prep_sector', ONB.sector||{name:'General / other',cols:[]});
@@ -1384,9 +1381,11 @@ async function onbFinish(){
   }
 }
 function obDone(){
-  const passNote = _pget('prep_pass',null) ? 'Password set.' : 'No password (you can add one in Settings).';
+  const web=!!(window.ENV&&ENV.web);
+  const passNote = web ? 'Nothing about you is stored. This demo forgets everything when you reload.'
+    : (_pget('prep_pass',null) ? 'Password set. Everything runs on this computer.' : 'No password (you can add one in Settings). Everything runs on this computer.');
   return '<div class="onb-hero"><div class="onb-logo done">\u2713</div><h1>You\u2019re all set</h1>'+
-    '<p class="lead">'+passNote+' Everything runs on this computer. Let\u2019s clean your first file.</p>'+
+    '<p class="lead">'+passNote+' Let\u2019s clean your first file.</p>'+
     '<div class="onb-actions"><button class="btn" onclick="finishOnboarding()">Go to upload \u2192</button></div></div>';
 }
 function finishOnboarding(){ enterApp(); }
@@ -1411,7 +1410,7 @@ async function tryUnlock(){
   else { const m=$('#ob-unlock-msg'); if(m) m.textContent='Incorrect password. Try again.'; const i=$('#ob-unlock'); if(i) i.value=''; }
 }
 
-function signInFriendly(){ go(1); }
+function signInFriendly(){ go(3); }
 function go(n){
   cur=n;
   $$('.screen').forEach(s=>s.classList.toggle('on',+s.dataset.screen===n));
@@ -1430,7 +1429,7 @@ function go(n){
 $$('#steps li').forEach(li=>li.onclick=()=>{const s=+li.dataset.s;if(s<=reached)go(s);});
 
 /* sectors */
-$('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('')
+if($('#sectors')) $('#sectors').innerHTML=SECTORS.map((s,i)=>`<div class="sector" onclick="pickSector(${i})"><div class="ic">${s.ic}</div><h3>${s.name}</h3><p>${s.desc}</p><div class="cc">${s.cols.length} usual columns</div></div>`).join('')
   +`<div class="sector general" onclick="pickGeneral()"><div class="ic">📂</div><h3>General / other</h3><p>Any dataset, my columns aren't listed. The engine detects everything from the file itself.</p><div class="cc">skip to upload</div></div>`;
 function pickSector(i){
   SECTOR=SECTORS[i];
