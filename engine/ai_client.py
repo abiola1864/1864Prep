@@ -149,12 +149,15 @@ def ask(question: str, provider: str = "ollama", url: str = "", model: str = "",
             except Exception:
                 pass  # if /api/tags fails, fall through and let the generate call report
             resp = _post(base + "/api/generate",
-                         {"model": model, "prompt": question, "stream": False},
+                         {"model": model, "prompt": question, "stream": False,
+                          # Ollama's default working memory is small and silently cuts
+                          # long requests; give it room, and keep answers steady
+                          "options": {"num_ctx": 16384, "temperature": 0}},
                          {}, timeout)
             out["text"] = (resp.get("response") or "").strip(); out["ok"] = True
         elif provider == "ollama_cloud":
             resp = _post("https://ollama.com/v1/chat/completions",
-                         {"model": model or "gpt-oss:20b",
+                         {"model": model or "gpt-oss:20b", "temperature": 0,
                           "messages": [{"role": "user", "content": question}]},
                          {"Authorization": f"Bearer {key}"}, timeout)
             out["text"] = resp["choices"][0]["message"]["content"].strip(); out["ok"] = True
@@ -203,13 +206,40 @@ def parse_review(text: str) -> dict:
     return {"columns": cols, "note": note}
 
 
+def review_summaries(summaries, provider="ollama", url="", model="", timeout=75.0, api_key="", context="") -> dict:
+    """Independent typing from WHOLE-column summaries (every value was read by the
+    engine). The engine's own guess is not shown, so this is a genuine second opinion."""
+    loc = classify_endpoint(provider, url, model)
+    out = {"ok": False, "columns": [], "note": "", "raw": "", **loc}
+    prompt = ("You are an experienced data analyst. Each item below summarises ONE column of a table: "
+              "every value in the column was counted. Decide each column's data type on your own.\n"
+              "Types: identifier (IDs/codes, one per record), name (people's names), date, datetime, numeric, "
+              "currency (money amounts), boolean (yes/no), gender, email, phone, geo (places: country, state, LGA, town), "
+              "categorical (answers from a short repeating list), free_text (sentences or open answers).\n"
+              "Hints: many distinct multi-word sentences = free_text; a short list repeated many times = categorical; "
+              "comma-separated picks from a list (tick all that apply) = categorical; mostly digits = numeric unless "
+              "they are codes with fixed length or leading zeros (identifier); values_masked=true means real values "
+              "were replaced by shapes (Aa = capitalised word, 9 = digit). Values like '..' are missing data. "
+              "Column headers that are questions describe the answer, not a person's name.\n"
+              + ("About this file: " + context + "\n" if context else "")
+              + "Reply ONLY with JSON: {\"columns\":[{\"name\":\"<column exactly as given>\",\"type\":\"...\","
+              "\"reason\":\"<one short sentence a non-expert understands>\"}]}\n"
+              "Columns:\n" + json.dumps(summaries, ensure_ascii=False))
+    res = ask(prompt, provider=provider, url=url, model=model, timeout=timeout, api_key=api_key)
+    out["ok"] = res.get("ok", False); out["raw"] = (res.get("text") or "")[:1500]
+    if res.get("error"): out["error"] = res["error"]
+    if out["ok"]:
+        p = parse_review(res.get("text", "")); out["columns"] = p["columns"]; out["note"] = p["note"]
+    return out
+
+
 def review(headers, sample_rows, provider="ollama", url="", model="", timeout=30.0, api_key="", context="") -> dict:
     """ONE whole-file pass. Works on local or cloud; only a masked header + small
     sample is sent. The caller decides whether leaving the device is acceptable."""
     loc=classify_endpoint(provider, url, model)
     out={"ok": False, "columns": [], "note": "", "raw": "", **loc}
     hdr=", ".join(str(h) for h in (headers or []))
-    sample=json.dumps(sample_rows[:8])[:3000]
+    sample=json.dumps(sample_rows[:8], ensure_ascii=False)[:6000]
     prompt=("You are a data analyst. Given a table's header and sample rows, identify each "
             "column's best data type. Types: date, datetime, numeric, identifier, boolean, gender, "
             "email, phone, geo, currency, categorical, name, free_text. Reply ONLY with JSON: "

@@ -374,10 +374,11 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
             ev["name_header"] = True
             return ColumnProfile(name, "name", 0.85, "name", evidence=ev)
 
-    # person name: 1-3 alphabetic tokens, high cardinality (checked before
+    _question = str(name).strip().endswith("?") or len(str(name).split()) > 6
+    # person name: 1-3 alphabetic tokens, high cardinality (never for a survey question) (checked before
     # categorical so real name columns aren't mistaken for small vocabularies).
     alpha_rate = _rate(vals, lambda s: s.replace(" ", "").replace("-", "").replace("'", "").isalpha())
-    if alpha_rate >= 0.8 and 1 < avg_tokens <= 3 and card_ratio >= 0.5:
+    if alpha_rate >= 0.8 and 1 < avg_tokens <= 3 and card_ratio >= 0.5 and not _question:
         return ColumnProfile(name, "name", 0.75, "name", evidence=ev)
 
     # categorical: low distinct count relative to rows, short-ish values
@@ -402,19 +403,32 @@ def _apply_type_prior(result, series, type_prior):
         return result
     prior = {t.lower() for t in type_prior}
     cur = result.semantic_type
-    # only intervene on soft/ambiguous outcomes
+    # only intervene on soft/ambiguous outcomes. It never turns a column INTO
+    # 'name': ticking "Names" once turned every survey question into a name column.
     ambiguous = {
         "numeric": {"identifier"},
         "identifier": {"numeric"},
-        "categorical": {"identifier", "name"},
-        "free_text": {"name", "categorical"},
+        "categorical": {"identifier"},
+        "free_text": {"categorical"},
         "name": {"categorical"},
     }
     if cur not in ambiguous:
         return result
+    vals = _clean_vals(series)
+    def plausible(alt):
+        if not vals:
+            return False
+        if alt == "identifier":     # codes: no spaces, mostly digits/letters, mostly distinct
+            return all(" " not in v for v in vals) and len(set(vals)) >= 0.6 * len(vals)
+        if alt == "numeric":        # the values must actually be numbers
+            return sum(1 for v in vals if _NUMERIC.match(v.replace(",", ""))) >= 0.9 * len(vals) \
+                and not any(v.startswith("0") and len(v) > 1 and v.isdigit() for v in vals)
+        if alt == "categorical":    # a short list of repeating, short answers
+            return len(set(vals)) <= max(12, 0.5 * len(vals)) and sum(len(v) for v in vals) / len(vals) <= 40
+        return True
     # if the user named a competing type that is plausible for this column, prefer it
     for alt in ambiguous[cur]:
-        if alt in prior and cur not in prior:
+        if alt in prior and cur not in prior and plausible(alt):
             ev = dict(result.evidence or {}); ev["type_prior"] = alt
             transform = _TYPE_TO_TRANSFORM.get(alt, ("text_normalise", {}))[0]
             conf = min(0.85, (result.confidence or 0.6) + 0.05)

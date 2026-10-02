@@ -830,8 +830,38 @@ async def ai_review(payload: dict):
     """ONE whole-file AI pass, LOCAL ONLY. Body: {headers, sample, provider, url, model}.
     Masks sensitive columns, sends header + compact sample once, returns per-column verdicts."""
     from engine.ai_privacy import _mask, looks_sensitive
-    from engine.ai_client import review
+    from engine.ai_client import review, review_summaries, classify_endpoint
     headers = payload.get("headers", [])
+    # Full-file mode: the engine reads EVERY value of EVERY column and gives the AI
+    # a summary of each whole column, without the engine's own guess.
+    _rid = payload.get("reshaped_id"); _pid = payload.get("preview_id")
+    _df = _RESHAPED.get(_rid) if _rid else (_PREVIEWS.get(_pid) if _pid else None)
+    if _df is not None:
+        from concurrent.futures import ThreadPoolExecutor
+        from engine.ai_summary import summarise_frame
+        prov, url, model, key = payload.get("provider", "ollama"), payload.get("url", ""), payload.get("model", ""), payload.get("api_key", "")
+        local = classify_endpoint(prov, url, model).get("location") == "local"
+        cols = [c for c in (headers or list(_df.columns)) if c in _df.columns]
+        sums = summarise_frame(_df, cols, cloud=not local)
+        B = 8
+        batches = [sums[i:i + B] for i in range(0, len(sums), B)] or [[]]
+        ctx = str(payload.get("context", ""))[:300]
+        def run(b):
+            return review_summaries(b, provider=prov, url=url, model=model, api_key=key, context=ctx,
+                                    timeout=(180.0 if local else 90.0))
+        with ThreadPoolExecutor(max_workers=(1 if local else 4)) as ex:
+            results = list(ex.map(run, batches))
+        okr = [(b, r) for b, r in zip(batches, results) if r.get("ok")]
+        out = dict(results[0]); out["ok"] = bool(okr)
+        out["columns"] = [c for _, r in okr for c in (r.get("columns") or [])]
+        out["mode"] = "full"; out["columns_sent"] = len(sums); out["rows_read"] = len(_df)
+        out["batches"] = len(batches); out["batches_ok"] = len(okr)
+        out["masked_columns"] = [s["column"] for s in sums if s.get("values_masked")]
+        if okr and len(okr) < len(batches):
+            out["note"] = f"AI checked {sum(len(b) for b, _ in okr)} of {len(sums)} columns; the rest kept the engine's reading."
+        if not okr:
+            out["error"] = results[0].get("error", "AI did not respond")
+        return out
     sample = payload.get("sample", [])[:15]
     masked = []
     for row in sample:
@@ -839,8 +869,31 @@ async def ai_review(payload: dict):
         for k, v in (row or {}).items():
             mr[k] = _mask(str(v)) if looks_sensitive(str(k)) else v
         masked.append(mr)
-    return review(headers, masked, context=str(payload.get("context", ""))[:300], provider=payload.get("provider", "ollama"),
-                  url=payload.get("url", ""), model=payload.get("model", ""), api_key=payload.get("api_key", ""))
+    # Big files (e.g. a 55-question survey) are split into small batches that run
+    # side by side, so no single request is huge or slow. Each batch only sees its
+    # own columns' masked samples, with long answers shortened.
+    from concurrent.futures import ThreadPoolExecutor
+    from engine.ai_client import classify_endpoint
+    ctx = str(payload.get("context", ""))[:300]
+    prov, url, model, key = payload.get("provider", "ollama"), payload.get("url", ""), payload.get("model", ""), payload.get("api_key", "")
+    local = classify_endpoint(prov, url, model).get("location") == "local"
+    BATCH = 12
+    chunks = [headers[i:i + BATCH] for i in range(0, len(headers), BATCH)] or [[]]
+    def run(cols):
+        rows = [{c: (str(r.get(c, ""))[:80]) for c in cols} for r in masked[:8]]
+        return review(cols, rows, context=ctx, provider=prov, url=url, model=model, api_key=key,
+                      timeout=(120.0 if local else 75.0))
+    with ThreadPoolExecutor(max_workers=(1 if local else 4)) as ex:   # a local model handles one at a time
+        results = list(ex.map(run, chunks))
+    ok = [r for r in results if r.get("ok")]
+    out = dict(results[0]); out["columns"] = [c for r in ok for c in (r.get("columns") or [])]
+    out["ok"] = bool(ok); out["batches"] = len(chunks); out["batches_ok"] = len(ok)
+    if ok and len(ok) < len(chunks):
+        out["note"] = (f"AI checked {sum(len(c) for c, r in zip(chunks, results) if r.get('ok'))} of {len(headers)} columns; "
+                       "the rest kept the engine's reading.")
+    if not ok:
+        out["error"] = results[0].get("error", "AI did not respond")
+    return out
 
 
 def _store_path():

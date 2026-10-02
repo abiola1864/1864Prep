@@ -644,6 +644,10 @@ body.dp-open .main{margin-right:var(--dpw)}
 .dp-total{margin-left:auto;font-size:12.5px;color:var(--ink-soft)}.dp-head .x{margin-left:8px}
 .dp-more,.dp-end{display:flex;gap:10px;align-items:center;justify-content:center;padding:12px;font-size:12.5px;color:var(--ink-soft)}
 .dp-more .dots-ring{width:22px;height:22px;margin:0}.dp-more .dots-ring i{width:4px;height:4px;margin:-2px 0 0 -2px;transform:rotate(calc(var(--i)*45deg)) translateY(-8px)}
+.ai-partial{display:block;color:var(--ink-soft);font-size:12.5px;margin-top:3px}
+.ai-verdict{grid-column:1/-1;font-size:12.5px;margin:2px 0 0;padding-left:2px;line-height:1.45}
+.ai-verdict.agrees{color:#2f6f57}.ai-verdict.differs{color:#1f4f5b}.ai-verdict.kept{color:var(--ink-soft)}
+.ai-verdict a{cursor:pointer;text-decoration:underline;font-weight:600;margin-left:4px}.ai-eng{color:var(--ink-soft)}
 </style>
 </head>
 <body>
@@ -663,7 +667,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v73</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v75</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2958,6 +2962,18 @@ async function askColumnAI(i){
   }catch(e){ out.innerHTML=' <span style="color:#b8863b">AI error</span>'; }
 }
 
+function aiVerdict(c,i){
+  if(!c.aiChecked) return '';
+  if(c.source==='ai') return '<div class="ai-verdict differs">\u2726 AI thinks this is <b>'+esc(TYPE_LABEL[c.type]||c.type)+'</b>'+(c.aiReason?': '+esc(c.aiReason):'')+
+    ' <span class="ai-eng">The engine said '+esc(TYPE_LABEL[c.localType]||c.localType||'?')+'.</span> <a onclick="useEngineType('+i+')">Use the engine\u2019s</a></div>';
+  if(c.aiAgree) return '<div class="ai-verdict agrees" title="'+esc(c.aiReason||'')+'">\u2713 AI agrees'+(c.aiReason?': '+esc(c.aiReason):'')+'</div>';
+  if(c.aiType) return '<div class="ai-verdict kept">AI suggested '+esc(TYPE_LABEL[c.aiType]||c.aiType)+', you kept '+esc(TYPE_LABEL[c.type]||c.type)+'. <a onclick="useAIType('+i+')">Use AI\u2019s</a></div>';
+  return '';
+}
+function useEngineType(i){ const c=COLREVIEW[i]; if(!c) return; c.type=c.localType||c.type; c.source='local'; c.aiAgree=false;
+  logEvent('\u270E','Kept the engine\u2019s type for "'+c.original+'" over AI'); window.__AI_COLS__=COLREVIEW.filter(x=>x.source==='ai').map(x=>x.original); renderColumnReview(); }
+function useAIType(i){ const c=COLREVIEW[i]; if(!c||!c.aiType) return; c.localType=c.type; c.type=c.aiType; c.source='ai';
+  logEvent('\u2726','Used AI\u2019s type for "'+c.original+'"'); window.__AI_COLS__=COLREVIEW.filter(x=>x.source==='ai').map(x=>x.original); renderColumnReview(); }
 const TYPE_ORDER=['identifier','name','date','datetime','numeric','currency','boolean','gender','email','phone','geo','categorical','free_text'];
 function typeSelect(i,cur){
   const opts=TYPE_ORDER.map(t=>`<option value="${t}" ${t===cur?'selected':''}>${TYPE_LABEL[t]||t}</option>`).join('');
@@ -3030,7 +3046,7 @@ function renderColumnReview(){
       <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
       <span class="cf-name"><input value="${esc(c.name)}" oninput="COLREVIEW[${i}].name=this.value" onchange="if(this.value!==COLREVIEW[${i}].original)logEvent('\u270E','Renamed \u201c'+COLREVIEW[${i}].original+'\u201d to \u201c'+this.value+'\u201d')" style="padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;width:100%">${status} ${src}</span>
       ${typeSelect(i,c.type)}
-      <button class="col-bin" title="Remove this column from the cleaned file" onclick="deleteColumn(${i})">🗑</button></div>`;}).join('');
+      <button class="col-bin" title="Remove this column from the cleaned file" onclick="deleteColumn(${i})">🗑</button>${aiVerdict(c,i)}</div>`;}).join('');
   $('#matchrows').innerHTML=rows;
   // pagers above AND below the list; numbered pages; pages with AI changes marked
   COL_SEEN.add(COL_PAGE);
@@ -3071,12 +3087,12 @@ function renderAIContext(){
   const shaky=COLREVIEW.filter(c=>c.uncertain).length;
   const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
   const note = shaky
-    ? `${shaky} column(s) look uncertain, the engine handled the rest on its own.`
+    ? `The engine is unsure about ${shaky} column${shaky===1?'':'s'}.`
     : `The engine is confident about every column.`;
   box.innerHTML = `<label class="run-ai"><input type="checkbox" ${RUN_AI?'checked':''} onchange="onRunAITick(this.checked)">`+
-    `<span>Use AI on this file. It checks the tricky <b>columns</b> and tidies messy <b>values</b>. Only masked samples are sent, and you approve every change.`+
+    `<span>Use AI on this file. It reads every value in <b>every column</b> and gives its own opinion on each type, then helps tidy messy <b>values</b>. You approve every change.`+
     (configured?``:` (you'll add a key first)`)+`</span></label>`+
-    `<div class="run-ai-note">${note} 1864 Prep is local-first and solves most cases on its own; AI is optional.</div>`+
+    `<div class="run-ai-note">${note} With a cloud model, names, phones and IDs are sent only as patterns. AI is optional.</div>`+
     `<div class="run-ai-status" id="ai-run-status"></div>`;
 }
 // One place that states, truthfully, where the data goes — differs web vs desktop.
@@ -3229,13 +3245,14 @@ function aiFileContext(){
 }
 async function runWholeFileReview(){
   const st=$('#ai-run-status'); const d=(AI_DEFAULTS[SETTINGS.provider]||{});
-  const headers=COLREVIEW.map(c=>c.original);
+  const headers=COLREVIEW.filter(c=>!c.dropped).map(c=>c.original);
   const sample=(COL_SAMPLE||[]).slice(0,8);
-  const where=d.local?'local model':'Ollama Cloud';
-  aiWorking('<span class="spin"></span> checking columns with '+where+' (only a masked sample is sent)\u2026');
+  const where=d.local?'your local model':'Ollama Cloud';
+  aiWorking('<span class="spin"></span> AI is reading every value in all <b>'+headers.length+'</b> columns with '+where+
+    (d.local?'. Nothing leaves this computer.':'. Names, phones and IDs are sent only as patterns.')+'\u2026');
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},signal:(AI_ABORT&&AI_ABORT.signal),
-      body:JSON.stringify({headers, sample, context:aiFileContext(), provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
+      body:JSON.stringify({headers, sample, preview_id:window.__PREVIEW_ID__||null, reshaped_id:window.__RESHAPED_ID__||null, context:aiFileContext(), provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
     if(!r.ok){
       const emsg=String(r.error||'');
       // a key/auth problem -> reopen AI setup so the user can fix the key right away
@@ -3249,17 +3266,24 @@ async function runWholeFileReview(){
     }
     let changed=0; const byName={};
     (r.columns||[]).forEach(c=>{ if(c.name) byName[String(c.name).toLowerCase().trim()]=c; });
+    const norm={number:'numeric',id:'identifier',place:'geo',category:'categorical',text:'free_text','free text':'free_text',money:'currency',yes_no:'boolean'};
+    let agreed=0;
     COLREVIEW.forEach(col=>{ const v=byName[String(col.original).toLowerCase().trim()];
-      if(v && v.suggested_type){ col.aiReason=v.reason||'';
-        if(v.suggested_type!==col.type){ col.localType=col.type; col.type=v.suggested_type; col.source='ai'; changed++; }
-        else { col.source=col.source||'local'; } } });
+      if(v && v.suggested_type){ let t=norm[v.suggested_type]||v.suggested_type; if(!TYPE_ORDER.includes(t)) return;
+        col.aiChecked=true; col.aiType=t; col.aiReason=v.reason||'';
+        if(t!==col.type){ col.localType=col.type; col.type=t; col.source='ai'; col.aiAgree=false; changed++; }
+        else { col.source=col.source==='ai'?'ai':'local'; col.aiAgree=true; agreed++; } } });
     window.__AI_COLS__ = COLREVIEW.filter(c=>c.source==='ai').map(c=>c.original);
     logEvent('\u2726','AI reviewed the file, refined '+changed+' column(s)'+(changed?': '+window.__AI_COLS__.join(', '):''));
     try{ logEvent('ai', changed? ('AI refined '+changed+' column(s): '+window.__AI_COLS__.join(', ')) : 'AI reviewed, agreed with engine'); }catch(e){}
     renderColumnReview();
     const s2=$('#ai-run-status'); if(s2){
-      if(changed){ s2.innerHTML='<span class="ai-done">✦ AI refined <b>'+changed+'</b> column'+(changed>1?'s':'')+'</span>, shown in <span class="ai-swatch">teal</span> below.'; }
-      else { s2.innerHTML='<span class="ai-done">✦ AI agreed with the engine</span>, nothing to change.'; }
+      const checked=agreed+changed;
+      const read=(r.mode==='full'&&r.rows_read)?(' after reading all '+Number(r.rows_read).toLocaleString()+' rows'):'';
+      s2.innerHTML='<span class="ai-done">\u2726 AI checked <b>'+checked+'</b> column'+(checked===1?'':'s')+read+'.</span> '+
+        'It agrees with the engine on <b>'+agreed+'</b>'+(changed?' and suggests a different type for <b>'+changed+'</b>, shown in <span class="ai-swatch">teal</span>. Each row says why.':'.')+
+        ((r.masked_columns||[]).length?' <span class="ai-partial">'+r.masked_columns.length+' sensitive column(s) were sent only as patterns, not real values.</span>':'');
+      if(r.note && r.batches_ok<r.batches) s2.innerHTML+=' <span class="ai-partial">'+esc(r.note)+'</span>';
     }
   }catch(e){ if(e&&e.name==='AbortError'){ return; } if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
 }
