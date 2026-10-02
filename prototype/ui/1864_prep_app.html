@@ -678,7 +678,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v77</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v78</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1328,7 +1328,9 @@ function onbToggleType(k){ ONB.types=ONB.types||[]; const i=ONB.types.indexOf(k)
   if(i>=0) ONB.types.splice(i,1); else ONB.types.push(k); showOnboard(); }
 
 function obAIKey(){
-  ONB.aiProvider = ONB.aiProvider || 'ollama';
+  const _web=!!(window.ENV&&ENV.web);
+  ONB.aiProvider = ONB.aiProvider || (_web ? 'ollama_cloud' : 'ollama');
+  if(_web && (AI_DEFAULTS[ONB.aiProvider]||{}).local) ONB.aiProvider='ollama_cloud';
   const d=AI_DEFAULTS[ONB.aiProvider]||{};
   const _hk=ONB.aiProvider==='openai'?'api_key_openai':ONB.aiProvider==='anthropic'?'api_key_anthropic':ONB.aiProvider==='ollama_cloud'?'api_key_ollama_cloud':'api_key_ollama';
   const _ph=d.local?'http://localhost:11434':(ONB.aiProvider==='ollama_cloud'?'paste your Ollama secret API key':'paste your key');
@@ -1336,7 +1338,7 @@ function obAIKey(){
   return '<div class="onb-card"><p class="eyebrow">Optional</p><h1>Add an AI key? (you can skip) '+infoBtn(_hk)+'</h1>'+
     '<p class="lead"><b>1864 Prep runs locally and handles about 80% of cleaning on its own</b>, with no internet. AI only helps with the trickier cases. You can add a key now so it\u2019s ready, or leave this and add it later, nothing is required.</p>'+
     '<div class="set-row"><span>Provider</span><select id="ob-aiprov" class="set-input" onchange="ONB.aiProvider=this.value;showOnboard()">'+
-      '<option value="ollama"'+(ONB.aiProvider==='ollama'?' selected':'')+'>Local model (Ollama), stays on this computer</option>'+
+      (_web?'':'<option value="ollama"'+(ONB.aiProvider==='ollama'?' selected':'')+'>Local model (Ollama), stays on this computer</option>')+
       '<option value="ollama_cloud"'+(ONB.aiProvider==='ollama_cloud'?' selected':'')+'>Ollama Cloud (your key)</option>'+
       '<option value="openai"'+(ONB.aiProvider==='openai'?' selected':'')+'>OpenAI (your key)</option>'+
       '<option value="anthropic"'+(ONB.aiProvider==='anthropic'?' selected':'')+'>Anthropic · Claude (your key)</option>'+
@@ -1357,8 +1359,7 @@ function obPassword(){
       '<button type="button" class="btn" onclick="onbFinish()">Finish setup \u2192</button></div>'+
     '<p class="onb-skip" onclick="ONB.pass=\'\';onbFinish()">Skip for now</p></div>';
 }
-async function onbFinish(){
-  try{
+async function saveOnboarding(){
   const _s=v=>(typeof v==='string'?v:'' ).trim();
   const owner={first:_s(ONB.first)||((window.ENV&&ENV.web)?'':'Owner'), last:_s(ONB.last), org:_s(ONB.org),
                orgRole:_s(ONB.orgRole), role:'admin', created:new Date().toISOString()};
@@ -1366,13 +1367,22 @@ async function onbFinish(){
   _pset('prep_sector', ONB.sector||{name:'General / other',cols:[]});
   _pset('prep_type_prior', ONB.types||[]);
   if(ONB.aiKey && ONB.aiKey.trim()){
-    const d=AI_DEFAULTS[ONB.aiProvider]||{};
-    SETTINGS.provider=ONB.aiProvider; SETTINGS.key=ONB.aiKey.trim();
-    SETTINGS.model=(d.model||''); SETTINGS.ai_key_ready=true; SETTINGS.last_ai_mode=SETTINGS.last_ai_mode||'assist';
+    let prov=ONB.aiProvider||((window.ENV&&ENV.web)?'ollama_cloud':'ollama');
+    // a pasted secret key (not an address like localhost:11434) means a cloud provider
+    if((AI_DEFAULTS[prov]||{}).local && !/^(https?:\/\/|localhost|127\.|0\.0\.0\.0)|:\d{2,5}/i.test(ONB.aiKey.trim())) prov='ollama_cloud';
+    const d=AI_DEFAULTS[prov]||{};
+    SETTINGS.provider=prov; SETTINGS.key=ONB.aiKey.trim();
+    SETTINGS.model=(SETTINGS.model&&SETTINGS.provider===prov?SETTINGS.model:(d.model||'')); SETTINGS.ai_key_ready=true; SETTINGS.last_ai_mode=SETTINGS.last_ai_mode||'assist';
     _pset('prep_settings', SETTINGS);
   }
   if(ONB.pass && ONB.pass.length){ try{ _pset('prep_pass', await _hash(ONB.pass)); }catch(e){ _pset('prep_pass', ONB.pass); } }
   _pset('prep_setup', true);
+  ONB._saved=true;
+}
+async function onbFinish(){
+  try{
+  await saveOnboarding();
+  _pset('prep_setup', true); ONB._saved=true;
   ONB.step=(ONB._done!=null?ONB._done:7); showOnboard();   // land on the Done step
   }catch(err){
     try{ toast('Could not finish setup: '+(err&&err.message||err)); }catch(e){}
@@ -1388,7 +1398,12 @@ function obDone(){
     '<p class="lead">'+passNote+' Let\u2019s clean your first file.</p>'+
     '<div class="onb-actions"><button class="btn" onclick="finishOnboarding()">Go to upload \u2192</button></div></div>';
 }
-function finishOnboarding(){ enterApp(); }
+async function finishOnboarding(){
+  // the hosted setup has no password step, so make sure everything chosen
+  // (AI key, kind of data) is saved before entering the app
+  if(!ONB._saved){ try{ await saveOnboarding(); }catch(e){} }
+  enterApp();
+}
 function onbSkipAll(){
   _pset('prep_owner', {first:'Owner', last:'', org:'', orgRole:'', role:'admin', created:new Date().toISOString()});
   _pset('prep_current', getOwner()); _pset('prep_sector', {name:'General / other',cols:[]});
@@ -3050,6 +3065,9 @@ function aiShortError(msg){
 async function aiStart(){
   if(!aiReady()){
     AI_PENDING_RUN=true;
+    if(SETTINGS.ai_key_ready && !SETTINGS.remember_key && !(AI_DEFAULTS[SETTINGS.provider]||{}).local){
+      toast('For privacy, your AI key is forgotten when the app closes. Paste it again, or tick \u201cRemember my key on this computer\u201d.', {duration:7000});
+    }
     if(window.ENV && ENV.web && (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; }
     openAIModal(); return;
   }
