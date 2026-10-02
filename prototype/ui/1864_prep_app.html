@@ -648,6 +648,16 @@ body.dp-open .main{margin-right:var(--dpw)}
 .ai-verdict{grid-column:1/-1;font-size:12.5px;margin:2px 0 0;padding-left:2px;line-height:1.45}
 .ai-verdict.agrees{color:#2f6f57}.ai-verdict.differs{color:#1f4f5b}.ai-verdict.kept{color:var(--ink-soft)}
 .ai-verdict a{cursor:pointer;text-decoration:underline;font-weight:600;margin-left:4px}.ai-eng{color:var(--ink-soft)}
+/* v76: one AI bar */
+.aibar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px;max-width:860px;font-size:13.5px}
+.aibar-done{border-color:#cfe3e8;background:#f2f8f9}.aibar-error{border-color:#ecd3c4;background:#fdf6f1}
+.aib-ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;color:var(--teal);font-weight:700}
+.aib-ic.warn{color:#a4452c;border:1.5px solid #a4452c;border-radius:50%;width:18px;height:18px;font-size:12px}
+.aib-ic .dots-ring{width:22px;height:22px;margin:0}.aib-ic .dots-ring i{width:4px;height:4px;margin:-2px 0 0 -2px;transform:rotate(calc(var(--i)*45deg)) translateY(-8px)}
+.aib-tx{flex:1;min-width:200px;color:var(--ink)}.aib-sub{color:var(--ink-soft);font-size:12.5px}
+.aib-go{white-space:nowrap}
+.ai-why{color:var(--ink-soft)}
+.mrow.ai-row{box-shadow:inset 3px 0 0 var(--teal) !important;background:#f4f9fa}
 </style>
 </head>
 <body>
@@ -667,7 +677,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v75</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v76</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -2360,7 +2370,7 @@ async function doExport(){
 }
 function cleanNextSheet(){
   CURRENT_SHEET=SHEET_QUEUE.shift();
-  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0;
+  COLREVIEW=[]; COL_SAMPLE=[]; DIST=null; RUN_AI=false; AI_RECO_SHOWN=false; COL_SEEN=new Set(); COL_PAGE=0; AI_STATE='idle'; AI_RES={};
   window.__RESHAPED_ID__=null; window.__AI_COLS__=[]; window.__AI_MERGES__={};  // no leak from the previous sheet
   SESSION_ID=null;
   toast('Cleaning sheet: '+CURRENT_SHEET, {kind:'good'});
@@ -2964,15 +2974,18 @@ async function askColumnAI(i){
 
 function aiVerdict(c,i){
   if(!c.aiChecked) return '';
-  if(c.source==='ai') return '<div class="ai-verdict differs">\u2726 AI thinks this is <b>'+esc(TYPE_LABEL[c.type]||c.type)+'</b>'+(c.aiReason?': '+esc(c.aiReason):'')+
-    ' <span class="ai-eng">The engine said '+esc(TYPE_LABEL[c.localType]||c.localType||'?')+'.</span> <a onclick="useEngineType('+i+')">Use the engine\u2019s</a></div>';
-  if(c.aiAgree) return '<div class="ai-verdict agrees" title="'+esc(c.aiReason||'')+'">\u2713 AI agrees'+(c.aiReason?': '+esc(c.aiReason):'')+'</div>';
-  if(c.aiType) return '<div class="ai-verdict kept">AI suggested '+esc(TYPE_LABEL[c.aiType]||c.aiType)+', you kept '+esc(TYPE_LABEL[c.type]||c.type)+'. <a onclick="useAIType('+i+')">Use AI\u2019s</a></div>';
+  const tip=c.aiReason?' title="'+esc(c.aiReason)+'"':'';
+  if(c.source==='ai') return '<div class="ai-verdict differs"'+tip+'>\u2726 AI suggests <b>'+esc(TYPE_LABEL[c.type]||c.type)+'</b>'+
+    (c.aiReason?' <span class="ai-why">'+esc(c.aiReason.length>70?c.aiReason.slice(0,68)+'\u2026':c.aiReason)+'</span>':'')+
+    ' <a onclick="useEngineType('+i+')">Keep '+esc(TYPE_LABEL[c.localType]||c.localType||'original')+'</a></div>';
+  if(!c.aiAgree && c.aiType && c.aiType!==c.type) return '<div class="ai-verdict kept"'+tip+'>AI suggested '+esc(TYPE_LABEL[c.aiType]||c.aiType)+'. <a onclick="useAIType('+i+')">Use it</a></div>';
   return '';
 }
 function useEngineType(i){ const c=COLREVIEW[i]; if(!c) return; c.type=c.localType||c.type; c.source='local'; c.aiAgree=false;
+  if(AI_RES&&AI_RES.changed) AI_RES.changed=Math.max(0,AI_RES.changed-1);
   logEvent('\u270E','Kept the engine\u2019s type for "'+c.original+'" over AI'); window.__AI_COLS__=COLREVIEW.filter(x=>x.source==='ai').map(x=>x.original); renderColumnReview(); }
 function useAIType(i){ const c=COLREVIEW[i]; if(!c||!c.aiType) return; c.localType=c.type; c.type=c.aiType; c.source='ai';
+  if(AI_RES) AI_RES.changed=(AI_RES.changed||0)+1;
   logEvent('\u2726','Used AI\u2019s type for "'+c.original+'"'); window.__AI_COLS__=COLREVIEW.filter(x=>x.source==='ai').map(x=>x.original); renderColumnReview(); }
 const TYPE_ORDER=['identifier','name','date','datetime','numeric','currency','boolean','gender','email','phone','geo','categorical','free_text'];
 function typeSelect(i,cur){
@@ -3000,18 +3013,57 @@ function renderShapeNotice(){
     box.style.display='block';
   } else { box.style.display='none'; box.innerHTML=''; }
 }
+let AI_STATE='idle', AI_RES={};
 function renderAITopBanner(){
   const box=$('#ai-top-banner'); if(!box) return;
-  const shaky=COLREVIEW.filter(c=>c.uncertain && !c.dropped).length;
-  // show the offer at the TOP only when there's something for AI to help with and it isn't already on
-  if(shaky>=1 && !RUN_AI){
-    box.style.display='block';
-    box.innerHTML='<div class="ai-offer">'+
-      '<span class="ai-offer-ic">✦</span>'+
-      '<span class="ai-offer-tx"><b>'+shaky+' column'+(shaky>1?'s':'')+' look uncertain.</b> AI can double-check '+
-      (shaky>1?'them':'it')+' and tidy any messy values. You approve every change.</span>'+
-      '<button class="btn sm" onclick="onRunAITick(true); renderColumnReview();">Use AI</button></div>';
-  } else { box.style.display='none'; box.innerHTML=''; }
+  const n=COLREVIEW.filter(c=>!c.dropped).length;
+  box.style.display='block';
+  let h='';
+  if(AI_STATE==='running'){
+    h='<span class="aib-ic">'+DOTS_HTML+'</span><span class="aib-tx">Checking '+n+' columns with AI\u2026</span>'+
+      '<button type="button" class="btn ghost sm" onclick="stopAI()">Stop</button>';
+  } else if(AI_STATE==='done'){
+    const ch=AI_RES.changed||0;
+    h='<span class="aib-ic ok">\u2726</span><span class="aib-tx"><b>AI checked '+AI_RES.checked+' columns.</b> '+
+      (ch? ch+' suggestion'+(ch>1?'s':'')+', marked in teal.' : 'It agrees with every type.')+
+      (AI_RES.partial?' <span class="aib-sub">'+esc(AI_RES.partial)+'</span>':'')+'</span>'+
+      (ch?'<button type="button" class="btn ghost sm" onclick="aiUndo()">Undo AI</button>':'')+
+      '<button type="button" class="btn ghost sm" onclick="aiStart()">Run again</button>';
+  } else if(AI_STATE==='error'){
+    h='<span class="aib-ic warn">!</span><span class="aib-tx">'+esc(AI_RES.error||'AI didn\u2019t respond.')+'</span>'+
+      '<button type="button" class="btn sm" onclick="aiStart()">Try again</button>'+
+      (AI_RES.setup?'<button type="button" class="btn ghost sm" onclick="AI_PENDING_RUN=true;openAIModal()">AI setup</button>':'');
+  } else {
+    h='<button type="button" class="btn sm aib-go" onclick="aiStart()">\u2726 Check columns with AI</button>'+
+      '<span class="aib-sub">Optional. A second opinion on every column\u2019s type.</span>';
+  }
+  box.innerHTML='<div class="aibar aibar-'+AI_STATE+'" role="status" aria-live="polite">'+h+'</div>';
+}
+function aiShortError(msg){
+  const m=String(msg||'');
+  if(/wasn.t accepted|unauthor|401|403|invalid.*key/i.test(m)) return {error:'Your AI key wasn\u2019t accepted.', setup:true};
+  if(/too long|timed? ?out|timeout/i.test(m)) return {error:'AI took too long to answer.', setup:false};
+  if(/not set up|choose local|provider/i.test(m)) return {error:'AI isn\u2019t set up yet.', setup:true};
+  if(/doesn.t have the model|ollama pull/i.test(m)) return {error:m.slice(0,140), setup:true};
+  if(/refused|reach|connect|network|fetch/i.test(m)) return {error:'Couldn\u2019t reach the AI.', setup:true};
+  return {error:'AI didn\u2019t respond. '+m.slice(0,80), setup:true};
+}
+async function aiStart(){
+  if(!aiReady()){
+    AI_PENDING_RUN=true;
+    if(window.ENV && ENV.web && (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; }
+    openAIModal(); return;
+  }
+  // a fresh run starts from the engine's own reading
+  COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; } c.aiChecked=false; c.aiAgree=false; c.aiType=null; });
+  AI_STATE='running'; AI_RES={}; RUN_AI=false; renderColumnReview();
+  AI_ABORT=new AbortController(); AI_RUNNING=true;
+  try{ await runWholeFileReview(); } finally { AI_RUNNING=false; }
+}
+function aiUndo(){
+  COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; } c.aiChecked=false; c.aiAgree=false; c.aiType=null; });
+  window.__AI_COLS__=[]; AI_STATE='idle'; AI_RES={}; RUN_AI=false;
+  logEvent('\u21A9','Undid AI\u2019s column suggestions'); renderColumnReview();
 }
 function scrollColsTop(){ const h=document.querySelector('[data-screen="4"] h1'); if(h) h.scrollIntoView({behavior:'smooth',block:'start'}); }
 function renderColumnReview(){
@@ -3035,7 +3087,7 @@ function renderColumnReview(){
     if(c.abnormal) status=`<span class="cf lo" title="${esc(c.reason)}">needs a name</span>`;
     else if(c.suggestion && SHOW_SHORT) status=`<span class="cf sug" onclick="applySuggestion(${i})" title="Click to use this clearer name" style="cursor:pointer">try: ${esc(c.suggestion)}</span>`;
     else status=``;   // clean names need no badge, quiet by default (only flag what needs attention)
-    const src = c.source==='ai' ? `<span class="ai-tag" title="Type suggested by AI, teal means AI helped">✦ AI</span>` : '';
+    const src = '';
     if(c.dropped){
       return `<div class="mrow dropped">
         <span class="raw">${esc(c.original)}</span><span class="arr">→</span>
@@ -3065,7 +3117,7 @@ function renderColumnReview(){
   });
   const aiBox=$('#ai-pages-note');
   if(aiBox){ const unseen=aiPages.filter(k=>!COL_SEEN.has(k));
-    aiBox.style.display=aiPages.length?'block':'none';
+    aiBox.style.display=(aiPages.length && pages>1)?'block':'none';   // only useful when there are several pages
     aiBox.innerHTML=aiPages.length?('\u2726 AI changed columns on page'+(aiPages.length>1?'s ':' ')+aiPages.map(k=>'<a onclick="colGo('+k+')">'+(k+1)+'</a>').join(', ')+
       (unseen.length?'. You haven\u2019t opened '+(unseen.length>1?'pages ':'page ')+unseen.map(k=>k+1).join(', ')+' yet.':'. You\u2019ve seen them all.')):''; }
   const mn=$('#matchn'); if(mn) mn.textContent=COLREVIEW.length;
@@ -3082,19 +3134,7 @@ function renderColumnReview(){
 // column-by-column clicking: the engine and AI both weigh in on the uncertain
 // columns, an evaluator keeps the best answer, and each shows its source.
 let RUN_AI=false, AI_EVALUATED=false, AI_PENDING_RUN=false, AI_RECO_SHOWN=false;
-function renderAIContext(){
-  const box=$('#ai-context'); if(!box) return;
-  const shaky=COLREVIEW.filter(c=>c.uncertain).length;
-  const configured = SETTINGS.provider && (SETTINGS.key || (AI_DEFAULTS[SETTINGS.provider]||{}).local);
-  const note = shaky
-    ? `The engine is unsure about ${shaky} column${shaky===1?'':'s'}.`
-    : `The engine is confident about every column.`;
-  box.innerHTML = `<label class="run-ai"><input type="checkbox" ${RUN_AI?'checked':''} onchange="onRunAITick(this.checked)">`+
-    `<span>Use AI on this file. It reads every value in <b>every column</b> and gives its own opinion on each type, then helps tidy messy <b>values</b>. You approve every change.`+
-    (configured?``:` (you'll add a key first)`)+`</span></label>`+
-    `<div class="run-ai-note">${note} With a cloud model, names, phones and IDs are sent only as patterns. AI is optional.</div>`+
-    `<div class="run-ai-status" id="ai-run-status"></div>`;
-}
+function renderAIContext(){ const box=$('#ai-context'); if(box) box.innerHTML=''; }
 // One place that states, truthfully, where the data goes — differs web vs desktop.
 
 function openPrivacy(){
@@ -3144,52 +3184,17 @@ function aiReady(){
   const cloudOK = !d.local && SETTINGS.key && SETTINGS.key.trim();
   return !!(localOK || cloudOK);
 }
-function onRunAITick(on){
-  RUN_AI=on;
-  if(on && !aiReady()){
-    RUN_AI=false; AI_PENDING_RUN=true;
-    // on the web a local model can't run, so steer to a cloud key
-    if(window.ENV && ENV.web && (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; }
-    openAIModal(); return;
-  }
-  if(on){ runAIAssist(); }
-  else { COLREVIEW.forEach(c=>{ if(c.source==='ai'){ c.type=c.localType||c.type; c.source='local'; }}); window.__AI_MERGES__={}; renderColumnReview(); }
-}
+function onRunAITick(on){ if(on) aiStart(); else aiUndo(); }
 // The single AI toggle does BOTH: column/type review AND value cleaning (merging
 // variant spellings). Column review first, then value cleanup on text/categorical.
 let AI_ABORT=null, AI_RUNNING=false;
-function aiWorking(html){   // status + a real Stop button while AI is running
-  const st=$('#ai-run-status'); if(!st) return;
-  st.innerHTML='<div class="ai-working"><span>'+html+'</span>'+
-    '<button type="button" class="btn ghost sm" onclick="stopAI()">Stop</button></div>';
-}
+function aiWorking(html){ /* progress is shown in the AI bar */ }
 function stopAI(){
   if(AI_ABORT){ try{ AI_ABORT.abort(); }catch(e){} }
-  AI_RUNNING=false; RUN_AI=false;
-  renderColumnReview();   // rebuild first (unticks the box, restores the offer)
-  const st=$('#ai-run-status'); if(st) st.innerHTML='<span class="ai-done">AI stopped.</span> You can continue and clean your data without it, or turn AI back on anytime.';
-  const cb=document.querySelector('.run-ai input[type=checkbox]'); if(cb) cb.checked=false;
+  AI_RUNNING=false; RUN_AI=false; AI_STATE='idle'; AI_RES={};
+  renderColumnReview(); toast('AI stopped. The engine\u2019s reading is kept.');
 }
-async function runAIAssist(){
-  const d=(AI_DEFAULTS[SETTINGS.provider]||{});
-  const st=$('#ai-run-status');
-  AI_ABORT=new AbortController(); AI_RUNNING=true;
-  // STEP 1 — tidy messy values. This is LOCAL and INSTANT (no model, no key, no
-  // network): it runs immediately and always, and shows exactly what it grouped.
-  await runValueCleanup();
-  // STEP 2 — the AI column/type review needs a usable model. Local works only on
-  // the desktop app; cloud needs a key. If it isn't usable here, ask for setup —
-  // never attempt a local server on the hosted web.
-  if(!aiReady()){
-    AI_RUNNING=false; AI_PENDING_RUN=true;
-    if(window.ENV && ENV.web && d.local){ SETTINGS.provider='ollama_cloud'; }
-    openAIModal();
-    return;
-  }
-  // column/type review — runs on local OR cloud (only a masked sample is sent)
-  await runWholeFileReview();
-  AI_RUNNING=false;
-}
+async function runAIAssist(){ return aiStart(); }
 window.__AI_MERGES__ = {};
 // cheap local check: are there case/whitespace variants that AI could merge?
 function _hasLikelyDupes(vals){
@@ -3248,21 +3253,14 @@ async function runWholeFileReview(){
   const headers=COLREVIEW.filter(c=>!c.dropped).map(c=>c.original);
   const sample=(COL_SAMPLE||[]).slice(0,8);
   const where=d.local?'your local model':'Ollama Cloud';
-  aiWorking('<span class="spin"></span> AI is reading every value in all <b>'+headers.length+'</b> columns with '+where+
-    (d.local?'. Nothing leaves this computer.':'. Names, phones and IDs are sent only as patterns.')+'\u2026');
+
   try{
     const r=await (await fetch('/api/ai/review',{method:'POST',headers:{'Content-Type':'application/json'},signal:(AI_ABORT&&AI_ABORT.signal),
       body:JSON.stringify({headers, sample, preview_id:window.__PREVIEW_ID__||null, reshaped_id:window.__RESHAPED_ID__||null, context:aiFileContext(), provider:SETTINGS.provider, url:(d.local?SETTINGS.key:''), model:SETTINGS.model, api_key:(d.local?'':SETTINGS.key)})})).json();
     if(!r.ok){
-      const emsg=String(r.error||'');
-      // a key/auth problem -> reopen AI setup so the user can fix the key right away
-      if(/wasn.t accepted|key|unauthor|401|403/i.test(emsg)){
-        if(st) st.innerHTML='\u26A0\uFE0E '+esc(emsg)+' <a style="color:var(--navy);text-decoration:underline;cursor:pointer" onclick="AI_PENDING_RUN=true;openAIModal()">Open AI setup</a>';
-        RUN_AI=false; const cb=document.querySelector('.run-ai input[type=checkbox]'); if(cb) cb.checked=false;
-      } else {
-        if(st) st.innerHTML='\u26A0\uFE0E Couldn\u2019t complete the review: '+esc(emsg)+' Kept the engine\u2019s reading.';
-      }
-      return;
+      const e=aiShortError(r.error); AI_STATE='error'; AI_RES=e; RUN_AI=false;
+      logEvent('\u26A0','AI review didn\u2019t finish: '+String(r.error||'').slice(0,80));
+      renderColumnReview(); return;
     }
     let changed=0; const byName={};
     (r.columns||[]).forEach(c=>{ if(c.name) byName[String(c.name).toLowerCase().trim()]=c; });
@@ -3276,16 +3274,13 @@ async function runWholeFileReview(){
     window.__AI_COLS__ = COLREVIEW.filter(c=>c.source==='ai').map(c=>c.original);
     logEvent('\u2726','AI reviewed the file, refined '+changed+' column(s)'+(changed?': '+window.__AI_COLS__.join(', '):''));
     try{ logEvent('ai', changed? ('AI refined '+changed+' column(s): '+window.__AI_COLS__.join(', ')) : 'AI reviewed, agreed with engine'); }catch(e){}
+    AI_STATE='done'; RUN_AI=true;
+    AI_RES={checked:agreed+changed, agreed, changed, partial:(r.batches_ok<r.batches?'Some columns kept the engine\u2019s reading.':'')};
     renderColumnReview();
-    const s2=$('#ai-run-status'); if(s2){
-      const checked=agreed+changed;
-      const read=(r.mode==='full'&&r.rows_read)?(' after reading all '+Number(r.rows_read).toLocaleString()+' rows'):'';
-      s2.innerHTML='<span class="ai-done">\u2726 AI checked <b>'+checked+'</b> column'+(checked===1?'':'s')+read+'.</span> '+
-        'It agrees with the engine on <b>'+agreed+'</b>'+(changed?' and suggests a different type for <b>'+changed+'</b>, shown in <span class="ai-swatch">teal</span>. Each row says why.':'.')+
-        ((r.masked_columns||[]).length?' <span class="ai-partial">'+r.masked_columns.length+' sensitive column(s) were sent only as patterns, not real values.</span>':'');
-      if(r.note && r.batches_ok<r.batches) s2.innerHTML+=' <span class="ai-partial">'+esc(r.note)+'</span>';
-    }
-  }catch(e){ if(e&&e.name==='AbortError'){ return; } if(st) st.innerHTML='\u26A0\uFE0E Review failed: '+esc(e.message||'request error')+'. Kept the engine reading.'; }
+  }catch(e){
+    if(e&&e.name==='AbortError') return;
+    const x=aiShortError(e&&e.message); AI_STATE='error'; AI_RES=x; RUN_AI=false; renderColumnReview();
+  }
 }
 
 // After upload, recommend AI only if the engine is genuinely unsure AND a local model is set up.
@@ -3301,7 +3296,7 @@ function showAIReco(n){
     '<button class="x" onclick="closeAIReco()">\u2715</button></div>'+
     '<p class="set-sub"><b>'+n+' columns look uncertain.</b> A local model can review the whole file once and suggest a cleaner structure. Nothing leaves your computer.</p>'+
     '<div class="modal-foot"><button class="btn ghost" onclick="closeAIReco()">No, I will do it myself</button>'+
-    '<button class="btn" onclick="closeAIReco(); RUN_AI=true; renderAIContext(); runWholeFileReview()">Review with AI</button></div></div>';
+    '<button class="btn" onclick="closeAIReco(); aiStart()">Review with AI</button></div></div>';
   m.classList.add('on');
 }
 function closeAIReco(){ const m=$('#aireco'); if(m) m.classList.remove('on'); }
