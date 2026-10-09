@@ -63,7 +63,7 @@ def read_table(path: str | Path) -> pd.DataFrame:
     raise ValueError(f"Unsupported file type: {suffix}")
 
 
-def run_plan(df: pd.DataFrame, plan: dict, source_file: str = "") -> tuple[pd.DataFrame, CleaningReport, pd.DataFrame]:
+def run_plan(df: pd.DataFrame, plan: dict, source_file: str = "", on_column=None) -> tuple[pd.DataFrame, CleaningReport, pd.DataFrame]:
     """Apply a plan. Returns (cleaned_df, report, flagged_rows_df)."""
     report = CleaningReport(
         plan_name=plan.get("name", "unnamed"),
@@ -75,8 +75,12 @@ def run_plan(df: pd.DataFrame, plan: dict, source_file: str = "") -> tuple[pd.Da
     out = pd.DataFrame(index=df.index)
     flagged_mask = pd.Series(False, index=df.index)
 
-    for m in plan["mappings"]:
+    _n = len(plan["mappings"])
+    for _i, m in enumerate(plan["mappings"]):
         src = m["source_column"]
+        if on_column:
+            try: on_column(_i, _n, src)
+            except Exception: pass
         tgt = m["target_field"]
         tname = m["transform"]
         params = dict(m.get("params", {}))

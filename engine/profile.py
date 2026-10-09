@@ -232,12 +232,23 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     # only with that hint, so real 5-digit ID/code columns are never corrupted.
     serials = [v for v in vals if _re_fullmatch_serial(v)]
     if serials and len(serials) / len(vals) >= 0.9:
-        hint = any(k in name.lower() for k in
-                   ("date", "day", "created", "closed", "resolved", "time",
-                    "dob", "birth", "start", "end", "period", "month", "year", "timestamp"))
-        if hint:
+        hint = bool(re.search(r"(?:^|[^a-z])(date|day|created|closed|resolved|time|dob|birth|start|end|"
+                              r"period|month|timestamp)(?:[^a-z]|$)", hl))
+        _measure = _money_hint or re.search(r"(salary|pension|income|wage|amount|count|number|total|"
+                                            r"\(\s*in\s|dollars|naira|years? old|age)", hl)
+        if hint and not _measure:
             ev["excel_date_serials"] = True
             return ColumnProfile(name, "date", 0.85, "date_iso", evidence=ev)
+
+    # 12+ digit whole numbers are account / card numbers, never quantities:
+    # treating them as numbers would round them or show them as 6.76e+11.
+    _long = [v for v in vals if v.replace(" ", "").isdigit() and len(v.replace(" ", "")) >= 12]
+    if _long and len(_long) / len(vals) >= 0.8 and not _money_hint:
+        ev["long_digit_ids"] = True
+        return ColumnProfile(name, "identifier", 0.88, "fixed_id", evidence=ev)
+    # 3-4 digit security codes and PINs keep leading zeros
+    if re.search(r"(?:^|[^a-z])(cvv|cvc|pin|otp)(?:[^a-z]|$)", hl) and all(v.isdigit() for v in vals[:200]):
+        return ColumnProfile(name, "identifier", 0.85, "fixed_id", evidence=ev)
 
     # An ID header over digit strings is an identifier even when few values are
     # distinct (e.g. a test file, or many blanks). Treating a NIN as a number
@@ -358,6 +369,12 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
         return ColumnProfile(name, "numeric", numeric_rate, "numeric",
                              params={"decimal": conv}, evidence=ev)
 
+    # a unit in the header ('Distance (in Km)', 'Weight (kg)') + numbers = a measure
+    if numeric_rate >= 0.8 and re.search(r"\(\s*(in\s+)?(km|kms|kilomet|metres?|meters?|m|kg|kilos?|g|cm|mm|"
+                                         r"years?|months?|days?|hours?|mins?|minutes?|%|percent|naira|ngn|dollars?|usd|\$|ha|hectares?|litres?|l)\b", hl):
+        conv, _c = infer_decimal_convention(vals)
+        return ColumnProfile(name, "numeric", max(numeric_rate, 0.85), "numeric", params={"decimal": conv}, evidence=ev)
+
     # numeric measure (integers)
     if numeric_rate >= 0.85:
         conv, conv_ev = infer_decimal_convention(vals)
@@ -378,15 +395,16 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
     # person name: 1-3 alphabetic tokens, high cardinality (never for a survey question) (checked before
     # categorical so real name columns aren't mistaken for small vocabularies).
     alpha_rate = _rate(vals, lambda s: s.replace(" ", "").replace("-", "").replace("'", "").isalpha())
-    if alpha_rate >= 0.8 and 1 < avg_tokens <= 3 and card_ratio >= 0.5 and not _question:
+    _placey = re.search(r"(city|town|village|street|address|state|lga|ward|country|region|district|county|postcode|location|community)", hl)
+    if alpha_rate >= 0.8 and 1 < avg_tokens <= 3 and card_ratio >= 0.5 and not _question and not _placey:
         return ColumnProfile(name, "name", 0.75, "name", evidence=ev)
 
     # categorical: low distinct count relative to rows, short-ish values
     if (d <= 60 and card_ratio <= 0.5 and avg_tokens <= 4) or (d <= 25 and n >= 20):
         return ColumnProfile(name, "categorical", 0.8, "induce_vocabulary", evidence=ev)
 
-    # single-token alphabetic, higher cardinality -> name fallback
-    if alpha_rate >= 0.8 and avg_tokens <= 3 and card_ratio >= 0.5:
+    # single-token alphabetic, higher cardinality -> name fallback (never for places or questions)
+    if alpha_rate >= 0.8 and avg_tokens <= 3 and card_ratio >= 0.5 and not _placey and not _question:
         return ColumnProfile(name, "name", 0.7, "name", evidence=ev)
 
     # otherwise free text
@@ -516,11 +534,18 @@ def harmonize_types(df, profiles):
             sig = None
         if sig is None:
             continue
-        groups.setdefault(sig, []).append(p)
+        # only columns from the same SERIES: same header once years, months,
+        # quarters and numbers are removed ('2019','2020' or 'Score 1','Score 2').
+        # Unrelated columns that merely look alike (First Name, Vehicle Make) are
+        # never forced to share a type.
+        stem = re.sub(r"(19|20)\d{2}|\b(q[1-4]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\d+", "",
+                      str(p.column).lower())
+        stem = re.sub(r"[^a-z]+", " ", stem).strip()
+        groups.setdefault((sig, stem), []).append(p)
     for sig, members in groups.items():
         if len(members) < 3:
             continue
-        if sig == ("year",):
+        if sig[0] == ("year",):
             target = "numeric"
         else:
             counts = {}
@@ -529,6 +554,8 @@ def harmonize_types(df, profiles):
             target = max(counts, key=lambda t: (counts[t], sum(x.confidence for x in members if x.semantic_type==t)))
         transform = _TYPE_TO_TRANSFORM.get(target, ("text_normalise", {}))[0]
         for m in members:
+            if (m.evidence or {}).get("name_header") or (m.evidence or {}).get("money_header") or (m.evidence or {}).get("id_header"):
+                continue                                  # the header already settles it
             if m.semantic_type != target:
                 m.semantic_type = target
                 m.transform = transform

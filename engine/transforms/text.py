@@ -165,6 +165,12 @@ class NumericTransform(Transform):
         if not re.fullmatch(r"[0-9][0-9.,\s]*", core) or re.search(r"\d\s+\d", core.replace(",", "").replace(".", "")) and not re.fullmatch(r"\d{1,3}(?:[ ,.]\d{3})+(?:[.,]\d+)?", core):
             return value, True, "not a plain number, please check"
         convention = self.params.get("decimal", "dot")
+        # Long whole numbers (card / account numbers typed as numbers) are kept
+        # digit-for-digit: going through a decimal number would round the end
+        # (4091726363083888495 -> ...640).
+        _digits_only = core.replace(",", "").replace(" ", "")
+        if _digits_only.isdigit() and len(_digits_only) > 15:
+            return value, False, ""
         amount, neg, pct = self._parse(s, convention)
         if amount is None:
             return value, True, "not numeric"

@@ -380,7 +380,28 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                 plan = profile_to_plan(profs, "auto", _ref["gazetteer_refs"])
             types = {p.column: p.semantic_type for p in profs}
             yield json.dumps({"t": "progress", "pct": 0.82, "stage": "Cleaning values"}) + "\n"
-            cleaned, report, _ = run_plan(df, plan, "web")
+            # run in the background and report column by column, so a slow
+            # column is visible instead of the bar sitting still
+            import threading as _th
+            _pg = {"i": 0, "n": max(1, len(plan.get("mappings", []))), "col": ""}
+            _box = {}
+            def _work():
+                try:
+                    _box["r"] = run_plan(df, plan, "web", on_column=lambda i, n, c: _pg.update(i=i, n=n, col=c))
+                except Exception as _e:
+                    _box["e"] = _e
+            _t = _th.Thread(target=_work, daemon=True); _t.start()
+            _last = None
+            while _t.is_alive():
+                _t.join(0.4)
+                _now = (_pg["i"], _pg["col"])
+                if _now != _last:
+                    _last = _now
+                    yield json.dumps({"t": "progress", "pct": round(0.82 + 0.08 * _pg["i"] / _pg["n"], 3),
+                                      "stage": f"Cleaning {str(_pg['col'])[:40]} ({_pg['i'] + 1} of {_pg['n']})"}) + "\n"
+            if "e" in _box:
+                raise _box["e"]
+            cleaned, report, _ = _box["r"]
             flags = {c["source_column"]: c.get("flagged", 0) for c in report.columns}
             flagged = []
             for c in report.columns:
@@ -406,8 +427,17 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     _vals = (cleaned[p.column] if p.column in cleaned.columns else df[p.column]).tolist()
                     gs = cluster_similar(_vals, domain=_dom)[:20]
                     _person = p.semantic_type == "name"
+                    from collections import Counter as _C
+                    _cnt = _C(str(v).strip() for v in _vals)
                     out_g = []
                     for g in gs:
+                        if _person:
+                            # Christian/Christine or Emma/Jemma are both common, so they
+                            # are different people's names. Only a rare spelling next to
+                            # a common one looks like a typo worth asking about.
+                            cs = sorted((_cnt.get(str(m).strip(), 0) for m in g["members"]), reverse=True)
+                            if len(cs) < 2 or not (cs[1] <= 3 and cs[0] >= 5 * max(1, cs[1])):
+                                continue
                         conf = g["confidence"]
                         # Two similar names can be two different people. Never pre-tick
                         # a merge of person names; the user must choose it.

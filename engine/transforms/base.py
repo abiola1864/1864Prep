@@ -116,12 +116,18 @@ class Transform:
             n_total=len(series),
         )
         new_values = []
+        _memo = {}                                   # each distinct value is cleaned once
         for i, val in enumerate(series.tolist()):
             if self.name != "text_clean" and is_missing_mark(val) and str(val).strip() != "":
                 new_values.append(val)          # '..' stays '..': missing, not an error
                 res.n_blank += 1
                 continue
-            new_val, flagged, reason = self.apply_value(val)
+            _k = val if isinstance(val, (str, int, float)) else repr(val)
+            if _k in _memo:
+                new_val, flagged, reason = _memo[_k]
+            else:
+                new_val, flagged, reason = self.apply_value(val)
+                _memo[_k] = (new_val, flagged, reason)
             new_values.append(new_val)
 
             changed = _s(new_val) != _s(val)
