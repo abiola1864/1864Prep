@@ -225,7 +225,7 @@ def _profile_column_rules(series: pd.Series, name: str, gazetteers: dict | None 
 
     letter_share = _rate(vals, lambda s: any(ch.isalpha() for ch in s))
     if phone_rate >= 0.7 and letter_share < 0.1:      # phones never contain letters
-        return ColumnProfile(name, "phone", phone_rate, "phone_ng", evidence=ev)
+        return ColumnProfile(name, "phone", phone_rate, "phone", evidence=ev)
 
     # a column of bare Excel date-serials (e.g. 44197, 44562) reads as an ID column,
     # but if the header hints a date it is almost certainly leaked dates. Convert
@@ -576,7 +576,7 @@ _TYPE_TO_TRANSFORM = {
     "email": ("email", {}),
     "gender": ("gender", {}),
     "boolean": ("boolean", {}),
-    "phone": ("phone_ng", {}),
+    "phone": ("phone", {}),
     "date": ("date_iso", {}),
     "datetime": ("datetime_iso", {}),
     "numeric": ("numeric", {}),

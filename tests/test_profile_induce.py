@@ -93,7 +93,7 @@ def test_auto_plan_on_unseen_schema():
     profs = profile_dataframe(df, GAZ)
     plan = profile_to_plan(profs, "auto", {"ng_state": "reference/ng_states_canonical.json"})
     tf = {m["source_column"]: m["transform"] for m in plan["mappings"]}
-    assert tf["Phone"] == "phone_ng"
+    assert tf["Phone"] == "phone"      # the active region decides the country
     assert tf["State"] == "resolve"
     assert tf["Active"] == "boolean"
     assert tf["BenID"] == "fixed_id"

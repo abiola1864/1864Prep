@@ -553,7 +553,16 @@ async def api_export(session_id: str = Form(...), decisions: str = Form("{}"), a
     cleaned, report, _ = run_plan(df, kept, "export")
     for c in report.columns:
         if c.get("changed"):
-            audit.append({"column": c["source_column"], "action": f"cleaned ({c['transform']})",
+            _plain = {"name": "names tidied", "gender": "gender written one way", "phone_ng": "phone numbers put in one format",
+                      "phone": "phone numbers put in one format", "nin": "NIN checked", "fixed_id": "IDs checked",
+                      "date_iso": "dates put in one format", "datetime_iso": "dates and times put in one format",
+                      "numeric": "numbers tidied", "email": "emails tidied", "boolean": "yes/no written one way",
+                      "auto_categorical": "spellings made consistent", "text_normalise": "spacing and capitals tidied",
+                      "text_clean": "text tidied", "state_ng": "state names matched", "lga_ng": "LGA names matched",
+                      "resolve": "names matched to official lists", "unit_numeric": "units tidied", "upper": "capitals tidied",
+                      "latitude": "latitude checked", "longitude": "longitude checked", "range_check": "range checked",
+                      "sentinel_na": "missing-value codes tidied"}
+            audit.append({"column": c["source_column"], "action": _plain.get(c["transform"], "cleaned"),
                           "count": c["changed"], "by": _src(c["source_column"])})
     for col in rejected:
         audit.append({"column": col, "action": "kept original (your choice)", "count": "", "by": "you"})

@@ -43,8 +43,12 @@ def test_compare_combine_anonymise_quickclean():
     r, s = tk.combine_files([a,b]); assert s["rows"]==6 and "_source_file" in r.columns
     df = pd.DataFrame({"NIN":["12345678901","22345678901"],"name":["Musa Bello","Ada Obi"],"age":["30","41"]})
     r, s = tk.anonymise(df); assert "NIN" in s["which"] and "age" not in s["which"]
-    q = pd.DataFrame({"Phone":["08031234567","0806 999 0000"]})
+    # international: the country comes from the region, or from numbers in the
+    # column that already carry one; a local number alone is never given a country
+    q = pd.DataFrame({"Phone":["08031234567","0806 999 0000","+2348031234568"]})
     r, s = tk.quick_clean(q); assert r.iloc[0]["Phone"].startswith("+234")
+    q2 = pd.DataFrame({"Phone":["0712345678","+254722123456","+254733123456"]})
+    r2, _ = tk.quick_clean(q2); assert r2.iloc[0]["Phone"].startswith("+254")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ class Region:
     code: str = "generic"
     name: str = "Generic"
     date_order: str = "DMY"     # day-first unless a column's own values prove otherwise
+    phone_region: str | None = None   # Generic: the country is read from the numbers themselves
 
     @property
     def key(self):
