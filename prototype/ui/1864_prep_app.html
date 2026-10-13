@@ -659,6 +659,7 @@ body.dp-open .main{margin-right:var(--dpw)}
 .ai-why{color:var(--ink-soft)}
 .mrow.ai-row{box-shadow:inset 3px 0 0 var(--teal) !important;background:#f4f9fa}
 .boot-wait{text-align:center;margin-top:18vh;color:var(--ink-soft)}.boot-wait .dots-ring{margin:0 auto 14px}
+.slow-note{margin-top:12px;font-size:13px;color:#7a5a14;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -678,7 +679,7 @@ body.dp-open .main{margin-right:var(--dpw)}
       <li data-s="7"><span class="n"><span>4</span></span> Export</li>
     </ol>
     <div class="railfoot"><div id="identity"></div><span id="rf-privacy">Runs on this computer.</span><b id="rf-sector"></b><b id="rf-file" class="rf-file"></b>
-      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v81</div>
+      <div style="font-size:10px;color:var(--faint,#94a0b1);margin-top:6px">Prep v83</div>
       <span class="hint">More</span>
       <button class="setgear" id="tk-nav" onclick="go(8)">🧰 Data Toolkit</button>
       <button class="setgear" id="ai-wand" onclick="openAIModal()">✦ AI setup</button>
@@ -1196,6 +1197,10 @@ async function bootApp(){
   // backward-compatible aliases (older code paths still read these)
   window.__WEB__ = ENV.web; window.__DESKTOP__ = ENV.desktop;
   try{ setEnvPrivacyCopy(); }catch(e){}
+  // a copy that is missing engine parts behaves differently: say so plainly
+  if(cfg && cfg.missing && cfg.missing.length){
+    setTimeout(()=>toast('This copy of 1864 Prep is missing parts for '+cfg.missing.join(', ')+'. Close it, delete the hidden .venv folder, and open it again to finish setup.', {kind:'warn', sticky:true}), 1500);
+  }
   // On the web, a local model can't run — default the AI provider to cloud so the
   // whole app (onboarding, setup, run) is aligned to cloud from the first screen.
   if(ENV.web){ try{ if(!SETTINGS.provider || (AI_DEFAULTS[SETTINGS.provider]||{}).local){ SETTINGS.provider='ollama_cloud'; } }catch(e){} }
@@ -2417,7 +2422,8 @@ function expShapeId(){ const e=window.__EXP__||{}; return (EXP_SHAPE==='wide'&&e
 async function expDL(id,fmt,suffix){
   // Desktop can't trigger a browser download, so save straight to Downloads and
   // tell the user where. In the browser/Render, use the normal download.
-  const base=(window.__ORIG_NAME__||'file')+'_'+(suffix||'clean');
+  const orig=(window.__ORIG_NAME__||(PENDING_FILE&&PENDING_FILE.name)||'file').replace(/\.[^.]+$/,'');
+  const base=orig+(suffix?'_'+suffix:'');
   if(window.__DESKTOP__){
     // native Save dialog if the desktop bridge is available, else save to Downloads
     try{
@@ -3457,7 +3463,14 @@ function saveCurrentAsVersion(){
 let overlayCancelFn=null;
 function overlayCancel(){ if(COL_ABORT){ cancelColumnRead(); } else { cancelClean(); } }
 let CLEAN_JOB=null, CLEAN_ABORTED=false, DIST=null;
-function cancelClean(){ if(CLEAN_JOB){ CLEAN_ABORTED=true; fetch('/api/job/'+CLEAN_JOB+'/cancel',{method:'POST'}); toast('Cancelling…'); } }
+let CLEAN_CTRL=null, CLEAN_WATCH=null;
+function cancelClean(){
+  // stop at once in the browser, even if the server is stuck mid-step, and
+  // tell the server to stop too
+  CLEAN_ABORTED=true;
+  if(CLEAN_JOB){ try{ fetch('/api/job/'+CLEAN_JOB+'/cancel',{method:'POST'}); }catch(e){} }
+  if(CLEAN_CTRL){ try{ CLEAN_CTRL.abort(); }catch(e){} }
+}
 
 // Phase 2: clean with the confirmed column names, then go to review.
 async function confirmColumnsAndClean(force){
@@ -3488,18 +3501,32 @@ async function confirmColumnsAndClean(force){
     fd.append('rename',JSON.stringify(rename));
     fd.append('types',JSON.stringify(types));
     fd.append('drop',JSON.stringify(drop));
-    const res=await fetch('/api/clean_stream',{method:'POST',body:fd});
+    CLEAN_CTRL=new AbortController();
+    // if nothing moves for 40 seconds, say so and offer a way out
+    let lastBeat=Date.now();
+    if(CLEAN_WATCH) clearInterval(CLEAN_WATCH);
+    CLEAN_WATCH=setInterval(()=>{
+      if(Date.now()-lastBeat>40000){
+        const box=ov.querySelector('.cleanbox'); if(box && !box.querySelector('.slow-note')){
+          const n=document.createElement('div'); n.className='slow-note';
+          n.innerHTML='This is taking longer than usual. <button class="btn sm" onclick="cancelClean()">Stop and go back</button>';
+          box.appendChild(n); }
+      }
+    },3000);
+    const res=await fetch('/api/clean_stream',{method:'POST',body:fd,signal:CLEAN_CTRL.signal});
     if(!res.ok||!res.body) throw new Error('stream '+res.status);
     const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='',payload=null,errMsg=null,cancelled=false;
     while(true){ const {value,done}=await reader.read(); if(done) break; buf+=dec.decode(value,{stream:true});
       let nl; while((nl=buf.indexOf('\n'))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line) continue;
         let msg; try{msg=JSON.parse(line);}catch(e){continue;}
+        lastBeat=Date.now(); const _sn=ov.querySelector('.slow-note'); if(_sn) _sn.remove();
         if(msg.t==='job'){ CLEAN_JOB=msg.job_id; prog.showCancel(); }
         else if(msg.t==='progress'){ const frac=(msg.pct!=null)?msg.pct:((msg.done||0)/(msg.total||1)); prog.set(frac,msg.stage); }
         else if(msg.t==='result'){ payload=msg.payload; }
         else if(msg.t==='cancelled'){ cancelled=true; }
         else if(msg.t==='error'){ errMsg=msg.error; } } }
-    if(cancelled || CLEAN_ABORTED){ ov.classList.remove('on'); toast('Cleaning cancelled. Your columns are still here.'); go(4); return; }
+    if(CLEAN_WATCH){ clearInterval(CLEAN_WATCH); CLEAN_WATCH=null; }
+    if(cancelled || CLEAN_ABORTED){ ov.classList.remove('on'); toast('Cleaning stopped. Your columns are still here.'); go(4); return; }
     if(errMsg) throw new Error(errMsg);
     if(!payload) throw new Error('no result');
     if(payload.overview) payload.overview.forEach(c=>{ if(rename[c.column]) c.column=rename[c.column]; });
@@ -3511,7 +3538,12 @@ async function confirmColumnsAndClean(force){
     reached=Math.max(reached,5); prog.finish();
     fetchDistribution();                                  // the 'wow', shape of the cleaned data
     setTimeout(()=>{ ov.classList.remove('on'); go(5); },400);
-  }catch(err){ ov.classList.remove('on'); toast('Could not clean that file: '+err.message); }
+  }catch(err){
+    if(CLEAN_WATCH){ clearInterval(CLEAN_WATCH); CLEAN_WATCH=null; }
+    ov.classList.remove('on');
+    if(CLEAN_ABORTED || (err && err.name==='AbortError')){ toast('Cleaning stopped. Your columns are still here.'); go(4); return; }
+    toast('Could not clean that file: '+err.message+'. Your columns are still here, so you can try again.', {duration:8000}); go(4);
+  }
 }
 
 // distribution "wow": fetch chart-ready shape for the cleaned session

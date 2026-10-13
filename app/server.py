@@ -392,13 +392,22 @@ async def api_clean_stream(file: UploadFile = File(...), region: str = Form(None
                     _box["e"] = _e
             _t = _th.Thread(target=_work, daemon=True); _t.start()
             _last = None
+            import time as _time
+            _t0 = _time.time()
+            _LIMIT = float(os.environ.get("PREP_CLEAN_LIMIT", "240"))
             while _t.is_alive():
-                _t.join(0.4)
-                _now = (_pg["i"], _pg["col"])
-                if _now != _last:
-                    _last = _now
-                    yield json.dumps({"t": "progress", "pct": round(0.82 + 0.08 * _pg["i"] / _pg["n"], 3),
-                                      "stage": f"Cleaning {str(_pg['col'])[:40]} ({_pg['i'] + 1} of {_pg['n']})"}) + "\n"
+                _t.join(1.0)
+                if _is_cancelled(_job):
+                    yield json.dumps({"t": "cancelled"}) + "\n"
+                    return
+                if _time.time() - _t0 > _LIMIT:
+                    # never hang forever: stop and say which column was slow
+                    yield json.dumps({"t": "error", "error": f"cleaning stopped after {int(_LIMIT)} seconds while working on "
+                                      f"\"{str(_pg['col'])[:40]}\". Try changing that column's type, or remove it"}) + "\n"
+                    return
+                # a heartbeat each second, so the screen knows the server is alive
+                yield json.dumps({"t": "progress", "pct": round(0.82 + 0.08 * _pg["i"] / _pg["n"], 3),
+                                  "stage": f"Cleaning {str(_pg['col'])[:40]} ({_pg['i'] + 1} of {_pg['n']})"}) + "\n"
             if "e" in _box:
                 raise _box["e"]
             cleaned, report, _ = _box["r"]
@@ -971,7 +980,12 @@ async def api_config():
     """Front-end reads this at boot. On the hosted demo (PREP_DEMO=1) the app
     starts fresh each load; the local desktop app (PREP_DESKTOP=1) saves downloads
     straight to the Downloads folder instead of relying on a browser download."""
-    return {"demo": bool(os.environ.get("PREP_DEMO")), "desktop": bool(os.environ.get("PREP_DESKTOP"))}
+    import importlib.util as _iu
+    _parts = {"dateparser": "reading dates", "rapidfuzz": "finding similar values", "phonenumbers": "checking phone numbers",
+              "jellyfish": "matching names", "openpyxl": "reading Excel files", "pdfplumber": "reading PDF files"}
+    missing = [why for mod, why in _parts.items() if _iu.find_spec(mod) is None]
+    return {"demo": bool(os.environ.get("PREP_DEMO")), "desktop": bool(os.environ.get("PREP_DESKTOP")),
+            "missing": missing}
 
 
 @app.post("/api/save_to_disk")
